@@ -98,3 +98,17 @@ private/       # owner's personal notes, gitignored
 agents/        # user-facing example agent YAMLs
 evals/         # (M7+) task suites
 ```
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `JagdeepSingh13/kestrel`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five roles: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` + `docs/adr/` at repo root, created lazily by `/grill-with-docs`. See `docs/agents/domain.md`.
