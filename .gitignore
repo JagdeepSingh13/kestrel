@@ -1,2 +1,30 @@
 # Personal notes, never commit
 private/
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+
+# Virtual env (uv creates it, uv.lock is the source of truth)
+.venv/
+
+# Build output
+build/
+dist/
+*.egg-info/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Local env and secrets
+.env
+.env.*
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store

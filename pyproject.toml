@@ -1,0 +1,31 @@
+[project]
+name = "kestrel"
+dynamic = ["version"]
+description = "Local-first, model-agnostic agent harness that makes small local models reliable at tool use."
+requires-python = ">=3.12"
+authors = [{ name = "Kestrel contributors" }]
+dependencies = [
+    "rich>=15.0.0",
+    "typer>=0.29.0",
+]
+
+[project.scripts]
+kestrel = "kestrel.cli.app:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/kestrel/__about__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kestrel"]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.414",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1.post1",
+    "ruff>=0.17.4",
+]
