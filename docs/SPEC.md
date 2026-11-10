@@ -489,7 +489,7 @@ Env overrides: `KESTREL_CONFIG`, `KESTREL_DATA_DIR`.
 5. **`write_file` default (M3).** Section 8.3 says always `confirm`; CLAUDE.md says confirm for overwrite. Pick one.
 6. **Redaction meaning (M3).** Assumed: redact the *values* of env vars whose names match `*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASSWORD*` wherever they appear in events. Confirm.
 7. **Loosening permissions (M3).** Can agent YAML set a `confirm` tool to `allow` (e.g. `run_shell: allow`)? Proposed: yes, with a warning event at run start.
-8. **License holder (M0).** Apache-2.0 copyright line; proposed "Kestrel contributors".
+8. **License holder (M0). Resolved:** Apache-2.0, official text unmodified in `LICENSE`; `pyproject.toml` authors = "Kestrel contributors".
 9. **JSON typing (M1).** `ToolCall.arguments: dict[str, Any]` conflicts with "no `Any` in public interfaces". Proposed: a `JSONValue` type alias, justified in a comment.
 10. **Token usage when streaming (M1).** Many backends omit `usage` in SSE unless `stream_options: {"include_usage": true}`; fall back to the chars/3.5 estimate. `max_tokens_total` depends on this.
 11. **Redaction before M3 (M2).** The JSONL writer lands in M2 but `safety/redact.py` in M3. Proposed: move a minimal redactor into M2 so no log is ever written unredacted.

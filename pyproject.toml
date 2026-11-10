@@ -3,6 +3,9 @@ name = "kestrel"
 dynamic = ["version"]
 description = "Local-first, model-agnostic agent harness that makes small local models reliable at tool use."
 requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+readme = "README.md"
 authors = [{ name = "Kestrel contributors" }]
 dependencies = [
     "rich>=15.0.0",
