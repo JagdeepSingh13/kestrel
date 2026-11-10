@@ -49,7 +49,7 @@ uv run kestrel chat          # interactive session
 
 ## Working rules
 
-1. **Plan before code.** For each milestone, write a short plan (files, interfaces, tests) and wait for approval before implementing.
+1. **Plan before code.** For each milestone, write a short plan (files, interfaces, tests) and wait for approval before implementing. Every plan includes visuals for each system it introduces, saved as Mermaid in `docs/diagrams/<name>.md` and updated when the design changes. Default set: (a) structure diagram, (b) sequence diagram or flowchart of how it runs, (c) before/after example of the real data, (d) interactive stepper or simulator only for core ideas (agent loop, repair pipeline), (e) plain-words walkthrough of the code after building.
 2. **One milestone at a time.** Milestones are in `docs/SPEC.md` section 9. Do not jump ahead.
 3. **Tests with every change.** Unit tests use `FakeProvider` with scripted responses. Never hit a real model or network in default test run. Mark real-model tests `@pytest.mark.live`.
 4. **Small commits**, conventional commit messages (`feat:`, `fix:`, `test:`, `docs:`, `refactor:`). Commits and PRs are authored by the owner only: no `Co-Authored-By` AI trailers, no "Generated with" footers, no AI attribution of any kind.
@@ -58,7 +58,7 @@ uv run kestrel chat          # interactive session
 7. **Everything emits events.** Any model call, tool call, permission decision, error, or final answer goes through the event bus and into the JSONL log.
 8. **Fail loudly in dev, gracefully at runtime.** Tool errors are returned to the model as tool results, not raised to the user, unless fatal.
 9. **No hidden network calls.** No telemetry. Web tools only run when an agent explicitly has them enabled.
-10. **Update docs** (`docs/SPEC.md`, README) in the same commit when behavior or interfaces change.
+10. **Update docs** (`docs/SPEC.md`, README) in the same commit when behavior or interfaces change. The README "How Kestrel works" section explains every built system in plain words with its diagram; update it at the end of every milestone.
 11. Type hints everywhere. Public functions get docstrings. No `Any` in public interfaces unless justified in a comment.
 12. Stop and ask when the spec is ambiguous instead of guessing.
 13. Owner style: concise, no filler, no em dashes, no arrow symbols in prose.
@@ -85,6 +85,7 @@ src/kestrel/
   cli/         # typer app
 tests/
 docs/SPEC.md
+docs/diagrams/ # Mermaid diagrams, one per system
 docs/learning/ # M0 lesson notes + reading list (reference only)
 private/       # owner's personal notes, gitignored
 agents/        # user-facing example agent YAMLs
