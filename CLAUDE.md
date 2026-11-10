@@ -61,15 +61,7 @@ uv run kestrel chat          # interactive session
 10. **Update docs** (`docs/SPEC.md`, README) in the same commit when behavior or interfaces change.
 11. Type hints everywhere. Public functions get docstrings. No `Any` in public interfaces unless justified in a comment.
 12. Stop and ask when the spec is ambiguous instead of guessing.
-
-## Learning mode
-
-This is also the owner's learning project. Claude writes the code; the owner studies it.
-
-- Work in small steps. After each step, stop and explain: what was built, why, how it works, a command to try, 2 to 3 self-check questions, 1 to 2 readings.
-- Record each lesson in `docs/learning/M<n>.md` (same structure). Pick readings from `docs/learning/RESOURCES.md`.
-- Wait for the owner to say continue before the next step.
-- Owner style: concise, no filler, no em dashes, no arrow symbols in prose.
+13. Owner style: concise, no filler, no em dashes, no arrow symbols in prose.
 
 ## Security rules (non-negotiable)
 
@@ -93,7 +85,7 @@ src/kestrel/
   cli/         # typer app
 tests/
 docs/SPEC.md
-docs/learning/ # per-milestone lesson notes + reading list
+docs/learning/ # M0 lesson notes + reading list (reference only)
 private/       # owner's personal notes, gitignored
 agents/        # user-facing example agent YAMLs
 evals/         # (M7+) task suites
