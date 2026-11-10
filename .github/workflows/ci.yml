@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Read-only token: CI only reads the code, it never writes to the repo.
+permissions:
+  contents: read
+
+# A new push to the same branch cancels the older, still-running check.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false # finish all 3 OSes even if one fails, to see every breakage
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true # reuse downloaded packages between runs
+
+      - name: Install project (exact versions from uv.lock)
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Type check
+        run: uv run pyright
+
+      - name: Tests
+        run: uv run pytest
