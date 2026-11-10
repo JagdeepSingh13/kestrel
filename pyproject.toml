@@ -29,3 +29,40 @@ dev = [
     "pytest-asyncio>=1.4.1.post1",
     "ruff>=0.17.4",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+# Markdown code blocks in docs are sketches, not real code: don't lint or format them.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes: unused imports/variables, undefined names
+    "I",     # isort: import order
+    "N",     # pep8-naming
+    "UP",    # pyupgrade: use modern Python syntax
+    "B",     # flake8-bugbear: likely bugs
+    "SIM",   # flake8-simplify
+    "RUF",   # ruff-specific rules
+    "ASYNC", # async pitfalls (blocking calls inside async code)
+]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# -ra: summary of skips/failures. --strict-markers: typo in a marker name is an error.
+# -m "not live": skip real-model tests by default; run them with `pytest -m live`.
+addopts = ["-ra", "--strict-markers", "-m", "not live"]
+markers = ["live: needs a running local model backend (not run by default)"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
