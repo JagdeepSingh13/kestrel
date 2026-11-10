@@ -1,0 +1,511 @@
+# Kestrel: Specification
+
+Local-first, model-agnostic agent harness for small models.
+
+Status: draft v0.2. Owner edits this file; Claude Code proposes changes via PR.
+
+v0.2 (2026-11-11): applied the milestone changes agreed in the project handoff (section 1 identity + pillars, 5.5 constrained decoding, M4/M7 changes, new M7.5/M8.5/M9.5, backlog) and logged spec gaps in section 14.
+
+---
+
+## 1. Goals and non-goals
+
+### Goals
+1. Run useful multi-step agents on 3B to 14B local models on a 16GB laptop.
+2. Plug into any OpenAI-compatible endpoint with zero code changes.
+3. Define new agents with one YAML file.
+4. Make tool calling reliable on weak models (fallback formats, repair, loop detection).
+5. Be safe by default: permissions, path jail, untrusted-content handling.
+6. Make every run inspectable and replayable (JSONL event log).
+7. Measure reliability per model with a built-in eval suite (later milestone).
+
+### Non-goals (for now)
+- Training or fine-tuning models.
+- Hosting models (we call backends, we do not run them).
+- A polished GUI before the harness is solid.
+- Multi-user / server deployment.
+- Competing with Claude Code or Cursor on coding agents.
+
+### Positioning
+Existing tools are chat-UI-first (Open WebUI, AnythingLLM) or assume strong cloud models (most agent frameworks). Kestrel is harness-first and small-model-first.
+
+| Tool type | Examples | Gap |
+|---|---|---|
+| Chat apps with agents | Open WebUI, AnythingLLM | Chat-first, agents bolted on |
+| Frameworks | LangChain, CrewAI, smolagents | Agents written in code, assume strong models |
+| Coding harnesses | Claude Code, Codex CLI, Aider | One job, built for strong models |
+| Visual builders | Dify, Flowise, n8n | Workflow-first, weak small-model reliability |
+
+Kestrel is an **inner harness** (the runtime: loop, tools, context, safety), not an outer harness (AGENTS.md, linters, CI around a coding agent).
+
+### Identity and pillars
+Identity: **the harness that makes small models work.**
+
+Pitch: Kestrel tunes itself to your local model, fixes its tool-calling mistakes, and turns successful runs into fast, reliable recipes. Agents that actually work on a 16GB laptop.
+
+1. **Reliability:** repair pipeline (JSON repair, fuzzy tool names, schema coercion, corrective re-prompts), loop detection, plus schema-driven constrained decoding (section 5.5). M4.
+2. **Autotuning:** `kestrel tune --model X` runs the eval suite across harness configs (tool mode, prompt template, tool description style, max tools, temperature, context strategy), picks the best, saves it as the model profile. M7.5.
+3. **Recipes (trace-to-recipe compilation):** after a successful run, compile its trace into a recipe. Deterministic steps replay without the model; the model is called only at real decision points. `kestrel recipe save last-run --name weekly-report`. M8.5.
+
+Target proof chart for README: same task, same 4B model. Plain harness about 30% success; Kestrel with repair + tuned profile about 75%; Kestrel recipe replay about 98% and 8x faster.
+
+Three sharp pillars beat fifteen shallow features. Do not: build an early chat UI, compete as a coding agent, make agents Python classes, chase every feature.
+
+---
+
+## 2. Architecture
+
+Layers, bottom to top:
+
+1. **Backend** (external): Ollama, LM Studio, llama.cpp, mlx-lm, vLLM, cloud API.
+2. **Provider layer** (`providers/`): HTTP client, wire format conversion, streaming, capability profile.
+3. **Reliability layer** (`reliability/`): turns raw model output into validated tool calls, regardless of model quality.
+4. **Agent loop** (`core/loop.py`): plan, act, observe, repeat, with budgets and stop conditions.
+5. **Context manager** (`core/context.py`): builds each prompt within token budget.
+6. **Tools + safety** (`tools/`, `safety/`): registry, execution, permissions, path jail.
+7. **Event bus + log** (`core/events.py`): every action recorded.
+8. **Frontends** (`cli/`, later web, Telegram): consume events, collect permission answers.
+
+Rule: each layer depends only on layers below it plus `core/types.py`.
+
+---
+
+## 3. Core types (`core/types.py`)
+
+Sketches. Final field names may change during M1 planning.
+
+```python
+class Role(StrEnum):
+    system = "system"; user = "user"; assistant = "assistant"; tool = "tool"
+
+class ToolCall(BaseModel):
+    id: str
+    name: str
+    arguments: dict[str, Any]
+
+class Message(BaseModel):
+    role: Role
+    content: str | None = None
+    tool_calls: list[ToolCall] = []
+    tool_call_id: str | None = None      # for role=tool
+    name: str | None = None              # tool name for role=tool
+
+class ToolSpec(BaseModel):
+    name: str
+    description: str
+    parameters: dict[str, Any]           # JSON Schema
+    permission: Literal["allow", "confirm", "deny"] = "allow"
+    side_effects: bool = False
+
+class ModelResponse(BaseModel):
+    message: Message                      # normalized assistant message
+    raw_text: str                         # exact text returned
+    finish_reason: str | None
+    usage: Usage | None
+
+class Usage(BaseModel):
+    prompt_tokens: int | None
+    completion_tokens: int | None
+```
+
+Provider interface:
+
+```python
+class Provider(Protocol):
+    name: str
+    async def chat(
+        self,
+        messages: list[Message],
+        tools: list[ToolSpec] | None,
+        *,
+        model: str,
+        temperature: float = 0.2,
+        max_tokens: int | None = None,
+        json_schema: dict | None = None,   # constrained output if backend supports
+    ) -> ModelResponse: ...
+    async def stream(self, ...) -> AsyncIterator[StreamChunk]: ...
+    async def list_models(self) -> list[str]: ...
+```
+
+---
+
+## 4. Provider layer
+
+### 4.1 OpenAI-compatible provider (M1)
+- `POST {base_url}/chat/completions`, `GET {base_url}/models`.
+- Supports `tools` param when profile says native tool calling works.
+- Supports `response_format` with JSON schema when available.
+- SSE streaming.
+- Timeouts, retries with backoff on connection errors only (never retry a completed generation silently).
+- Optional `api_key` (local backends usually ignore it).
+
+### 4.2 Backend discovery (`kestrel doctor`)
+Probe these defaults, report which respond and which models they list:
+
+| Backend | Default base URL |
+|---|---|
+| Ollama | `http://localhost:11434/v1` |
+| LM Studio | `http://localhost:1234/v1` |
+| llama.cpp server | `http://localhost:8080/v1` |
+| mlx-lm server | `http://localhost:8080/v1` (port clash with llama.cpp, user config wins) |
+| vLLM | `http://localhost:8000/v1` |
+
+### 4.3 Model profiles + capability probe
+First time a model is used, run a quick probe (cached in `~/.cache/kestrel/profiles.json`, key = backend + model):
+
+- `native_tools`: send a trivial tool and check for a valid `tool_calls` response.
+- `json_mode`: request JSON schema output, check parse.
+- `context_window`: from backend metadata if exposed, else config default (8192).
+- `vision`: skipped in v0.1.
+
+Profile decides the tool-call mode (section 5). User can override per agent.
+
+### 4.4 FakeProvider (M1, tests)
+Returns scripted `ModelResponse`s in order. Can also script malformed outputs to test the reliability layer. All unit tests use this.
+
+---
+
+## 5. Reliability layer
+
+The core differentiator. Small models fail tool calls in predictable ways; handle each.
+
+### 5.1 Tool-call modes
+| Mode | When | How |
+|---|---|---|
+| `native` | profile.native_tools | Send `tools`, read `tool_calls` |
+| `json` | native fails, json_mode works | System prompt instructs a single JSON object `{"tool": ..., "arguments": {...}}` or `{"final": ...}`, enforced by JSON schema output if available |
+| `react` | weakest models | Text format: `Thought:` / `Action:` / `Action Input:` / `Final Answer:`, parsed with tolerant regex |
+
+Mode selection: agent config `tool_mode: auto|native|json|react`. `auto` uses profile.
+
+### 5.2 Parsing + repair pipeline
+For every model response:
+1. Extract candidate tool calls (native field, JSON block, ReAct block, or fenced ```json).
+2. Repair JSON: strip trailing commas, fix single quotes, close brackets, unwrap double-encoded strings.
+3. Validate tool name exists. Fuzzy-match near misses (`read-file` to `read_file`) only if edit distance is 1 to 2 and unique.
+4. Validate arguments against the tool's JSON schema (pydantic). Coerce simple types (`"5"` to `5`).
+5. On failure: return a short corrective message to the model as a tool/user message ("Invalid call: X. Expected schema: Y. Try again.") and count it against `max_repairs` (default 2 per step).
+6. Emit `repair` events for every fix so evals can measure how often each model needs help.
+
+### 5.3 Loop + stall detection
+- Same tool + same args 3 times in a row: inject a "you are repeating yourself, change approach or give final answer" message.
+- 5 times: stop run with `stopped_reason="loop"`.
+- No progress (no new tool results) for N steps: same treatment.
+
+### 5.4 Tool pruning (M6)
+If an agent has more than `max_tools_in_prompt` (default 8) tools, embed tool descriptions once and include only top-k relevant tools per step based on the latest user goal + last observation.
+
+### 5.5 Constrained decoding (M4)
+Prevent bad calls instead of repairing them. Per step, generate a grammar from the tool schemas so the model cannot produce an unknown tool name or a wrong argument type.
+- llama.cpp server: GBNF grammar (`grammar` request field).
+- Backends with JSON schema output (`response_format`, Ollama `format`): a JSON schema that is a `oneOf` over `{"tool": <const name>, "arguments": <tool schema>}` plus `{"final": string}`.
+- No support: fall back to the repair pipeline (5.2). Capability probe (4.3) records which applies.
+- Repair pipeline still runs on constrained output (models can still be semantically wrong).
+
+### 5.6 Failure corpus (M4)
+- `tests/fixtures/bad_outputs/`: real malformed outputs, one file per case, with expected parse result.
+- `kestrel report-failure <run_id> [--step N]`: packages the failed step(s) from a run log, redacted via `safety/redact.py`, into a fixture-shaped file for the user to review. Opt-in, local only; never uploads. Sharing upstream is a manual user action.
+
+---
+
+## 6. Agent loop (`core/loop.py`)
+
+```
+run(agent, user_input):
+    emit run_start
+    ctx = ContextManager(agent, profile)
+    ctx.add_user(user_input)
+    for step in 1..agent.max_steps:
+        prompt = ctx.build()                         # within token budget
+        resp = provider.chat(prompt, tools_for_mode) # emit model_request/model_response
+        parsed = reliability.parse(resp, mode)       # may emit repair events
+        if parsed.final:
+            emit final; return
+        if parsed.error and repairs_left:
+            ctx.add_correction(parsed.error); continue
+        for call in parsed.tool_calls:
+            decision = permissions.check(agent, call) # may ask frontend; emit permission
+            result = tools.execute(call) if allowed else denied_result
+            ctx.add_tool_result(call, result)         # emit tool_call/tool_result
+        loop_detector.observe(parsed.tool_calls)
+    emit run_end(stopped_reason="max_steps")
+```
+
+Budgets per run: `max_steps` (default 15), `max_tokens_total`, `max_wall_seconds`. Any budget hit ends the run with a clear `stopped_reason` and a partial summary.
+
+Cancel: Ctrl+C in CLI cancels the current step cleanly and logs `run_end(stopped_reason="cancelled")`.
+
+---
+
+## 7. Context manager (`core/context.py`)
+
+Small windows make this critical.
+
+Prompt assembly order:
+1. System prompt (agent's prompt + tool-mode instructions + rules about untrusted content).
+2. Tool specs (native mode) or tool descriptions in system prompt (json/react modes).
+3. Pinned items (user goal, key facts).
+4. Recent history.
+
+Budget rules:
+- Token counting: approximate (chars / 3.5) in v0.1; pluggable tokenizer later.
+- Reserve `response_reserve` tokens (default 1024).
+- Tool results longer than `max_tool_result_tokens` (default 1500) are truncated with a marker and the full result stored in the event log, retrievable via a `read_tool_output(id, offset)` tool (M4).
+- When history overflows: drop oldest tool results first, then oldest turns. M6 adds LLM summarization of dropped turns.
+- Never drop: system prompt, the original user goal, the most recent assistant message and its tool results.
+
+---
+
+## 8. Tools
+
+### 8.1 Definition
+```python
+@tool(permission="confirm", side_effects=True)
+async def write_file(path: str, content: str, overwrite: bool = False) -> str:
+    """Write text to a file inside the workspace."""
+```
+Decorator builds `ToolSpec` from signature + docstring (pydantic model from type hints). Sync and async functions both supported.
+
+### 8.2 Execution contract
+- Every tool returns a string (or object serialized to string) for the model.
+- Errors return `ERROR: <message>` as the result, never crash the loop.
+- Timeouts per tool (default 30s, shell/python 60s).
+- Output cap (default 20k chars before context truncation).
+
+### 8.3 Built-in tools
+| Tool | Milestone | Default permission | Notes |
+|---|---|---|---|
+| `read_file` | M3 | allow | jailed, size cap, text only |
+| `list_dir` | M3 | allow | jailed, depth limit |
+| `write_file` | M3 | confirm | jailed, no overwrite unless flag |
+| `run_shell` | M3 | confirm | cwd = workspace, timeout, output cap |
+| `python_exec` | M3 | confirm | subprocess with `-I`, timeout, temp dir in workspace |
+| `web_search` | M4 | allow | pluggable backend: SearXNG URL in config, else DuckDuckGo via small library (ask before adding dep) |
+| `fetch_url` | M4 | allow | HTML to readable text/markdown, result wrapped as untrusted |
+| `read_tool_output` | M4 | allow | page through truncated results |
+| `ask_user` | M3 | allow | lets agent ask a clarifying question via frontend |
+
+### 8.4 MCP (M5)
+- Config lists MCP servers (stdio command or HTTP URL).
+- On agent start, connect, list tools, convert to `ToolSpec` with namespaced names (`server__tool`).
+- Permission for MCP tools defaults to `confirm` unless overridden in agent YAML.
+
+---
+
+## 9. Milestones
+
+Each milestone ends with: passing tests, ruff + pyright clean, README section updated, demo command that works against a real local model.
+
+### M0: Scaffold
+- `uv init`, src layout, pyproject, ruff/pyright/pytest config, GitHub Actions CI (lint, type, test on macOS + Ubuntu + Windows), Apache-2.0 LICENSE, README stub, CONTRIBUTING stub.
+- **Done when:** `uv run pytest` passes with one trivial test, CI green.
+
+### M1: Types + providers
+- `core/types.py`, `providers/openai_compat.py`, `providers/fake.py`, `providers/discovery.py`.
+- `kestrel doctor` lists reachable backends and models.
+- `kestrel ask "hello" --model qwen3:8b` does a single non-agent chat call, streams to terminal.
+- **Done when:** unit tests cover request building, response parsing, streaming, errors (with mocked httpx). Live test passes against Ollama.
+
+### M2: Agent loop + events (no real tools yet)
+- `core/loop.py`, `core/events.py` (in-process bus + JSONL writer to `~/.local/share/kestrel/runs/<run_id>.jsonl`), `core/context.py` (basic budget).
+- Native tool mode only. Test tools: `add(a, b)`, `echo(text)`.
+- `kestrel trace <run_id>` pretty-prints a run.
+- **Done when:** FakeProvider-driven tests cover: final answer, single tool call, multi-step, max_steps stop, tool error returned to model.
+
+### M3: Agent YAML + core tools + safety
+- `agents/schema.py`, loader, built-in `default` agent.
+- Tools: `read_file`, `list_dir`, `write_file`, `run_shell`, `python_exec`, `ask_user`.
+- `safety/permissions.py` (allow/confirm/deny, CLI prompt for confirm), `safety/paths.py` (jail), `safety/redact.py`.
+- `kestrel run "task" --agent default --workspace .`
+- **Done when:** path-escape tests (`../`, absolute paths, symlinks) all rejected; confirm flow works; demo: "count lines in all .py files and write summary to report.md" succeeds on qwen3:8b.
+
+### M4: Reliability layer + web tools
+- Capability probe + profile cache.
+- `json` and `react` modes, parsing + repair pipeline, loop detection.
+- Schema-driven constrained decoding (5.5) where the backend supports it.
+- Failure corpus: fixtures folder + `kestrel report-failure` (5.6).
+- `web_search`, `fetch_url`, `read_tool_output`, untrusted wrapping.
+- **Done when:** test corpus of 30+ malformed model outputs (in `tests/fixtures/bad_outputs/`) parsed or correctly rejected; constrained mode tested against a mocked llama.cpp and a mocked JSON-schema backend; demo research task works on a 4B model in react mode.
+
+### M5: Interactive chat + MCP client
+- `kestrel chat --agent X`: multi-turn session, `/agent`, `/model`, `/tools`, `/trace`, `/exit` slash commands.
+- Session persistence (SQLite) and `kestrel chat --resume <id>`.
+- MCP client: stdio + HTTP servers from config.
+- **Done when:** filesystem MCP server and one third-party MCP server work end to end.
+
+### M6: Memory + context upgrades
+- Summarization of dropped turns.
+- Long-term memory store (SQLite + sqlite-vec or similar, ask before choosing), `remember` / `recall` tools.
+- Tool pruning via embeddings.
+- Folder RAG: `kestrel index <folder>` + `search_notes` tool.
+
+### M7: Eval harness
+- `evals/tasks/*.yaml`: task prompt, workspace fixture, success checker (python function or file assertion).
+- `kestrel eval --models qwen3:8b,gemma4:4b --suite core` outputs table: success rate, avg steps, repairs per run, tokens, wall time.
+- Results saved as JSON + markdown for README leaderboard.
+- Designed as the foundation for the autotuner: the runner takes a harness config (tool mode, prompt template, tool description style, max tools, temperature, context strategy) as an input, not hardcoded, and is callable as a library, not just a CLI.
+
+### M7.5: Autotuner (pillar 2)
+- `kestrel tune --model X [--suite core] [--budget 30m]`: search harness configs with the M7 runner, pick the best by success rate (tie-break on steps, tokens, wall time), save as the model profile.
+- Search must fit a 16GB laptop time budget (see open decisions).
+
+### M8: Router + sub-agents
+- Supervisor agent delegates to specialist agents with isolated context, results merged as tool results.
+
+### M8.5: Recipes (pillar 3)
+- Compile a successful run trace into a recipe: deterministic steps replay without the model; model called only at marked decision points.
+- `kestrel recipe save last-run --name X`, `kestrel recipe run X`.
+- Replay verifies each step's preconditions; on mismatch, fall back to the agent loop from that step.
+
+### M9: Hooks + scheduler
+- Hooks: `pre_tool`, `post_tool`, `on_error`, `on_final` (python callables or shell commands in config).
+- Scheduler: cron-style jobs run agents in background, results to file / notification.
+
+### M9.5: Escalation ladder + privacy filter
+- Each step starts on the smallest configured model. On failure signals (repairs, loops, failed verifiers) escalate: 4B, 8B, bigger local, then cloud only if the agent allows it.
+- Privacy filter: before anything leaves the machine, redact sensitive data and show the user exactly what will be sent.
+
+### M10+: Frontends
+- Local web UI (FastAPI + SSE, simple frontend).
+- Telegram bot.
+- Expose Kestrel as OpenAI-compatible endpoint and as MCP server.
+- Voice (whisper.cpp + Piper).
+
+### Backlog (unscheduled)
+- Hardware-aware runtime: knows RAM, loaded models, battery, thermals; avoids loading two 8B models on 16GB; laptop mode on battery; warns on fanless throttling.
+- Agent tests: each agent YAML ships test cases; `kestrel test agents/researcher.yaml --model qwen3:8b` gives a pass rate.
+- Time-travel debugging: fork a past run at step N, change model, prompt or tool, rerun, diff.
+- Multi-model team: tiny model for routing and summarizing tool output, 8B for reasoning, embeddings for memory, scheduled to minimize model swapping.
+- Tool output shaping: compact, paged, structured outputs for 8K windows.
+- Niche: offline knowledge packs (Kiwix, dev docs), Indian language support, memory as editable markdown, energy and cost meter, portable open agent spec.
+
+---
+
+## 10. Agent YAML schema
+
+```yaml
+name: researcher                 # unique, [a-z0-9_-]
+description: Researches a topic and writes a cited summary.
+model: qwen3:8b
+provider: ollama                 # name from user config providers
+fallback_model: null
+tool_mode: auto                  # auto | native | json | react
+temperature: 0.2
+system: |
+  You research topics using web_search and fetch_url.
+  Cite every claim with its URL. Write results with write_file.
+tools:
+  - web_search
+  - fetch_url
+  - write_file
+permissions:                     # overrides tool defaults
+  write_file: confirm
+limits:
+  max_steps: 15
+  max_tokens_total: 60000
+  max_wall_seconds: 600
+context:
+  window: 16384                  # override profile if needed
+  max_tool_result_tokens: 1500
+```
+
+Loader validates with pydantic, reports line-precise errors. Search order: `./agents/`, `~/.config/kestrel/agents/`, built-ins.
+
+---
+
+## 11. Event log
+
+One JSON object per line:
+
+```json
+{"ts": "2026-11-06T10:15:02.123Z", "run_id": "r_8f3a", "step": 3,
+ "type": "tool_call", "data": {"id": "c1", "name": "read_file", "arguments": {"path": "notes.md"}}}
+```
+
+Event types: `run_start`, `model_request`, `model_response`, `repair`, `tool_call`, `permission`, `tool_result`, `context_trim`, `loop_warning`, `error`, `final`, `run_end`.
+
+`run_end.data` includes `stopped_reason` (`final|max_steps|budget|loop|cancelled|error`), totals for steps, tokens, repairs, wall time.
+
+Uses: `kestrel trace`, replay tests (feed recorded `model_response`s into FakeProvider), eval scoring, bug reports.
+
+---
+
+## 12. Config
+
+`~/.config/kestrel/config.toml` (Windows: `%APPDATA%\kestrel\config.toml`):
+
+```toml
+default_agent = "default"
+
+[providers.ollama]
+base_url = "http://localhost:11434/v1"
+
+[providers.lmstudio]
+base_url = "http://localhost:1234/v1"
+
+[providers.openrouter]
+base_url = "https://openrouter.ai/api/v1"
+api_key_env = "OPENROUTER_API_KEY"   # never store keys in file
+
+[tools.web_search]
+backend = "searxng"
+searxng_url = "http://localhost:8888"
+
+[[mcp_servers]]
+name = "fs"
+command = ["npx", "-y", "@modelcontextprotocol/server-filesystem", "."]
+```
+
+Env overrides: `KESTREL_CONFIG`, `KESTREL_DATA_DIR`.
+
+---
+
+## 13. Testing strategy
+
+- **Unit (default):** FakeProvider, mocked httpx, temp-dir workspaces. Fast, offline, run in CI on 3 OSes.
+- **Fixtures:** `tests/fixtures/bad_outputs/` collects real malformed outputs from small models. Every new failure seen in the wild becomes a fixture.
+- **Replay:** recorded JSONL runs replayed through the loop to catch regressions in harness logic.
+- **Live (`-m live`):** against a real local model, run manually or nightly, not required in CI.
+- **Security tests:** path traversal, symlink escape, oversized output, shell timeout, injected instructions inside fetched pages must not change permissions.
+
+---
+
+## 14. Open decisions (resolve when reached)
+
+- Final project name (check PyPI, GitHub, trademark).
+- Web search default when no SearXNG: which library.
+- Vector store for M6: sqlite-vec vs LanceDB vs Chroma.
+- Tokenizer: keep approximation or use per-model tokenizers.
+- Constrained decoding coverage across backends (which support GBNF, JSON schema, neither).
+- Windows sandboxing story for `run_shell` / `python_exec`.
+- Recipe format: how decision points are marked and replayed.
+- Autotuner search space size vs time budget on a 16GB laptop.
+
+### Spec gaps (raised 2026-11-11, resolve in the milestone noted)
+1. **Ollama context size (M1).** Ollama's `/v1` endpoint cannot set `num_ctx`; its default window is smaller than our 8K to 16K target. Options: an Ollama-native provider (`/api/chat`, listed in CLAUDE.md layout as `providers/ollama`) or document a Modelfile / `OLLAMA_CONTEXT_LENGTH` setup. `doctor` should at least warn.
+2. **Port 8080 clash (M1).** llama.cpp and mlx-lm share the default port. `doctor` needs a fingerprint (e.g. llama.cpp `GET /props`) to label it.
+3. **Streaming types (M1).** `StreamChunk` and the `stream()` signature are undefined.
+4. **Data dirs (M2).** `~/.local/share/kestrel` and `~/.cache/kestrel` are XDG paths. Define macOS and Windows equivalents (stdlib helper, no `platformdirs` unless approved).
+5. **`write_file` default (M3).** Section 8.3 says always `confirm`; CLAUDE.md says confirm for overwrite. Pick one.
+6. **Redaction meaning (M3).** Assumed: redact the *values* of env vars whose names match `*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASSWORD*` wherever they appear in events. Confirm.
+7. **Loosening permissions (M3).** Can agent YAML set a `confirm` tool to `allow` (e.g. `run_shell: allow`)? Proposed: yes, with a warning event at run start.
+8. **License holder (M0).** Apache-2.0 copyright line; proposed "Kestrel contributors".
+9. **JSON typing (M1).** `ToolCall.arguments: dict[str, Any]` conflicts with "no `Any` in public interfaces". Proposed: a `JSONValue` type alias, justified in a comment.
+10. **Token usage when streaming (M1).** Many backends omit `usage` in SSE unless `stream_options: {"include_usage": true}`; fall back to the chars/3.5 estimate. `max_tokens_total` depends on this.
+11. **Redaction before M3 (M2).** The JSONL writer lands in M2 but `safety/redact.py` in M3. Proposed: move a minimal redactor into M2 so no log is ever written unredacted.
+12. **Frontend interface (M2).** Permission confirms (M3) and `ask_user` need the loop to call back into the frontend. Define a `Frontend`/interaction protocol in `core/types.py` during M2, not ad hoc in M3.
+13. **Recipe-ready events (M2).** M8.5 recipes and replay tests compile from the event log. M2 event schema must record full tool arguments, full results (or a pointer to them), and model responses verbatim, so no schema break later.
+14. **Model ladder in agent YAML (M9.5).** Schema has `model` + `fallback_model`; the escalation ladder needs an ordered list (and a cloud-allowed flag). Keep M3 schema forward-compatible.
+15. **Embeddings (M6).** Provider interface has no `embed()`; tool pruning and memory need one (`POST /v1/embeddings`).
+16. **Cloud before privacy filter (M1 to M9.5).** Cloud providers work from M1 but the privacy filter arrives in M9.5. Until then, `doctor`/`ask` should label a provider as remote, and README must say data is sent as-is.
+17. **Name (before going public at M3/M4).** Check `kestrel` on PyPI, GitHub, trademark before the repo goes public.
+
+---
+
+## 15. Definition of done for v1.0
+
+- Install with `uv tool install kestrel` or `pipx install kestrel`.
+- 5-minute quickstart works on a 16GB laptop with a free local model.
+- Eval leaderboard for at least 6 local models in README.
+- Docs site, plugin (tool) authoring guide, agent authoring guide.
+- Stable public API for tools, agents, providers, hooks.
