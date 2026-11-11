@@ -311,6 +311,11 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - **Done when:** unit tests cover request building, response parsing, streaming, errors (with mocked httpx). Live test passes against Ollama.
 - **Status: done (v0.0.1).** Verified against Ollama 0.40 + qwen3:8b: reasoning arrives in the `reasoning` field (content is `""` while thinking); recorded in `tests/fixtures/ollama/`. `ask` writes the answer to stdout and everything else to stderr. Exit codes: 0 ok, 1 backend error / no backend (doctor), 2 usage or config error, 130 Ctrl-C.
 
+### M1.5: Interactive shell
+- `kestrel` (no args, in a terminal) and `kestrel chat [--model] [--provider]` open a prompt_toolkit shell. Plain text is sent with the in-memory conversation; `/help /model /provider /think /clear /doctor /exit`.
+- Ctrl-C stops a reply and drops that turn; backend errors drop the turn and keep the shell. Input history in `<data dir>/shell_history` (gap 4 paths). Warns above 12K prompt tokens until M2 trimming.
+- **Status: done.** Dependency added: `prompt_toolkit` (approved by owner).
+
 ### M2: Agent loop + events (no real tools yet)
 - `core/loop.py`, `core/events.py` (in-process bus + JSONL writer to `~/.local/share/kestrel/runs/<run_id>.jsonl`), `core/context.py` (basic budget).
 - Native tool mode only. Test tools: `add(a, b)`, `echo(text)`.

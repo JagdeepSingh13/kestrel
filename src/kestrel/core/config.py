@@ -99,6 +99,16 @@ def default_config_path(env: Mapping[str, str], platform: str = sys.platform) ->
     return Path.home() / ".config" / "kestrel" / "config.toml"
 
 
+def default_data_dir(env: Mapping[str, str]) -> Path:
+    """Where Kestrel keeps its own files (gap 4): `$KESTREL_DATA_DIR`, else
+    `$XDG_DATA_HOME/kestrel`, else `~/.local/share/kestrel`, on every OS."""
+    if override := env.get("KESTREL_DATA_DIR"):
+        return Path(override).expanduser()
+    if xdg := env.get("XDG_DATA_HOME"):
+        return Path(xdg) / "kestrel"
+    return Path.home() / ".local" / "share" / "kestrel"
+
+
 def load_config(path: Path | None = None, env: Mapping[str, str] | None = None) -> KestrelConfig:
     """Load config from `path` (default: `default_config_path`), merged over built-ins.
 

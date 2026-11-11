@@ -8,6 +8,7 @@ import pytest
 from typer.testing import CliRunner
 
 from kestrel.cli import app as cli
+from kestrel.cli import output
 from kestrel.core.config import ProviderConfig
 from kestrel.core.types import (
     BackendUnreachableError,
@@ -36,7 +37,7 @@ def setup(
         opened.append((name, cfg))
         yield fake
 
-    monkeypatch.setattr(cli, "open_provider", fake_open)
+    monkeypatch.setattr(output, "open_provider", fake_open)
     return opened
 
 
