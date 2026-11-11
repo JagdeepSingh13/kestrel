@@ -1,0 +1,142 @@
+[
+ {
+  "type": "rectangle",
+  "id": "you",
+  "x": 0,
+  "y": 40,
+  "width": 160,
+  "height": 80,
+  "backgroundColor": "#ffec99",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "You",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "k",
+  "x": 260,
+  "y": 20,
+  "width": 260,
+  "height": 120,
+  "backgroundColor": "#d0bfff",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Kestrel\nturns your chat\ninto JSON",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "back",
+  "x": 780,
+  "y": 20,
+  "width": 260,
+  "height": 120,
+  "backgroundColor": "#e9ecef",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Backend\nOllama runs\nthe model",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "screen",
+  "x": 260,
+  "y": 240,
+  "width": 260,
+  "height": 90,
+  "backgroundColor": "#b2f2bb",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Your screen\nanswer appears live",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "arrow",
+  "x": 163,
+  "y": 80.0,
+  "width": 94,
+  "height": 1,
+  "start": {
+   "id": "you"
+  },
+  "end": {
+   "id": "k"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 523,
+  "y": 52.0,
+  "width": 254,
+  "height": 1,
+  "start": {
+   "id": "k"
+  },
+  "end": {
+   "id": "back"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "text",
+  "x": 609.5,
+  "y": 22.0,
+  "text": "your chat",
+  "fontSize": 16,
+  "strokeColor": "#495057"
+ },
+ {
+  "type": "arrow",
+  "x": 777,
+  "y": 108.0,
+  "width": -254,
+  "height": 1,
+  "start": {
+   "id": "back"
+  },
+  "end": {
+   "id": "k"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "text",
+  "x": 555.5,
+  "y": 118.0,
+  "text": "reply, piece by piece",
+  "fontSize": 16,
+  "strokeColor": "#495057"
+ },
+ {
+  "type": "arrow",
+  "x": 390.0,
+  "y": 143,
+  "width": 1,
+  "height": 94,
+  "start": {
+   "id": "k"
+  },
+  "end": {
+   "id": "screen"
+  },
+  "strokeStyle": "solid"
+ }
+]

@@ -1,0 +1,214 @@
+[
+ {
+  "type": "rectangle",
+  "id": "call",
+  "x": 0,
+  "y": 0,
+  "width": 280,
+  "height": 80,
+  "backgroundColor": "#ffc9c9",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "ToolCall\nid, name, arguments",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "msg",
+  "x": 0,
+  "y": 140,
+  "width": 280,
+  "height": 100,
+  "backgroundColor": "#a5d8ff",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Message\nrole + content\n+ tool calls + reasoning",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "spec",
+  "x": 0,
+  "y": 300,
+  "width": 280,
+  "height": 90,
+  "backgroundColor": "#ffd8a8",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "ToolSpec\na tool's name +\nJSON schema of arguments",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "prov",
+  "x": 380,
+  "y": 140,
+  "width": 240,
+  "height": 250,
+  "backgroundColor": "#d0bfff",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Provider\n(any backend)\n\nchat()\nstream()\nlist_models()",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "resp",
+  "x": 720,
+  "y": 140,
+  "width": 280,
+  "height": 100,
+  "backgroundColor": "#b2f2bb",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "ModelResponse\nthe full reply\n+ token usage",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "chunk",
+  "x": 720,
+  "y": 300,
+  "width": 280,
+  "height": 90,
+  "backgroundColor": "#b2f2bb",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "StreamChunk\na piece of the reply;\nthe last holds it all",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "arrow",
+  "x": 140.0,
+  "y": 83,
+  "width": 1,
+  "height": 54,
+  "start": {
+   "id": "call"
+  },
+  "end": {
+   "id": "msg"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "text",
+  "x": 150.0,
+  "y": 100.0,
+  "text": "inside",
+  "fontSize": 16,
+  "strokeColor": "#495057"
+ },
+ {
+  "type": "arrow",
+  "x": 283,
+  "y": 190.0,
+  "width": 94,
+  "height": 1,
+  "start": {
+   "id": "msg"
+  },
+  "end": {
+   "id": "prov"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "text",
+  "x": 321.0,
+  "y": 160.0,
+  "text": "in",
+  "fontSize": 16,
+  "strokeColor": "#495057"
+ },
+ {
+  "type": "arrow",
+  "x": 283,
+  "y": 345.0,
+  "width": 94,
+  "height": 1,
+  "start": {
+   "id": "spec"
+  },
+  "end": {
+   "id": "prov"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "text",
+  "x": 321.0,
+  "y": 315.0,
+  "text": "in",
+  "fontSize": 16,
+  "strokeColor": "#495057"
+ },
+ {
+  "type": "arrow",
+  "x": 623,
+  "y": 190.0,
+  "width": 94,
+  "height": 1,
+  "start": {
+   "id": "prov"
+  },
+  "end": {
+   "id": "resp"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "text",
+  "x": 656.5,
+  "y": 160.0,
+  "text": "out",
+  "fontSize": 16,
+  "strokeColor": "#495057"
+ },
+ {
+  "type": "arrow",
+  "x": 623,
+  "y": 345.0,
+  "width": 94,
+  "height": 1,
+  "start": {
+   "id": "prov"
+  },
+  "end": {
+   "id": "chunk"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "text",
+  "x": 656.5,
+  "y": 315.0,
+  "text": "out",
+  "fontSize": 16,
+  "strokeColor": "#495057"
+ }
+]

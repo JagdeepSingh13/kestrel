@@ -1,0 +1,221 @@
+[
+ {
+  "type": "rectangle",
+  "id": "wire",
+  "x": 250,
+  "y": -140,
+  "width": 210,
+  "height": 80,
+  "backgroundColor": "#ffd8a8",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "wire.py\nJSON in and out",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "sse",
+  "x": 480,
+  "y": -140,
+  "width": 230,
+  "height": 80,
+  "backgroundColor": "#ffd8a8",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "sse.py + think.py\nstitch the pieces",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "ask",
+  "x": 0,
+  "y": 0,
+  "width": 220,
+  "height": 70,
+  "backgroundColor": "#a5d8ff",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "chat, ask, /run",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "oai",
+  "x": 300,
+  "y": 0,
+  "width": 380,
+  "height": 70,
+  "backgroundColor": "#d0bfff",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "OpenAICompatProvider",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "doc",
+  "x": 0,
+  "y": 200,
+  "width": 220,
+  "height": 70,
+  "backgroundColor": "#a5d8ff",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "/doctor",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "disc",
+  "x": 300,
+  "y": 200,
+  "width": 380,
+  "height": 70,
+  "backgroundColor": "#d0bfff",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "discovery.py\nasks every known port",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "back",
+  "x": 900,
+  "y": 0,
+  "width": 240,
+  "height": 270,
+  "backgroundColor": "#e9ecef",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Backend\n\nOllama :11434\nLM Studio :1234\nllama.cpp / mlx-lm :8080\nvLLM :8000",
+   "fontSize": 16
+  }
+ },
+ {
+  "type": "arrow",
+  "x": 223,
+  "y": 35.0,
+  "width": 74,
+  "height": 1,
+  "start": {
+   "id": "ask"
+  },
+  "end": {
+   "id": "oai"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 380.0,
+  "y": -3,
+  "width": 1,
+  "height": -54,
+  "start": {
+   "id": "oai"
+  },
+  "end": {
+   "id": "wire"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 580.0,
+  "y": -3,
+  "width": 1,
+  "height": -54,
+  "start": {
+   "id": "oai"
+  },
+  "end": {
+   "id": "sse"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 683,
+  "y": 35.0,
+  "width": 214,
+  "height": 1,
+  "start": {
+   "id": "oai"
+  },
+  "end": {
+   "id": "back"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "text",
+  "x": 772.0,
+  "y": 5.0,
+  "text": "HTTP",
+  "fontSize": 16,
+  "strokeColor": "#495057"
+ },
+ {
+  "type": "arrow",
+  "x": 223,
+  "y": 235.0,
+  "width": 74,
+  "height": 1,
+  "start": {
+   "id": "doc"
+  },
+  "end": {
+   "id": "disc"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 683,
+  "y": 235.0,
+  "width": 214,
+  "height": 1,
+  "start": {
+   "id": "disc"
+  },
+  "end": {
+   "id": "back"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "text",
+  "x": 740.5,
+  "y": 205.0,
+  "text": "GET /models",
+  "fontSize": 16,
+  "strokeColor": "#495057"
+ }
+]

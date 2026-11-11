@@ -1,0 +1,37 @@
+<!doctype html><meta charset="utf-8"><title>Kestrel diagrams</title>
+<body style="margin:16px;font-family:sans-serif;background:#fff">
+<p id="status">Loading Excalidraw...</p><div id="out"></div>
+<script type="module">
+// Renders every diagram in src/ with Excalidraw's own code and saves
+// img/<name>.excalidraw (editable at excalidraw.com) and img/<name>.svg (for the docs).
+const EX = "https://esm.sh/@excalidraw/excalidraw@0.18.0?deps=react@18.3.1,react-dom@18.3.1";
+const FONT = "https://unpkg.com/@excalidraw/excalidraw@0.18.0/dist/prod/fonts/Excalifont/Excalifont-Regular-a88b72a24fb54c9f94e3b5fdaa7481c9.woff2";
+const status = (t) => (document.getElementById("status").textContent = t);
+try {
+  const Ex = await import(EX);
+  const font = await fetch(FONT).then((r) => r.arrayBuffer());
+  let bin = "";
+  new Uint8Array(font).forEach((x) => (bin += String.fromCharCode(x)));
+  const fontCss = `@font-face{font-family:"Excalifont";src:url(data:font/woff2;base64,${btoa(bin)}) format("woff2");}`;
+  const only = new URLSearchParams(location.search).get("d");
+  const names = only ? [only] : await (await fetch("src/index.json")).json();
+  for (const name of names) {
+    const skeleton = await (await fetch(`src/${name}.json`)).json();
+    const elements = Ex.convertToExcalidrawElements(skeleton, { regenerateIds: false });
+    const appState = { viewBackgroundColor: "#ffffff", exportBackground: true, exportWithDarkMode: false, exportPadding: 24 };
+    // Excalidraw's own font trimming hangs in this setup, so embed the whole (25KB) font.
+    const svg = await Ex.exportToSvg({ elements, appState, files: null, skipInliningFonts: true });
+    const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+    style.textContent = fontCss;
+    svg.insertBefore(style, svg.firstChild);
+    const title = document.createElement("h3");
+    title.textContent = name;
+    svg.style.maxWidth = "760px"; svg.style.height = "auto"; svg.style.display = "block";
+    document.getElementById("out").append(title, svg);
+    await fetch(`/save?name=${name}.excalidraw`, { method: "POST", body: Ex.serializeAsJSON(elements, appState, {}, "local") });
+    await fetch(`/save?name=${name}.svg`, { method: "POST", body: svg.outerHTML });
+    status(`Saved ${name}`);
+  }
+  status(`Done: ${names.length} diagrams saved to docs/diagrams/img/`);
+} catch (e) { status("Error: " + e); console.error(e); }
+</script>

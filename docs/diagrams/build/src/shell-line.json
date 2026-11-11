@@ -1,0 +1,198 @@
+[
+ {
+  "type": "rectangle",
+  "id": "line",
+  "x": 0,
+  "y": 0,
+  "width": 280,
+  "height": 70,
+  "backgroundColor": "#ffec99",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "You type a line",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "diamond",
+  "id": "q",
+  "x": 30,
+  "y": 130,
+  "width": 220,
+  "height": 130,
+  "backgroundColor": "#d0bfff",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Starts\nwith / ?",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "cmd",
+  "x": 380,
+  "y": 160,
+  "width": 280,
+  "height": 70,
+  "backgroundColor": "#ffd8a8",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Run the command\n/model /run /trace ...",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "send",
+  "x": 0,
+  "y": 320,
+  "width": 280,
+  "height": 70,
+  "backgroundColor": "#a5d8ff",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Send it with the\nconversation so far",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "reply",
+  "x": 0,
+  "y": 450,
+  "width": 280,
+  "height": 70,
+  "backgroundColor": "#a5d8ff",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "The reply streams in",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "keep",
+  "x": 0,
+  "y": 580,
+  "width": 280,
+  "height": 70,
+  "backgroundColor": "#b2f2bb",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Both are added to\nthe conversation",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "arrow",
+  "x": 140.0,
+  "y": 73,
+  "width": 1,
+  "height": 54,
+  "start": {
+   "id": "line"
+  },
+  "end": {
+   "id": "q"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 253,
+  "y": 195.0,
+  "width": 124,
+  "height": 1,
+  "start": {
+   "id": "q"
+  },
+  "end": {
+   "id": "cmd"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "text",
+  "x": 301.5,
+  "y": 165.0,
+  "text": "yes",
+  "fontSize": 16,
+  "strokeColor": "#495057"
+ },
+ {
+  "type": "arrow",
+  "x": 140.0,
+  "y": 263,
+  "width": 1,
+  "height": 54,
+  "start": {
+   "id": "q"
+  },
+  "end": {
+   "id": "send"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "text",
+  "x": 150.0,
+  "y": 280.0,
+  "text": "no",
+  "fontSize": 16,
+  "strokeColor": "#495057"
+ },
+ {
+  "type": "arrow",
+  "x": 140.0,
+  "y": 393,
+  "width": 1,
+  "height": 54,
+  "start": {
+   "id": "send"
+  },
+  "end": {
+   "id": "reply"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 140.0,
+  "y": 523,
+  "width": 1,
+  "height": 54,
+  "start": {
+   "id": "reply"
+  },
+  "end": {
+   "id": "keep"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "text",
+  "x": 320,
+  "y": 600,
+  "text": "then back to the prompt",
+  "fontSize": 16,
+  "strokeColor": "#495057"
+ }
+]
