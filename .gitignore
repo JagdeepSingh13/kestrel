@@ -29,3 +29,6 @@ htmlcov/
 .vscode/
 .idea/
 .DS_Store
+
+# The agents' only folder (files they create while running)
+/workspace/

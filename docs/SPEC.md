@@ -342,8 +342,10 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - `agents/schema.py`, loader, built-in `default` agent.
 - Tools: `read_file`, `list_dir`, `write_file`, `run_shell`, `python_exec`, `ask_user`.
 - `safety/permissions.py` (allow/confirm/deny, CLI prompt for confirm), `safety/paths.py` (jail), `safety/redact.py`.
-- `kestrel run "task" --agent default --workspace .`
+- `kestrel run "task" --agent default` (workspace is always `<project>/workspace/`, see decisions below)
 - **Done when:** path-escape tests (`../`, absolute paths, symlinks) all rejected; confirm flow works; demo: "count lines in all .py files and write summary to report.md" succeeds on qwen3:8b.
+- **Plan (2026-11-11), six pieces, each walked through before the next:** (1) path jail, (2) tool registry + `@tool`, (3) file tools, (4) permissions + confirm, (5) `run_shell`, `python_exec`, `ask_user`, (6) agent YAML + shell `/agent`, `/agents`, `/workspace` (shows the folder), `/tools` + untrusted wrapping. Diagrams: `docs/diagrams/tools-and-safety.md`.
+- **Decisions (2026-11-11):** no OS sandbox in M3 for `run_shell`/`python_exec` (confirm by default, workspace cwd, timeout, output cap, secret env vars removed; README says plainly it is not a sandbox; real sandbox in backlog). Confirm answer "a" allows that tool for the rest of the run only, never saved. Subprocesses get the environment minus vars named like `*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASSWORD*`. Workspace (changed by owner, 2026-11-11, for safety): agents only ever use one folder, `workspace/` inside the Kestrel project folder (created on first use, ignored by git). For now there is no way to point agents anywhere else; `/workspace` only shows the path. `python_exec` uses Kestrel's own interpreter with `-I` and a temp dir inside the workspace.
 
 ### M4: Reliability layer + web tools
 - Capability probe + profile cache.
@@ -423,6 +425,7 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - Time-travel debugging: fork a past run at step N, change model, prompt or tool, rerun, diff.
 - Multi-model team: tiny model for routing and summarizing tool output, 8B for reasoning, embeddings for memory, scheduled to minimize model swapping.
 - Tool output shaping: compact, paged, structured outputs for 8K windows.
+- OS sandbox for `run_shell` / `python_exec` (bubblewrap on Linux; macOS and Windows options to research).
 - Agent trust list: mark specific agent files trusted by content hash so `--trust-agent` is not needed each run; changing the file revokes trust.
 - Niche: offline knowledge packs (Kiwix, dev docs), Indian language support, memory as editable markdown, energy and cost meter, portable open agent spec.
 
@@ -537,7 +540,7 @@ Each is resolved at the start of the named milestone's plan, with evidence from 
 - Vector store: sqlite-vec vs LanceDB vs Chroma (M6).
 - Tokenizer: keep approximation or use per-model tokenizers (M4).
 - Constrained decoding coverage across backends: which support GBNF, JSON schema, neither (M4).
-- Windows sandboxing story for `run_shell` / `python_exec` (M3).
+- Windows sandboxing story for `run_shell` / `python_exec`: decided for M3 (no OS sandbox on any OS, see M3); a real sandbox is in the backlog.
 - Recipe format: how decision points are marked and replayed (M8.5).
 - Project direction: stay a general harness with coding as flagship, or narrow further towards coding agents (revisit after the M4 demo, with real small-model results).
 - Autotuner search space size vs time budget on a 16GB laptop (M7.5).

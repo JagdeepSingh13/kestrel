@@ -207,7 +207,12 @@ def providers() -> Diagram:
     return d
 
 
-def steps(name: str, items: list[tuple[str, str]], notes: list[str] | None = None) -> Diagram:
+def steps(
+    name: str,
+    items: list[tuple[str, str]],
+    notes: list[str] | None = None,
+    notes_title: str = "written to the run log",
+) -> Diagram:
     """A numbered column of steps, optionally with what gets logged beside each."""
     d = Diagram(name)
     for i, (text, color) in enumerate(items):
@@ -218,7 +223,7 @@ def steps(name: str, items: list[tuple[str, str]], notes: list[str] | None = Non
             d.box(f"n{i}", 480, i * 120 + 8, 260, 60, GRAY, notes[i], size=16)
             d.arrow(f"s{i}", f"n{i}", dashed=True)
     if notes:
-        d.text(480, -36, "written to the run log", 16)
+        d.text(480, -36, notes_title, 16)
     return d
 
 
@@ -362,6 +367,67 @@ def run_log() -> Diagram:
     return d
 
 
+def m3_structure() -> Diagram:
+    d = Diagram("m3-structure")
+    d.box("file", 0, 0, 440, 80, YELLOW, "agents/coder.yaml\nmodel, prompt, tools, permissions")
+    d.box(
+        "loader",
+        0,
+        140,
+        440,
+        80,
+        VIOLET,
+        "agents/loader.py\nchecks the file; refuses loosened\npermissions without --trust-agent",
+        size=16,
+    )
+    d.box("run", 0, 280, 900, 70, BLUE, "/run with an agent (shell) or kestrel run --agent")
+    d.box("loop", 0, 410, 900, 70, VIOLET, "loop.py: the same agent loop as M2")
+    d.box(
+        "reg",
+        0,
+        540,
+        640,
+        80,
+        ORANGE,
+        "tools/registry.py: @tool, checks arguments,\ntime limit, size cap",
+    )
+    d.box("safety", 700, 540, 200, 80, RED, "safety/\npermissions\npath jail", size=16)
+    d.box("files", 0, 690, 200, 80, GREEN, "read_file\nlist_dir\nwrite_file")
+    d.box("proc", 220, 690, 200, 80, RED, "run_shell\npython_exec")
+    d.box("ask", 440, 690, 200, 80, GRAY, "ask_user")
+    d.arrow("file", "loader")
+    d.arrow("loader", "run")
+    d.arrow("run", "loop")
+    d.arrow("loop", "reg")
+    d.arrow("reg", "safety", "asks")
+    for t in ["files", "proc", "ask"]:
+        d.arrow("reg", t)
+    return d
+
+
+def tool_call_path() -> Diagram:
+    return steps(
+        "tool-call-path",
+        [
+            ("The model asks:\nwrite_file(report.md, ...)", YELLOW),
+            ("Known tool? Arguments\nthe right types?", ORANGE),
+            ("Permission:\nallow, confirm or deny", RED),
+            ("Path inside the\nworkspace folder?", RED),
+            ("Run it, with a\ntime limit and size cap", BLUE),
+            ("Result marked untrusted,\nsent back to the model", GREEN),
+        ],
+        notes=[
+            "",
+            "no: ERROR back\nto the model",
+            "confirm: you answer\ny / n / a (always)",
+            "no (../, symlink):\nERROR, never runs",
+            "too slow or too big:\nstopped or cut",
+            "logged with\nsecrets removed",
+        ],
+        notes_title="if it fails",
+    )
+
+
 def all_diagrams() -> list[Diagram]:
     return [
         layers("layers", code=False),
@@ -405,6 +471,8 @@ def all_diagrams() -> list[Diagram]:
         ),
         context_budget(),
         run_log(),
+        m3_structure(),
+        tool_call_path(),
     ]
 
 
