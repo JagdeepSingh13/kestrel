@@ -9,6 +9,7 @@ Kestrel is a local-first, model-agnostic agent harness for 3B to 14B models on a
 > **Status: early development (v0.0.2).** Kestrel can chat with a local model in its own shell (`kestrel`) and run a basic agent loop with demo tools, logging every step (`kestrel run`, `kestrel trace`). Real tools arrive in M3. No agent loop or tools yet. See the [roadmap](#roadmap).
 
 ## Planned features
+- **Step up only when stuck (headline):** each step runs on a small, fast model (like a 4B). If it gets stuck (broken tool calls, loops, repeated errors), Kestrel hands that one step to a bigger model, along with the conversation and a note on what failed, then steps back down. Cloud only if you allow it, with secrets removed and the exact text shown first. The trace shows which model did each step and why.
 - **Reliability:** repairs broken JSON, wrong tool names and bad arguments; detects loops; constrained decoding where the backend supports it.
 - **Autotuning:** `kestrel tune` finds the best harness settings for your model.
 - **Recipes:** turns a successful run into a fast, replayable recipe.
@@ -161,6 +162,7 @@ For a real chat you need a backend with a model, e.g. [Ollama](https://ollama.co
 | M2 | Agent loop, event log, `kestrel trace` | done |
 | M3 | Agent YAML, file/shell/python tools, safety | next |
 | M4 | Reliability layer, web tools | |
+| M4.5 | Step up only when stuck: model ladder (local models) | |
 | M5 | Interactive chat, MCP client | |
 | M5.5 | Coder agent: repo map, small edits, run tests (tentative) | |
 | M6+ | Memory, evals, autotuner, recipes | |

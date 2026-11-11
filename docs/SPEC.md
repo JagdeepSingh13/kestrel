@@ -2,11 +2,13 @@
 
 Local-first, model-agnostic agent harness for small models.
 
-Status: draft v0.3. Owner edits this file; Claude Code proposes changes via PR.
+Status: draft v0.4. Owner edits this file; Claude Code proposes changes via PR.
 
 v0.2 (2026-11-11): applied the milestone changes agreed in the project handoff (section 1 identity + pillars, 5.5 constrained decoding, M4/M7 changes, new M7.5/M8.5/M9.5, backlog) and logged spec gaps in section 14.
 
 v0.3 (2026-11-11): all spec gaps decided (section 14), open decisions tagged with their milestone; sections 8.3, 10, 11 updated to match.
+
+v0.4 (2026-11-11): headline feature is the model ladder ("step up only when stuck", section 1); its basic version moves from M9.5 to a new M4.5.
 
 ---
 
@@ -20,6 +22,7 @@ v0.3 (2026-11-11): all spec gaps decided (section 14), open decisions tagged wit
 5. Be safe by default: permissions, path jail, untrusted-content handling.
 6. Make every run inspectable and replayable (JSONL event log).
 7. Measure reliability per model with a built-in eval suite (later milestone).
+8. Use the smallest model that can do each step, stepping up to a bigger one only when stuck (model ladder, M4.5).
 
 ### Non-goals (for now)
 - Training or fine-tuning models.
@@ -43,7 +46,18 @@ Kestrel is an **inner harness** (the runtime: loop, tools, context, safety), not
 ### Identity and pillars
 Identity: **the harness that makes small models work.**
 
-Pitch: Kestrel tunes itself to your local model, fixes its tool-calling mistakes, and turns successful runs into fast, reliable recipes. Agents that actually work on a 16GB laptop.
+Pitch: Kestrel runs each step on the smallest model that can do it and steps up to a bigger one only when stuck, sharing the conversation and what failed. It also fixes small models' tool-calling mistakes, tunes itself to your model, and turns successful runs into fast recipes. Agents that actually work on a 16GB laptop.
+
+**Headline feature (2026-11-11): the model ladder, "step up only when stuck".** Fast and cheap by default (a 4B model), strong only when needed (8B, a bigger local model, then cloud only if allowed), private by default.
+- **Triggers:** broken tool calls twice in a row after repair, a repeated call (loop), repeated tool errors with no change of approach, the conversation outgrowing the small model's window, or the user typing `/up`.
+- **Shared context, three levels:** (1) one conversation in Kestrel's neutral format, so models can switch mid-run, and a bigger model with a bigger window receives more of the untrimmed history; (2) a handoff note telling the bigger model what was tried and how it failed (reasoning text is not passed between models); (3) after the hard step, the small model continues with that step in its history as a worked example.
+- **Other splits:** planner and doer (big model plans once, small model executes), checker (big model reviews only the final answer), the user as a rung before cloud.
+- **Cloud rung:** sends only the failing step plus a summary, secrets redacted, exact payload shown for approval, spending cap, per-agent "never cloud".
+- **Learning:** every step-up is logged with its reason; task kinds that always escalate start on the bigger model next time; big-model solutions become examples for the small model.
+- **Visible:** the trace marks which model did each step and why it stepped up.
+- **Limit on 16GB:** a 4B and an 8B fit together, but each switch re-reads the whole conversation (seconds). Step up only when needed.
+
+Supporting pillars:
 
 1. **Reliability:** repair pipeline (JSON repair, fuzzy tool names, schema coercion, corrective re-prompts), loop detection, plus schema-driven constrained decoding (section 5.5). M4.
 2. **Autotuning:** `kestrel tune --model X` runs the eval suite across harness configs (tool mode, prompt template, tool description style, max tools, temperature, context strategy), picks the best, saves it as the model profile. M7.5.
@@ -339,6 +353,14 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - `web_search`, `fetch_url`, `read_tool_output`, untrusted wrapping.
 - **Done when:** test corpus of 30+ malformed model outputs (in `tests/fixtures/bad_outputs/`) parsed or correctly rejected; constrained mode tested against a mocked llama.cpp and a mocked JSON-schema backend; demo research task works on a 4B model in react mode.
 
+### M4.5: Model ladder, basic (headline feature)
+- `model:` list in agent YAML (gap 14) becomes a ladder; shell `/ladder MODEL MODEL ...` and `/up`.
+- Step-up triggers from M4's failure signals (repairs exhausted, loop warning, repeated tool errors) plus window overflow.
+- Shared conversation across models (neutral format, per-model tool mode), handoff note, step back down after the hard step.
+- `step_up` / `step_down` events with reason; `/trace` shows which model did each step.
+- Local models only. Cloud rung, privacy filter and learning stay in M9.5.
+- **Done when:** FakeProvider tests cover each trigger, handoff note content, stepping back down, and trace marks; a live run on qwen3:4b plus qwen3:8b steps up at least once on a task the 4B fails and finishes it.
+
 ### M5: Interactive chat + MCP client
 - `kestrel chat --agent X`: multi-turn session, `/agent`, `/model`, `/tools`, `/trace`, `/exit` slash commands.
 - Session persistence (SQLite) and `kestrel chat --resume <id>`.
@@ -383,9 +405,11 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - Hooks: `pre_tool`, `post_tool`, `on_error`, `on_final` (python callables or shell commands in config).
 - Scheduler: cron-style jobs run agents in background, results to file / notification.
 
-### M9.5: Escalation ladder + privacy filter
-- Each step starts on the smallest configured model. On failure signals (repairs, loops, failed verifiers) escalate: 4B, 8B, bigger local, then cloud only if the agent allows it.
-- Privacy filter: before anything leaves the machine, redact sensitive data and show the user exactly what will be sent.
+### M9.5: Model ladder, full: cloud rung, privacy filter, learning
+- Builds on M4.5. Cloud rung only if the agent allows it (`allow_cloud`): send only the failing step plus a summary, never the whole history.
+- Privacy filter: before anything leaves the machine, redact sensitive data and show the user exactly what will be sent; spending cap per run; per-agent "never cloud".
+- Planner/doer and checker splits; the user as a rung before cloud.
+- Learning: step-up history per task kind decides the starting model; big-model solutions become examples for the small model.
 
 ### M10+: Frontends
 - Local web UI (FastAPI + SSE, simple frontend).
