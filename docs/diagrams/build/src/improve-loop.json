@@ -1,0 +1,446 @@
+[
+ {
+  "type": "text",
+  "x": 0,
+  "y": -70,
+  "text": "How an agent gets better on your laptop",
+  "fontSize": 34,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "run",
+  "x": 0,
+  "y": 0,
+  "width": 330,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 14,
+  "text": "1. Run",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 56,
+  "width": 294,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    294,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 68,
+  "text": "/run a task in the\nworkspace",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "feedback",
+  "x": 400,
+  "y": 0,
+  "width": 330,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 418,
+  "y": 14,
+  "text": "2. Feedback",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 418,
+  "y": 56,
+  "width": 294,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    294,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 418,
+  "y": 68,
+  "text": "did it work? you say so,\nor a check does",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "look",
+  "x": 800,
+  "y": 0,
+  "width": 330,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 818,
+  "y": 14,
+  "text": "3. Look inside",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 818,
+  "y": 56,
+  "width": 294,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    294,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 818,
+  "y": 68,
+  "text": "/trace shows every step:\nwhere did it go wrong?",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "keep",
+  "x": 800,
+  "y": 280,
+  "width": 330,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 818,
+  "y": 294,
+  "text": "4. Keep as a test",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 818,
+  "y": 336,
+  "width": 294,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    294,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 818,
+  "y": 348,
+  "text": "/keep saves the task and\nthe check you want",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "change",
+  "x": 400,
+  "y": 280,
+  "width": 330,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 418,
+  "y": 294,
+  "text": "5. Change",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 418,
+  "y": 336,
+  "width": 294,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    294,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 418,
+  "y": 348,
+  "text": "agent file, settings, or\na bigger model for that step",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "recheck",
+  "x": 0,
+  "y": 280,
+  "width": 330,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 294,
+  "text": "6. Run the tests",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 336,
+  "width": 294,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    294,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 348,
+  "text": "fixed it, without breaking\nthe older tests?",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 333,
+  "y": 75.0,
+  "width": 64,
+  "height": 1,
+  "start": {
+   "id": "run"
+  },
+  "end": {
+   "id": "feedback"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 733,
+  "y": 75.0,
+  "width": 64,
+  "height": 1,
+  "start": {
+   "id": "feedback"
+  },
+  "end": {
+   "id": "look"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 965.0,
+  "y": 153,
+  "width": 1,
+  "height": 124,
+  "start": {
+   "id": "look"
+  },
+  "end": {
+   "id": "keep"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 797,
+  "y": 355.0,
+  "width": -64,
+  "height": 1,
+  "start": {
+   "id": "keep"
+  },
+  "end": {
+   "id": "change"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 397,
+  "y": 355.0,
+  "width": -64,
+  "height": 1,
+  "start": {
+   "id": "change"
+  },
+  "end": {
+   "id": "recheck"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 165.0,
+  "y": 277,
+  "width": 1,
+  "height": -124,
+  "start": {
+   "id": "recheck"
+  },
+  "end": {
+   "id": "run"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 380,
+  "y": 192,
+  "text": "you approve every change",
+  "fontSize": 20,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 0,
+  "y": 470,
+  "text": "solid border: built today      dashed border: planned",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ }
+]

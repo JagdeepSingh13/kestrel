@@ -1,0 +1,652 @@
+[
+ {
+  "type": "text",
+  "x": 0,
+  "y": -70,
+  "text": "What Kestrel adds around the model",
+  "fontSize": 34,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "context",
+  "x": 340,
+  "y": 0,
+  "width": 360,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 358,
+  "y": 14,
+  "text": "Context",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 358,
+  "y": 56,
+  "width": 324,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    324,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 358,
+  "y": 68,
+  "text": "agent instructions, your task,\nthe conversation, fitted into\nthe model's 16K window",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "results",
+  "x": 780,
+  "y": 0,
+  "width": 340,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 798,
+  "y": 14,
+  "text": "Results back",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 798,
+  "y": 56,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 798,
+  "y": 68,
+  "text": "tool output returns to the\ncontext, marked as untrusted\ndata, never as orders",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "action",
+  "x": 780,
+  "y": 210,
+  "width": 340,
+  "height": 120,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 798,
+  "y": 224,
+  "text": "Action",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 798,
+  "y": 266,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 798,
+  "y": 278,
+  "text": "files, shell, Python, ask you;\nMCP servers later",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "safety",
+  "x": 780,
+  "y": 390,
+  "width": 340,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 798,
+  "y": 404,
+  "text": "Safety gate",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 798,
+  "y": 446,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 798,
+  "y": 458,
+  "text": "only the workspace folder,\nasks before risky actions,\nchecks the arguments",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "ellipse",
+  "id": "model",
+  "x": 370,
+  "y": 315,
+  "width": 300,
+  "height": 300,
+  "backgroundColor": "#d0ebff",
+  "fillStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 475,
+  "y": 395,
+  "text": "Model",
+  "fontSize": 34,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 405,
+  "y": 455,
+  "text": "thinks, then decides:\nanswer, or ask for a tool",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "control",
+  "x": 0,
+  "y": 390,
+  "width": 300,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 404,
+  "text": "Control",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 446,
+  "width": 264,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    264,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 458,
+  "text": "step, token and time\nbudgets; every run ends\nwith a clear reason",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "next",
+  "x": 0,
+  "y": 690,
+  "width": 300,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 704,
+  "text": "Repair + step up",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 746,
+  "width": 264,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    264,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 758,
+  "text": "fix broken tool calls, stop\nloops; hand a stuck step\nto a bigger model",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "persist",
+  "x": 340,
+  "y": 690,
+  "width": 360,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 358,
+  "y": 704,
+  "text": "Run log",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 358,
+  "y": 746,
+  "width": 324,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    324,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 358,
+  "y": 758,
+  "text": "every step written to a file\nas it happens, secrets\nremoved",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "observe",
+  "x": 780,
+  "y": 690,
+  "width": 340,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 798,
+  "y": 704,
+  "text": "Inspect + replay",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 798,
+  "y": 746,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 798,
+  "y": 758,
+  "text": "/trace shows a run step by\nstep; replay a run without\nthe model",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 520.0,
+  "y": 153,
+  "width": 1,
+  "height": 159,
+  "start": {
+   "id": "context"
+  },
+  "end": {
+   "id": "model"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 303,
+  "y": 465.0,
+  "width": 64,
+  "height": 1,
+  "start": {
+   "id": "control"
+  },
+  "end": {
+   "id": "model"
+  },
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 673,
+  "y": 465.0,
+  "width": 104,
+  "height": 1,
+  "start": {
+   "id": "model"
+  },
+  "end": {
+   "id": "safety"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 680.0,
+  "y": 433.0,
+  "text": "tool call",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 950.0,
+  "y": 387,
+  "width": 1,
+  "height": -54,
+  "start": {
+   "id": "safety"
+  },
+  "end": {
+   "id": "action"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 950.0,
+  "y": 207,
+  "width": 1,
+  "height": -54,
+  "start": {
+   "id": "action"
+  },
+  "end": {
+   "id": "results"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 777,
+  "y": 75.0,
+  "width": -74,
+  "height": 1,
+  "start": {
+   "id": "results"
+  },
+  "end": {
+   "id": "context"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 520.0,
+  "y": 618,
+  "width": 1,
+  "height": 69,
+  "start": {
+   "id": "model"
+  },
+  "end": {
+   "id": "persist"
+  },
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 532.0,
+  "y": 640.5,
+  "text": "every step",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 703,
+  "y": 765.0,
+  "width": 74,
+  "height": 1,
+  "start": {
+   "id": "persist"
+  },
+  "end": {
+   "id": "observe"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 150.0,
+  "y": 687,
+  "width": 1,
+  "height": -144,
+  "start": {
+   "id": "next"
+  },
+  "end": {
+   "id": "control"
+  },
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 162.0,
+  "y": 603.0,
+  "text": "next",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 0,
+  "y": 880,
+  "text": "solid border: built today      dashed border: next",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ }
+]

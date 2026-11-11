@@ -1,0 +1,258 @@
+[
+ {
+  "type": "text",
+  "x": 0,
+  "y": -70,
+  "text": "What can get better, and who decides",
+  "fontSize": 34,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 206,
+  "y": 0,
+  "text": "Model",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 526,
+  "y": 0,
+  "text": "Harness",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 846,
+  "y": 0,
+  "text": "Context",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 0,
+  "y": 94,
+  "text": "By hand",
+  "fontSize": 22,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 0,
+  "y": 234,
+  "text": "With your OK",
+  "fontSize": 22,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 0,
+  "y": 374,
+  "text": "Automatic",
+  "fontSize": 22,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "x": 190,
+  "y": 50,
+  "width": 300,
+  "height": 120,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 206,
+  "y": 66,
+  "text": "switch models with /model;\nlater: fine-tune a model\non your own best runs",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "x": 190,
+  "y": 190,
+  "width": 300,
+  "height": 260,
+  "backgroundColor": "#f1f3f5",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 206,
+  "y": 206,
+  "text": "not on a laptop:\nretraining a model is slow\nand costly, so a person\nalways starts it",
+  "fontSize": 19,
+  "strokeColor": "#868e96",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "x": 510,
+  "y": 50,
+  "width": 300,
+  "height": 120,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 526,
+  "y": 66,
+  "text": "edit an agent's limits and\npermissions after reading\n/trace",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "x": 510,
+  "y": 190,
+  "width": 300,
+  "height": 120,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 526,
+  "y": 206,
+  "text": "autotune tries settings on\nyour tests and proposes the\nbest ones for your model",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "x": 510,
+  "y": 330,
+  "width": 300,
+  "height": 120,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 526,
+  "y": 346,
+  "text": "inside one run: repair\nbroken calls, step up to a\nbigger model when stuck",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "x": 830,
+  "y": 50,
+  "width": 300,
+  "height": 120,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 846,
+  "y": 66,
+  "text": "edit the agent file's\ninstructions and tools",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "x": 830,
+  "y": 190,
+  "width": 300,
+  "height": 120,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 846,
+  "y": 206,
+  "text": "/keep a run as a test;\nturn a good run into a\nrecipe",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "x": 830,
+  "y": 330,
+  "width": 300,
+  "height": 120,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 846,
+  "y": 346,
+  "text": "memory that grows across\nruns",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 0,
+  "y": 480,
+  "text": "solid border: built today      dashed border: planned      gray: not Kestrel's job",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ }
+]

@@ -1,6 +1,6 @@
 # Diagrams
 
-Every picture here is a hand-drawn [Excalidraw](https://excalidraw.com) drawing:
+Every picture here is an [Excalidraw](https://excalidraw.com) drawing. New ones use the clean style (`Diagram(..., clean=True)` with `card`, `cell` and `circle`): straight lines, plain font, cards with a title, a dotted rule and a few lines of words, dashed borders for planned parts. The older pictures are hand-drawn and will move to the clean style when their part changes.
 
 - `img/<name>.svg`: the image shown in the README and these pages (the font is built in).
 - `img/<name>.excalidraw`: the editable drawing, written next to it when you redraw. It stays on your machine (ignored by git); drag it onto excalidraw.com to look at or tweak it.

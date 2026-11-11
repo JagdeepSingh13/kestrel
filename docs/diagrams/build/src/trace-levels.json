@@ -1,0 +1,297 @@
+[
+ {
+  "type": "text",
+  "x": 0,
+  "y": -70,
+  "text": "What gets recorded: steps, runs, sessions",
+  "fontSize": 34,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "session",
+  "x": 0,
+  "y": 0,
+  "width": 1040,
+  "height": 580,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 14,
+  "text": "Session",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 56,
+  "width": 1004,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    1004,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 68,
+  "text": "one shell conversation; links all its runs (planned)",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "run",
+  "x": 30,
+  "y": 120,
+  "width": 980,
+  "height": 280,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 48,
+  "y": 134,
+  "text": "Run 1",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 48,
+  "y": 176,
+  "width": 944,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    944,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 48,
+  "y": 188,
+  "text": "one task from start to finish; one log file, written as it happens",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "s0",
+  "x": 60,
+  "y": 240,
+  "width": 190,
+  "height": 110,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "label": {
+   "text": "task\nreceived",
+   "fontSize": 19,
+   "fontFamily": 2
+  },
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "s1",
+  "x": 300,
+  "y": 240,
+  "width": 190,
+  "height": 110,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "label": {
+   "text": "model call\n+ reply",
+   "fontSize": 19,
+   "fontFamily": 2
+  },
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "s2",
+  "x": 540,
+  "y": 240,
+  "width": 190,
+  "height": 110,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "label": {
+   "text": "tool call\n+ result",
+   "fontSize": 19,
+   "fontFamily": 2
+  },
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "s3",
+  "x": 780,
+  "y": 240,
+  "width": 190,
+  "height": 110,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "label": {
+   "text": "final\nanswer",
+   "fontSize": 19,
+   "fontFamily": 2
+  },
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 253,
+  "y": 295.0,
+  "width": 44,
+  "height": 1,
+  "start": {
+   "id": "s0"
+  },
+  "end": {
+   "id": "s1"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 493,
+  "y": 295.0,
+  "width": 44,
+  "height": 1,
+  "start": {
+   "id": "s1"
+  },
+  "end": {
+   "id": "s2"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 733,
+  "y": 295.0,
+  "width": 44,
+  "height": 1,
+  "start": {
+   "id": "s2"
+  },
+  "end": {
+   "id": "s3"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 60,
+  "y": 360,
+  "text": "step: one thing that happened, in order (exact model input: planned)",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "run2",
+  "x": 30,
+  "y": 430,
+  "width": 980,
+  "height": 110,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 48,
+  "y": 444,
+  "text": "Run 2",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 48,
+  "y": 486,
+  "width": 944,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    944,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 48,
+  "y": 498,
+  "text": "another /run in the same conversation",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ }
+]

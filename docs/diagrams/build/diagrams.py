@@ -34,6 +34,94 @@ class Diagram:
     name: str
     elements: list[dict[str, object]] = field(default_factory=list)
     boxes: dict[str, Box] = field(default_factory=dict)
+    clean: bool = False
+    """Clean style: straight lines, Helvetica, square cards (see `card`)."""
+
+    def card(
+        self,
+        id: str,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        title: str,
+        body: str,
+        *,
+        planned: bool = False,
+    ) -> None:
+        """A box with a title, a dotted rule under it, and a few lines of plain words.
+        Planned parts get a dashed border."""
+        self.boxes[id] = Box(x, y, w, h)
+        self.elements.append(
+            {
+                "type": "rectangle",
+                "id": id,
+                "x": x,
+                "y": y,
+                "width": w,
+                "height": h,
+                "backgroundColor": "#ffffff",
+                "fillStyle": "solid",
+                "strokeStyle": "dashed" if planned else "solid",
+            }
+        )
+        self.text(x + 18, y + 14, title, size=26, color="#1e1e1e")
+        self.elements.append(
+            {
+                "type": "line",
+                "x": x + 18,
+                "y": y + 56,
+                "width": w - 36,
+                "height": 0,
+                "points": [[0, 0], [w - 36, 0]],
+                "strokeStyle": "dotted",
+            }
+        )
+        self.text(x + 18, y + 68, body, size=19, color="#343a40")
+
+    def cell(
+        self,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        text: str,
+        *,
+        planned: bool = False,
+        gray: bool = False,
+    ) -> None:
+        """A plain box of words (for grids). Planned: dashed border. Gray: does not apply."""
+        self.elements.append(
+            {
+                "type": "rectangle",
+                "x": x,
+                "y": y,
+                "width": w,
+                "height": h,
+                "backgroundColor": "#f1f3f5" if gray else "#ffffff",
+                "fillStyle": "solid",
+                "strokeStyle": "dashed" if planned else "solid",
+            }
+        )
+        self.text(x + 16, y + 16, text, size=19, color="#868e96" if gray else "#343a40")
+
+    def circle(self, id: str, cx: float, cy: float, r: float, title: str, body: str) -> None:
+        """The model, in the middle of a harness picture."""
+        self.boxes[id] = Box(cx - r, cy - r, 2 * r, 2 * r)
+        self.elements.append(
+            {
+                "type": "ellipse",
+                "id": id,
+                "x": cx - r,
+                "y": cy - r,
+                "width": 2 * r,
+                "height": 2 * r,
+                "backgroundColor": "#d0ebff",
+                "fillStyle": "solid",
+            }
+        )
+        self.text(cx - 9 * len(title), cy - 70, title, size=34, color="#1e1e1e")
+        self.text(cx - 115, cy - 10, body, size=19, color="#343a40")
 
     def box(
         self,
@@ -110,7 +198,290 @@ class Diagram:
             self.text(*label_at, label)
 
     def save(self) -> None:
-        (SRC / f"{self.name}.json").write_text(json.dumps(self.elements, indent=1))
+        elements = self.elements
+        if self.clean:
+            for e in elements:
+                e["roughness"] = 0
+                e["fontFamily"] = 2
+                if e["type"] == "rectangle":
+                    e.pop("roundness", None)
+                label = e.get("label")
+                if isinstance(label, dict):
+                    label["fontFamily"] = 2
+        (SRC / f"{self.name}.json").write_text(json.dumps(elements, indent=1))
+
+
+def harness() -> Diagram:
+    """README top: what Kestrel adds around the model, as one loop."""
+    d = Diagram("harness", clean=True)
+    d.text(0, -70, "What Kestrel adds around the model", size=34, color="#1e1e1e")
+    d.card(
+        "context",
+        340,
+        0,
+        360,
+        150,
+        "Context",
+        "agent instructions, your task,\nthe conversation, fitted into\nthe model's 16K window",
+    )
+    d.card(
+        "results",
+        780,
+        0,
+        340,
+        150,
+        "Results back",
+        "tool output returns to the\ncontext, marked as untrusted\ndata, never as orders",
+    )
+    d.card(
+        "action", 780, 210, 340, 120, "Action", "files, shell, Python, ask you;\nMCP servers later"
+    )
+    d.card(
+        "safety",
+        780,
+        390,
+        340,
+        150,
+        "Safety gate",
+        "only the workspace folder,\nasks before risky actions,\nchecks the arguments",
+    )
+    d.circle("model", 520, 465, 150, "Model", "thinks, then decides:\nanswer, or ask for a tool")
+    d.card(
+        "control",
+        0,
+        390,
+        300,
+        150,
+        "Control",
+        "step, token and time\nbudgets; every run ends\nwith a clear reason",
+    )
+    d.card(
+        "next",
+        0,
+        690,
+        300,
+        150,
+        "Repair + step up",
+        "fix broken tool calls, stop\nloops; hand a stuck step\nto a bigger model",
+        planned=True,
+    )
+    d.card(
+        "persist",
+        340,
+        690,
+        360,
+        150,
+        "Run log",
+        "every step written to a file\nas it happens, secrets\nremoved",
+    )
+    d.card(
+        "observe",
+        780,
+        690,
+        340,
+        150,
+        "Inspect + replay",
+        "/trace shows a run step by\nstep; replay a run without\nthe model",
+    )
+    d.arrow("context", "model")
+    d.arrow("control", "model", dashed=True)
+    d.arrow("model", "safety", "tool call")
+    d.arrow("safety", "action")
+    d.arrow("action", "results")
+    d.arrow("results", "context")
+    d.arrow("model", "persist", "every step", dashed=True)
+    d.arrow("persist", "observe")
+    d.arrow("next", "control", "next", dashed=True)
+    d.text(0, 880, "solid border: built today      dashed border: next", size=18)
+    return d
+
+
+def three_parts() -> Diagram:
+    """README: an agent is a model, a harness and context."""
+    d = Diagram("three-parts", clean=True)
+    d.text(0, -70, "An agent = model + harness + context", size=34, color="#1e1e1e")
+    d.card(
+        "model",
+        0,
+        0,
+        300,
+        160,
+        "Model",
+        "you pick it: qwen3, gemma,\nllama; it runs in Ollama\nor LM Studio, not Kestrel",
+    )
+    d.text(318, 55, "+", size=40, color="#1e1e1e")
+    d.card(
+        "harness",
+        360,
+        0,
+        320,
+        160,
+        "Harness = Kestrel",
+        "what the model sees, what\nit may do, what gets\nchecked and recorded",
+    )
+    d.text(698, 55, "+", size=40, color="#1e1e1e")
+    d.card(
+        "context",
+        740,
+        0,
+        300,
+        160,
+        "Context",
+        "your agent file (instructions,\ntools, limits) and the files\nin the workspace",
+    )
+    d.text(0, 190, "The model only thinks and decides. Everything else is the harness.", size=19)
+    return d
+
+
+def improve_grid() -> Diagram:
+    """README: which part can get better, and who decides."""
+    d = Diagram("improve-grid", clean=True)
+    d.text(0, -70, "What can get better, and who decides", size=34, color="#1e1e1e")
+    cols = ["Model", "Harness", "Context"]
+    rows = ["By hand", "With your OK", "Automatic"]
+    x0, y0, w, h, gap = 190, 50, 300, 120, 20
+    for i, c in enumerate(cols):
+        d.text(x0 + i * (w + gap) + 16, 0, c, size=26, color="#1e1e1e")
+    for j, r in enumerate(rows):
+        d.text(0, y0 + j * (h + gap) + 44, r, size=22, color="#1e1e1e")
+    xs = [x0 + i * (w + gap) for i in range(3)]
+    ys = [y0 + j * (h + gap) for j in range(3)]
+    d.cell(
+        xs[0],
+        ys[0],
+        w,
+        h,
+        "switch models with /model;\nlater: fine-tune a model\non your own best runs",
+    )
+    d.cell(
+        xs[0],
+        ys[1],
+        w,
+        2 * h + gap,
+        "not on a laptop:\nretraining a model is slow\nand costly, so a person\nalways starts it",
+        gray=True,
+    )
+    d.cell(xs[1], ys[0], w, h, "edit an agent's limits and\npermissions after reading\n/trace")
+    d.cell(
+        xs[1],
+        ys[1],
+        w,
+        h,
+        "autotune tries settings on\nyour tests and proposes the\nbest ones for your model",
+        planned=True,
+    )
+    d.cell(
+        xs[1],
+        ys[2],
+        w,
+        h,
+        "inside one run: repair\nbroken calls, step up to a\nbigger model when stuck",
+        planned=True,
+    )
+    d.cell(xs[2], ys[0], w, h, "edit the agent file's\ninstructions and tools")
+    d.cell(
+        xs[2], ys[1], w, h, "/keep a run as a test;\nturn a good run into a\nrecipe", planned=True
+    )
+    d.cell(xs[2], ys[2], w, h, "memory that grows across\nruns", planned=True)
+    d.text(
+        0,
+        ys[2] + h + 30,
+        "solid border: built today      dashed border: planned      gray: not Kestrel's job",
+        size=18,
+    )
+    return d
+
+
+def trace_levels() -> Diagram:
+    """README + docs: step inside run inside session."""
+    d = Diagram("trace-levels", clean=True)
+    d.text(0, -70, "What gets recorded: steps, runs, sessions", size=34, color="#1e1e1e")
+    d.card(
+        "session",
+        0,
+        0,
+        1040,
+        580,
+        "Session",
+        "one shell conversation; links all its runs (planned)",
+        planned=True,
+    )
+    d.card(
+        "run",
+        30,
+        120,
+        980,
+        280,
+        "Run 1",
+        "one task from start to finish; one log file, written as it happens",
+    )
+    steps = ["task\nreceived", "model call\n+ reply", "tool call\n+ result", "final\nanswer"]
+    for i, t in enumerate(steps):
+        d.box(f"s{i}", 60 + i * 240, 240, 190, 110, "#ffffff", t, size=19)
+    for i in range(3):
+        d.arrow(f"s{i}", f"s{i + 1}")
+    d.text(60, 360, "step: one thing that happened, in order (exact model input: planned)", size=18)
+    d.card("run2", 30, 430, 980, 110, "Run 2", "another /run in the same conversation")
+    return d
+
+
+def improve_loop() -> Diagram:
+    """README: how an agent gets better, one turn of the loop."""
+    d = Diagram("improve-loop", clean=True)
+    d.text(0, -70, "How an agent gets better on your laptop", size=34, color="#1e1e1e")
+    cw, ch = 330, 150
+    d.card("run", 0, 0, cw, ch, "1. Run", "/run a task in the\nworkspace")
+    d.card(
+        "feedback",
+        400,
+        0,
+        cw,
+        ch,
+        "2. Feedback",
+        "did it work? you say so,\nor a check does",
+        planned=True,
+    )
+    d.card(
+        "look", 800, 0, cw, ch, "3. Look inside", "/trace shows every step:\nwhere did it go wrong?"
+    )
+    d.card(
+        "keep",
+        800,
+        280,
+        cw,
+        ch,
+        "4. Keep as a test",
+        "/keep saves the task and\nthe check you want",
+        planned=True,
+    )
+    d.card(
+        "change",
+        400,
+        280,
+        cw,
+        ch,
+        "5. Change",
+        "agent file, settings, or\na bigger model for that step",
+    )
+    d.card(
+        "recheck",
+        0,
+        280,
+        cw,
+        ch,
+        "6. Run the tests",
+        "fixed it, without breaking\nthe older tests?",
+        planned=True,
+    )
+    d.arrow("run", "feedback")
+    d.arrow("feedback", "look")
+    d.arrow("look", "keep")
+    d.arrow("keep", "change")
+    d.arrow("change", "recheck")
+    d.arrow("recheck", "run")
+    d.text(380, 192, "you approve every change", size=20, color="#1e1e1e")
+    d.text(0, 470, "solid border: built today      dashed border: planned", size=18)
+    return d
 
 
 def overview() -> Diagram:
@@ -506,6 +877,11 @@ def core_types() -> Diagram:
 
 def all_diagrams() -> list[Diagram]:
     return [
+        harness(),
+        three_parts(),
+        improve_grid(),
+        trace_levels(),
+        improve_loop(),
         overview(),
         providers(),
         shell(),
