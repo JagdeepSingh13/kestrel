@@ -6,7 +6,7 @@
 
 Kestrel is a local-first, model-agnostic agent harness for 3B to 14B models on an ordinary 16GB laptop. It plugs into any OpenAI-compatible backend (Ollama, LM Studio, llama.cpp, mlx-lm, vLLM), defines agents as YAML files, and fixes the tool-calling mistakes small models make.
 
-> **Status: early development (v0.0.2).** Kestrel can chat with a local model in its own shell (`kestrel`) and run a basic agent loop with demo tools, logging every step (`kestrel run`, `kestrel trace`). Real tools arrive in M3. No agent loop or tools yet. See the [roadmap](#roadmap).
+> **Status: early development (v0.0.3).** Kestrel's shell (`kestrel`) chats with a local model and runs agents defined in YAML files, with real tools (files, shell, Python) confined to one folder, asking before risky actions, and logging every step. Fixing small models' broken tool calls comes next (M4). No agent loop or tools yet. See the [roadmap](#roadmap).
 
 ## Planned features
 - **Step up only when stuck (headline):** each step runs on a small, fast model (like a 4B). If it gets stuck (broken tool calls, loops, repeated errors), Kestrel hands that one step to a bigger model, along with the conversation and a note on what failed, then steps back down. Cloud only if you allow it, with secrets removed and the exact text shown first. The trace shows which model did each step and why.
@@ -40,7 +40,7 @@ Each layer only talks to the layers below it, so any piece can be swapped or tes
 | Frontends | Where you type. Today: the `kestrel` command and its shell. | shell, `doctor`, `ask` (M1, M1.5) |
 | Agent loop + context | The repeat-until-done cycle; decides what fits in the model's small memory each turn. | done (M2) |
 | Reliability | Turns messy model output into valid tool calls; stops loops. | *planned, M4* |
-| Tools + safety | Runs tools; asks before risky actions; blocks files outside the workspace. | *planned, M3* |
+| Tools + safety | Runs tools; asks before risky actions; blocks files outside the workspace. | done (M3) |
 | Providers | Talks HTTP to the model program on your machine. | done (M1); model profiles later |
 | Event log | Writes every step to a file so runs can be inspected and replayed. | done (M2) |
 
@@ -82,8 +82,11 @@ Type `kestrel` and you are inside Kestrel's own prompt. Plain text goes to the m
 | `/model [name]` | list models, or switch |
 | `/provider [name]` | list backends, or switch |
 | `/think [on\|off]` | show or hide the model's thinking |
-| `/run TASK` | agent run with tools, shown live |
+| `/run TASK` | run the agent on a task, shown live |
 | `/trace [id] [--full]` | a run step by step (`/trace list` for recent runs) |
+| `/agents`, `/agent NAME` | list agents, or switch the one `/run` uses |
+| `/tools` | the agent's tools and permissions |
+| `/workspace` | the only folder agents may use |
 | `/clear` | forget the conversation |
 | `/doctor` | check which backends are running |
 | `/exit` | leave (also `/quit`, Ctrl-D) |
@@ -99,7 +102,7 @@ An agent is a model that can use tools. The loop is what makes that work: the mo
 - **Thinking is recorded but not repeated.** The model's reasoning goes into the log, but is never sent back to it, which saves space.
 ![What the context manager keeps and trims](docs/diagrams/img/context-budget.svg)
 
-- **Today's tools are toys:** `add` and `echo`, just enough to prove the loop on a real model. Real tools (files, shell, Python) come in M3.
+- **Tools:** since M3, real ones (see the next section).
 
 Try it:
 
@@ -122,9 +125,38 @@ Every run writes a diary: one line per thing that happened (task received, model
 - **Replayable.** A recorded run can be fed back through the loop without a model, which is how tests catch regressions, and later how evals and recipes work.
 - Logs live in `~/.local/share/kestrel/runs/`, named by start time.
 
+### Agents, tools and safety (M3)
+An **agent** is a small YAML file: which model, what instructions, which tools, and how careful to be. No code. `/agents` lists them, `/agent NAME` switches, `/tools` shows what the current agent can do.
+
+```yaml
+name: counter
+description: Counts lines in files and writes a short report.
+system: |
+  You count lines in files and write short, accurate reports.
+tools: [list_dir, read_file, write_file]
+```
+
+**Tools:** `list_dir`, `read_file`, `write_file`, `run_shell`, `python_exec`, `ask_user`. A tool is a plain Python function; Kestrel describes it to the model from its name, docstring and argument types, and checks the model's arguments before running it.
+
+![The path of one tool call](docs/diagrams/img/tool-call-path.svg)
+
+Safety, in plain words:
+- **One folder.** Agents can only touch `workspace/` inside the Kestrel folder. Paths like `../x`, `/etc/passwd`, or a shortcut (symlink) pointing outside are refused, whatever the model asks.
+- **Ask before risky things.** Running a command, running Python, or overwriting a file asks you first: yes, no, or always (for the rest of this run). An agent file may make a tool stricter, but making one looser (say, running commands without asking) needs `--trust-agent`.
+- **Commands are not a sandbox.** `run_shell` and `python_exec` start inside the workspace, are stopped after a time limit, have their output capped, and cannot see your environment variables named like `*KEY*`, `*TOKEN*`, `*SECRET*` or `*PASSWORD*`. But a command can still name a path outside the folder, which is why they always ask first.
+- **Tool output is data, not orders.** Everything a tool returns is wrapped in `<untrusted source="...">` and the model is told never to follow instructions inside it, so a file saying "ignore your rules" stays just text.
+
+Try it in the shell:
+
+```
+qwen3:8b> /agent counter
+qwen3:8b> /run count the lines in every .py file in the workspace and write the totals to report.md
+```
+
 ### What exists today
 - `kestrel`: the interactive shell (also `kestrel chat --model M`).
-- `kestrel run "task" --model M`: an agent run with the demo tools; `kestrel trace` to inspect it.
+- `/run TASK` in the shell (or `kestrel run "task" --agent NAME`): an agent run with real tools inside `workspace/`; `/trace` to inspect it.
+- `/agents`, `/agent NAME`, `/tools`, `/workspace` in the shell.
 - `kestrel doctor`: finds running backends and their models.
 - `kestrel ask "..." --model M`: one message, one streamed answer, for scripts.
 
@@ -138,6 +170,7 @@ All diagrams are hand-drawn [Excalidraw](https://excalidraw.com) pictures in [do
 | [providers.md](docs/diagrams/providers.md) | Provider structure, `ask` sequence, `doctor` flowchart, data before and after |
 | [shell.md](docs/diagrams/shell.md) | Shell structure, how a line is handled, session data |
 | [agent-loop.md](docs/diagrams/agent-loop.md) | Loop structure, one run step by step, context budget, run log data |
+| [tools-and-safety.md](docs/diagrams/tools-and-safety.md) | Agents, tools, permissions, path jail, one tool call's checks |
 
 ## Install (development)
 Requires [uv](https://docs.astral.sh/uv/).
@@ -160,8 +193,8 @@ For a real chat you need a backend with a model, e.g. [Ollama](https://ollama.co
 | M1 | Providers, `kestrel doctor`, `kestrel ask` | done |
 | M1.5 | Interactive shell (`kestrel`) | done |
 | M2 | Agent loop, event log, `kestrel trace` | done |
-| M3 | Agent YAML, file/shell/python tools, safety | next |
-| M4 | Reliability layer, web tools | |
+| M3 | Agent YAML, file/shell/python tools, safety | done |
+| M4 | Reliability layer, web tools | next |
 | M4.5 | Step up only when stuck: model ladder (local models) | |
 | M5 | Interactive chat, MCP client | |
 | M5.5 | Coder agent: repo map, small edits, run tests (tentative) | |
