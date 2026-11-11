@@ -2,7 +2,7 @@
 
 Layers, top to bottom. Each layer depends only on layers below it plus `core/types.py` (SPEC section 2). Every layer reports what it does to the event log.
 
-![Layers with their code folders](img/layers-code.svg)
+![Kestrel on one page](img/overview.svg)
 
 | Layer | Code | Milestone |
 |---|---|---|

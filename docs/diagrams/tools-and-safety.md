@@ -4,13 +4,13 @@ M3 gives agents real tools (files, shell, Python, asking you a question) and the
 
 ## Structure
 
-![M3 structure](img/m3-structure.svg)
+![Agent files, tools and the safety checks](img/tools-and-safety.svg)
 
 The loop does not change. It still only sees the `Toolbox` interface; the new tool registry is one more thing that fits it.
 
 ## One tool call, through every safety check
 
-![The path of one tool call](img/tool-call-path.svg)
+![One agent run: the loop, the window, and the checks before every tool](img/agent-run.svg)
 
 Every failure becomes an `ERROR: ...` result the model can read and react to. Nothing outside the workspace folder is ever touched, whatever the model asks.
 

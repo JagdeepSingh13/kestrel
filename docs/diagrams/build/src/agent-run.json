@@ -1,0 +1,235 @@
+[
+ {
+  "type": "rectangle",
+  "id": "task",
+  "x": 0,
+  "y": 0,
+  "width": 420,
+  "height": 90,
+  "backgroundColor": "#ffec99",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Your task\n/run count the lines in every .py file",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "ctx",
+  "x": 0,
+  "y": 150,
+  "width": 420,
+  "height": 130,
+  "backgroundColor": "#ffd8a8",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Fit the conversation into the window\nalways keeps the task and the latest step;\nempties old tool results first,\nthen drops the oldest steps",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "ask",
+  "x": 0,
+  "y": 340,
+  "width": 420,
+  "height": 90,
+  "backgroundColor": "#a5d8ff",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Ask the model\n(the reply streams in live)",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "diamond",
+  "id": "q",
+  "x": 70,
+  "y": 490,
+  "width": 280,
+  "height": 150,
+  "backgroundColor": "#d0bfff",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Did it ask\nfor a tool?",
+   "fontSize": 20
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "answer",
+  "x": 0,
+  "y": 710,
+  "width": 420,
+  "height": 90,
+  "backgroundColor": "#b2f2bb",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "No: its reply is the answer",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "result",
+  "x": 540,
+  "y": 150,
+  "width": 380,
+  "height": 130,
+  "backgroundColor": "#b2f2bb",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Result added to the conversation,\nmarked untrusted (data, not orders)",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "run",
+  "x": 540,
+  "y": 440,
+  "width": 380,
+  "height": 250,
+  "backgroundColor": "#ffc9c9",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Yes: run it, after checks\n\n1. known tool, right argument types\n2. permission: allow, ask you, or deny\n3. path stays inside workspace/\n4. time limit and output cap\n\nany failure comes back as ERROR",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "arrow",
+  "x": 210.0,
+  "y": 93,
+  "width": 1,
+  "height": 54,
+  "start": {
+   "id": "task"
+  },
+  "end": {
+   "id": "ctx"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 210.0,
+  "y": 283,
+  "width": 1,
+  "height": 54,
+  "start": {
+   "id": "ctx"
+  },
+  "end": {
+   "id": "ask"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 210.0,
+  "y": 433,
+  "width": 1,
+  "height": 54,
+  "start": {
+   "id": "ask"
+  },
+  "end": {
+   "id": "q"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 210.0,
+  "y": 643,
+  "width": 1,
+  "height": 64,
+  "start": {
+   "id": "q"
+  },
+  "end": {
+   "id": "answer"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 353,
+  "y": 565.0,
+  "width": 184,
+  "height": 1,
+  "start": {
+   "id": "q"
+  },
+  "end": {
+   "id": "run"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 730.0,
+  "y": 437,
+  "width": 1,
+  "height": -154,
+  "start": {
+   "id": "run"
+  },
+  "end": {
+   "id": "result"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 537,
+  "y": 215.0,
+  "width": -114,
+  "height": 1,
+  "start": {
+   "id": "result"
+  },
+  "end": {
+   "id": "ctx"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "text",
+  "x": 435.0,
+  "y": 183.0,
+  "text": "next step",
+  "fontSize": 18,
+  "strokeColor": "#495057"
+ },
+ {
+  "type": "text",
+  "x": 540,
+  "y": 730,
+  "text": "Also stops when out of steps, tokens\nor time, or on Ctrl-C. Every box\nwrites a line to the run log.",
+  "fontSize": 18,
+  "strokeColor": "#495057"
+ }
+]

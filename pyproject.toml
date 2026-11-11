@@ -59,6 +59,11 @@ select = [
     "ASYNC", # async pitfalls (blocking calls inside async code)
 ]
 
+
+[tool.ruff.lint.per-file-ignores]
+# Diagram label text is content; splitting sentences across lines hurts editing.
+"docs/diagrams/build/diagrams.py" = ["E501"]
+
 [tool.pyright]
 include = ["src", "tests"]
 pythonVersion = "3.12"

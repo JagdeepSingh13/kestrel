@@ -1,0 +1,244 @@
+[
+ {
+  "type": "rectangle",
+  "id": "you",
+  "x": 0,
+  "y": 0,
+  "width": 420,
+  "height": 110,
+  "backgroundColor": "#a5d8ff",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Where you type\nthe Kestrel shell: chat with a model,\n/run an agent, /trace a run",
+   "fontSize": 20
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "log",
+  "x": 500,
+  "y": 0,
+  "width": 420,
+  "height": 110,
+  "backgroundColor": "#ffec99",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Run log\nevery step saved, secrets removed;\n/trace shows it as a timeline",
+   "fontSize": 20
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "loop",
+  "x": 0,
+  "y": 170,
+  "width": 920,
+  "height": 110,
+  "backgroundColor": "#d0bfff",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Agent loop + memory\nask the model, run the tools it asks for, show it the results, repeat;\nkeeps the conversation inside the model's small window",
+   "fontSize": 20
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "rel",
+  "x": 0,
+  "y": 340,
+  "width": 420,
+  "height": 110,
+  "backgroundColor": "#ffd8a8",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Reliability (M4, next)\nfixes small models' broken tool calls,\nstops loops",
+   "fontSize": 20
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "tools",
+  "x": 500,
+  "y": 340,
+  "width": 420,
+  "height": 110,
+  "backgroundColor": "#ffc9c9",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Tools + safety\nfiles, shell, Python, ask you;\nasks before risky actions",
+   "fontSize": 20
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "prov",
+  "x": 0,
+  "y": 510,
+  "width": 420,
+  "height": 110,
+  "backgroundColor": "#b2f2bb",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Providers\none HTTP client for every backend;\nstreams replies, keeps thinking apart",
+   "fontSize": 20
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "ws",
+  "x": 500,
+  "y": 510,
+  "width": 420,
+  "height": 110,
+  "backgroundColor": "#ffec99",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "workspace/\nthe only folder agents can touch",
+   "fontSize": 20
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "back",
+  "x": 0,
+  "y": 680,
+  "width": 420,
+  "height": 110,
+  "backgroundColor": "#e9ecef",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "Backend on your machine\nOllama, LM Studio, llama.cpp, mlx-lm, vLLM\nruns the model",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "arrow",
+  "x": 210.0,
+  "y": 113,
+  "width": 1,
+  "height": 54,
+  "start": {
+   "id": "you"
+  },
+  "end": {
+   "id": "loop"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 710.0,
+  "y": 167,
+  "width": 1,
+  "height": -54,
+  "start": {
+   "id": "loop"
+  },
+  "end": {
+   "id": "log"
+  },
+  "strokeStyle": "dashed"
+ },
+ {
+  "type": "text",
+  "x": 722.0,
+  "y": 128.0,
+  "text": "every step",
+  "fontSize": 18,
+  "strokeColor": "#495057"
+ },
+ {
+  "type": "arrow",
+  "x": 210.0,
+  "y": 283,
+  "width": 1,
+  "height": 54,
+  "start": {
+   "id": "loop"
+  },
+  "end": {
+   "id": "rel"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 710.0,
+  "y": 283,
+  "width": 1,
+  "height": 54,
+  "start": {
+   "id": "loop"
+  },
+  "end": {
+   "id": "tools"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 210.0,
+  "y": 453,
+  "width": 1,
+  "height": 54,
+  "start": {
+   "id": "rel"
+  },
+  "end": {
+   "id": "prov"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 710.0,
+  "y": 453,
+  "width": 1,
+  "height": 54,
+  "start": {
+   "id": "tools"
+  },
+  "end": {
+   "id": "ws"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "arrow",
+  "x": 210.0,
+  "y": 623,
+  "width": 1,
+  "height": 54,
+  "start": {
+   "id": "prov"
+  },
+  "end": {
+   "id": "back"
+  },
+  "strokeStyle": "solid"
+ }
+]

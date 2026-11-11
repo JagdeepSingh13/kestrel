@@ -4,25 +4,25 @@
   "id": "line",
   "x": 0,
   "y": 0,
-  "width": 280,
-  "height": 70,
+  "width": 400,
+  "height": 90,
   "backgroundColor": "#ffec99",
   "fillStyle": "solid",
   "roundness": {
    "type": 3
   },
   "label": {
-   "text": "You type a line",
+   "text": "You type a line\n(Tab completes, up arrow recalls)",
    "fontSize": 18
   }
  },
  {
   "type": "diamond",
   "id": "q",
-  "x": 30,
-  "y": 130,
-  "width": 220,
-  "height": 130,
+  "x": 60,
+  "y": 150,
+  "width": 280,
+  "height": 150,
   "backgroundColor": "#d0bfff",
   "fillStyle": "solid",
   "roundness": {
@@ -30,23 +30,23 @@
   },
   "label": {
    "text": "Starts\nwith / ?",
-   "fontSize": 18
+   "fontSize": 20
   }
  },
  {
   "type": "rectangle",
   "id": "cmd",
-  "x": 380,
-  "y": 160,
-  "width": 280,
-  "height": 70,
+  "x": 500,
+  "y": 120,
+  "width": 420,
+  "height": 210,
   "backgroundColor": "#ffd8a8",
   "fillStyle": "solid",
   "roundness": {
    "type": 3
   },
   "label": {
-   "text": "Run the command\n/model /run /trace ...",
+   "text": "Run the command\n/run  /trace  /agent  /agents\n/tools  /workspace  /model\n/provider  /think  /doctor\n/clear  /help  /exit",
    "fontSize": 18
   }
  },
@@ -54,16 +54,16 @@
   "type": "rectangle",
   "id": "send",
   "x": 0,
-  "y": 320,
-  "width": 280,
-  "height": 70,
+  "y": 370,
+  "width": 400,
+  "height": 100,
   "backgroundColor": "#a5d8ff",
   "fillStyle": "solid",
   "roundness": {
    "type": 3
   },
   "label": {
-   "text": "Send it with the\nconversation so far",
+   "text": "Send it to the model with\nthe conversation so far",
    "fontSize": 18
   }
  },
@@ -71,16 +71,16 @@
   "type": "rectangle",
   "id": "reply",
   "x": 0,
-  "y": 450,
-  "width": 280,
-  "height": 70,
+  "y": 530,
+  "width": 400,
+  "height": 100,
   "backgroundColor": "#a5d8ff",
   "fillStyle": "solid",
   "roundness": {
    "type": 3
   },
   "label": {
-   "text": "The reply streams in",
+   "text": "The reply streams in;\nCtrl-C stops it and drops that turn",
    "fontSize": 18
   }
  },
@@ -88,23 +88,23 @@
   "type": "rectangle",
   "id": "keep",
   "x": 0,
-  "y": 580,
-  "width": 280,
-  "height": 70,
+  "y": 690,
+  "width": 400,
+  "height": 100,
   "backgroundColor": "#b2f2bb",
   "fillStyle": "solid",
   "roundness": {
    "type": 3
   },
   "label": {
-   "text": "Both are added to\nthe conversation",
+   "text": "Both are added to the conversation;\nold turns are left out when it\noutgrows the model's window",
    "fontSize": 18
   }
  },
  {
   "type": "arrow",
-  "x": 140.0,
-  "y": 73,
+  "x": 200.0,
+  "y": 93,
   "width": 1,
   "height": 54,
   "start": {
@@ -117,9 +117,9 @@
  },
  {
   "type": "arrow",
-  "x": 253,
-  "y": 195.0,
-  "width": 124,
+  "x": 343,
+  "y": 225.0,
+  "width": 154,
   "height": 1,
   "start": {
    "id": "q"
@@ -131,18 +131,18 @@
  },
  {
   "type": "text",
-  "x": 301.5,
-  "y": 165.0,
+  "x": 405.0,
+  "y": 193.0,
   "text": "yes",
-  "fontSize": 16,
+  "fontSize": 18,
   "strokeColor": "#495057"
  },
  {
   "type": "arrow",
-  "x": 140.0,
-  "y": 263,
+  "x": 200.0,
+  "y": 303,
   "width": 1,
-  "height": 54,
+  "height": 64,
   "start": {
    "id": "q"
   },
@@ -153,16 +153,16 @@
  },
  {
   "type": "text",
-  "x": 150.0,
-  "y": 280.0,
+  "x": 212.0,
+  "y": 323.0,
   "text": "no",
-  "fontSize": 16,
+  "fontSize": 18,
   "strokeColor": "#495057"
  },
  {
   "type": "arrow",
-  "x": 140.0,
-  "y": 393,
+  "x": 200.0,
+  "y": 473,
   "width": 1,
   "height": 54,
   "start": {
@@ -175,8 +175,8 @@
  },
  {
   "type": "arrow",
-  "x": 140.0,
-  "y": 523,
+  "x": 200.0,
+  "y": 633,
   "width": 1,
   "height": 54,
   "start": {
@@ -189,10 +189,10 @@
  },
  {
   "type": "text",
-  "x": 320,
-  "y": 600,
-  "text": "then back to the prompt",
-  "fontSize": 16,
+  "x": 500,
+  "y": 700,
+  "text": "Then back to the prompt.\nCtrl-D or /exit leaves.",
+  "fontSize": 18,
   "strokeColor": "#495057"
  }
 ]

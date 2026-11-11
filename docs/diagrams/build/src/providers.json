@@ -1,221 +1,246 @@
 [
  {
-  "type": "rectangle",
-  "id": "wire",
-  "x": 250,
-  "y": -140,
-  "width": 210,
-  "height": 80,
-  "backgroundColor": "#ffd8a8",
-  "fillStyle": "solid",
-  "roundness": {
-   "type": 3
-  },
-  "label": {
-   "text": "wire.py\nJSON in and out",
-   "fontSize": 18
-  }
+  "type": "text",
+  "x": 0,
+  "y": -50,
+  "text": "Answering one message",
+  "fontSize": 22,
+  "strokeColor": "#1e1e1e"
  },
  {
   "type": "rectangle",
-  "id": "sse",
-  "x": 480,
-  "y": -140,
-  "width": 230,
-  "height": 80,
-  "backgroundColor": "#ffd8a8",
-  "fillStyle": "solid",
-  "roundness": {
-   "type": 3
-  },
-  "label": {
-   "text": "sse.py + think.py\nstitch the pieces",
-   "fontSize": 18
-  }
- },
- {
-  "type": "rectangle",
-  "id": "ask",
+  "id": "s0",
   "x": 0,
   "y": 0,
-  "width": 220,
-  "height": 70,
+  "width": 420,
+  "height": 100,
+  "backgroundColor": "#ffec99",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "1. You type a message",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "s1",
+  "x": 0,
+  "y": 150,
+  "width": 420,
+  "height": 100,
   "backgroundColor": "#a5d8ff",
   "fillStyle": "solid",
   "roundness": {
    "type": 3
   },
   "label": {
-   "text": "chat, ask, /run",
+   "text": "2. Kestrel turns the conversation\ninto the backend's JSON format",
    "fontSize": 18
   }
  },
  {
+  "type": "arrow",
+  "x": 210.0,
+  "y": 103,
+  "width": 1,
+  "height": 44,
+  "start": {
+   "id": "s0"
+  },
+  "end": {
+   "id": "s1"
+  },
+  "strokeStyle": "solid"
+ },
+ {
   "type": "rectangle",
-  "id": "oai",
-  "x": 300,
-  "y": 0,
-  "width": 380,
-  "height": 70,
-  "backgroundColor": "#d0bfff",
+  "id": "s2",
+  "x": 0,
+  "y": 300,
+  "width": 420,
+  "height": 100,
+  "backgroundColor": "#a5d8ff",
   "fillStyle": "solid",
   "roundness": {
    "type": 3
   },
   "label": {
-   "text": "OpenAICompatProvider",
+   "text": "3. Sent to the backend\nPOST /v1/chat/completions",
    "fontSize": 18
   }
+ },
+ {
+  "type": "arrow",
+  "x": 210.0,
+  "y": 253,
+  "width": 1,
+  "height": 44,
+  "start": {
+   "id": "s1"
+  },
+  "end": {
+   "id": "s2"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "rectangle",
+  "id": "s3",
+  "x": 0,
+  "y": 450,
+  "width": 420,
+  "height": 100,
+  "backgroundColor": "#b2f2bb",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "4. The reply streams back in pieces;\nthinking is kept apart from the answer",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "arrow",
+  "x": 210.0,
+  "y": 403,
+  "width": 1,
+  "height": 44,
+  "start": {
+   "id": "s2"
+  },
+  "end": {
+   "id": "s3"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "rectangle",
+  "id": "s4",
+  "x": 0,
+  "y": 600,
+  "width": 420,
+  "height": 100,
+  "backgroundColor": "#b2f2bb",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "5. Shown live; the last piece\nholds the complete reply",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "arrow",
+  "x": 210.0,
+  "y": 553,
+  "width": 1,
+  "height": 44,
+  "start": {
+   "id": "s3"
+  },
+  "end": {
+   "id": "s4"
+  },
+  "strokeStyle": "solid"
+ },
+ {
+  "type": "text",
+  "x": 500,
+  "y": -50,
+  "text": "Finding backends: /doctor",
+  "fontSize": 22,
+  "strokeColor": "#1e1e1e"
  },
  {
   "type": "rectangle",
   "id": "doc",
-  "x": 0,
-  "y": 200,
-  "width": 220,
-  "height": 70,
+  "x": 500,
+  "y": 0,
+  "width": 420,
+  "height": 100,
   "backgroundColor": "#a5d8ff",
   "fillStyle": "solid",
   "roundness": {
    "type": 3
   },
   "label": {
-   "text": "/doctor",
+   "text": "/doctor asks every known port\nat the same time (1.5 s limit)",
    "fontSize": 18
   }
  },
  {
   "type": "rectangle",
-  "id": "disc",
-  "x": 300,
-  "y": 200,
-  "width": 380,
-  "height": 70,
-  "backgroundColor": "#d0bfff",
-  "fillStyle": "solid",
-  "roundness": {
-   "type": 3
-  },
-  "label": {
-   "text": "discovery.py\nasks every known port",
-   "fontSize": 18
-  }
- },
- {
-  "type": "rectangle",
-  "id": "back",
-  "x": 900,
-  "y": 0,
-  "width": 240,
-  "height": 270,
+  "id": "ports",
+  "x": 500,
+  "y": 160,
+  "width": 420,
+  "height": 190,
   "backgroundColor": "#e9ecef",
   "fillStyle": "solid",
   "roundness": {
    "type": 3
   },
   "label": {
-   "text": "Backend\n\nOllama :11434\nLM Studio :1234\nllama.cpp / mlx-lm :8080\nvLLM :8000",
-   "fontSize": 16
+   "text": "Ollama :11434\nLM Studio :1234\nllama.cpp or mlx-lm :8080\n(asks /props to tell them apart)\nvLLM :8000",
+   "fontSize": 18
+  }
+ },
+ {
+  "type": "rectangle",
+  "id": "table",
+  "x": 500,
+  "y": 410,
+  "width": 420,
+  "height": 140,
+  "backgroundColor": "#b2f2bb",
+  "fillStyle": "solid",
+  "roundness": {
+   "type": 3
+  },
+  "label": {
+   "text": "A table: running or not,\nwhich models each one has,\nwarnings (Ollama's 4K default,\nREMOTE = data leaves your machine)",
+   "fontSize": 18
   }
  },
  {
   "type": "arrow",
-  "x": 223,
-  "y": 35.0,
-  "width": 74,
-  "height": 1,
-  "start": {
-   "id": "ask"
-  },
-  "end": {
-   "id": "oai"
-  },
-  "strokeStyle": "solid"
- },
- {
-  "type": "arrow",
-  "x": 380.0,
-  "y": -3,
+  "x": 710.0,
+  "y": 103,
   "width": 1,
-  "height": -54,
-  "start": {
-   "id": "oai"
-  },
-  "end": {
-   "id": "wire"
-  },
-  "strokeStyle": "solid"
- },
- {
-  "type": "arrow",
-  "x": 580.0,
-  "y": -3,
-  "width": 1,
-  "height": -54,
-  "start": {
-   "id": "oai"
-  },
-  "end": {
-   "id": "sse"
-  },
-  "strokeStyle": "solid"
- },
- {
-  "type": "arrow",
-  "x": 683,
-  "y": 35.0,
-  "width": 214,
-  "height": 1,
-  "start": {
-   "id": "oai"
-  },
-  "end": {
-   "id": "back"
-  },
-  "strokeStyle": "solid"
- },
- {
-  "type": "text",
-  "x": 772.0,
-  "y": 5.0,
-  "text": "HTTP",
-  "fontSize": 16,
-  "strokeColor": "#495057"
- },
- {
-  "type": "arrow",
-  "x": 223,
-  "y": 235.0,
-  "width": 74,
-  "height": 1,
+  "height": 54,
   "start": {
    "id": "doc"
   },
   "end": {
-   "id": "disc"
+   "id": "ports"
   },
   "strokeStyle": "solid"
  },
  {
   "type": "arrow",
-  "x": 683,
-  "y": 235.0,
-  "width": 214,
-  "height": 1,
+  "x": 710.0,
+  "y": 353,
+  "width": 1,
+  "height": 54,
   "start": {
-   "id": "disc"
+   "id": "ports"
   },
   "end": {
-   "id": "back"
+   "id": "table"
   },
   "strokeStyle": "solid"
  },
  {
   "type": "text",
-  "x": 740.5,
-  "y": 205.0,
-  "text": "GET /models",
-  "fontSize": 16,
+  "x": 500,
+  "y": 600,
+  "text": "If a backend is not up yet, Kestrel retries the\nconnection twice. A reply that already started\nis never silently repeated.",
+  "fontSize": 18,
   "strokeColor": "#495057"
  }
 ]

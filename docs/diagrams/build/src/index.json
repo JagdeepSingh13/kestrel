@@ -1,1 +1,1 @@
-["layers", "layers-code", "core-types", "providers", "ask-steps", "doctor", "talking-to-model", "shell-structure", "shell-line", "agent-loop", "loop-structure", "run-steps", "context-budget", "run-log", "m3-structure", "tool-call-path"]
+["overview", "providers", "shell", "agent-run", "run-log", "tools-and-safety", "core-types"]

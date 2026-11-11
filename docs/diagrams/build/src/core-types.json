@@ -4,8 +4,8 @@
   "id": "call",
   "x": 0,
   "y": 0,
-  "width": 280,
-  "height": 80,
+  "width": 300,
+  "height": 100,
   "backgroundColor": "#ffc9c9",
   "fillStyle": "solid",
   "roundness": {
@@ -13,16 +13,16 @@
   },
   "label": {
    "text": "ToolCall\nid, name, arguments",
-   "fontSize": 18
+   "fontSize": 20
   }
  },
  {
   "type": "rectangle",
   "id": "msg",
   "x": 0,
-  "y": 140,
-  "width": 280,
-  "height": 100,
+  "y": 170,
+  "width": 300,
+  "height": 120,
   "backgroundColor": "#a5d8ff",
   "fillStyle": "solid",
   "roundness": {
@@ -37,9 +37,9 @@
   "type": "rectangle",
   "id": "spec",
   "x": 0,
-  "y": 300,
-  "width": 280,
-  "height": 90,
+  "y": 360,
+  "width": 300,
+  "height": 120,
   "backgroundColor": "#ffd8a8",
   "fillStyle": "solid",
   "roundness": {
@@ -53,10 +53,10 @@
  {
   "type": "rectangle",
   "id": "prov",
-  "x": 380,
-  "y": 140,
+  "x": 390,
+  "y": 170,
   "width": 240,
-  "height": 250,
+  "height": 310,
   "backgroundColor": "#d0bfff",
   "fillStyle": "solid",
   "roundness": {
@@ -64,16 +64,16 @@
   },
   "label": {
    "text": "Provider\n(any backend)\n\nchat()\nstream()\nlist_models()",
-   "fontSize": 18
+   "fontSize": 20
   }
  },
  {
   "type": "rectangle",
   "id": "resp",
   "x": 720,
-  "y": 140,
-  "width": 280,
-  "height": 100,
+  "y": 170,
+  "width": 300,
+  "height": 120,
   "backgroundColor": "#b2f2bb",
   "fillStyle": "solid",
   "roundness": {
@@ -88,9 +88,9 @@
   "type": "rectangle",
   "id": "chunk",
   "x": 720,
-  "y": 300,
-  "width": 280,
-  "height": 90,
+  "y": 360,
+  "width": 300,
+  "height": 120,
   "backgroundColor": "#b2f2bb",
   "fillStyle": "solid",
   "roundness": {
@@ -103,10 +103,10 @@
  },
  {
   "type": "arrow",
-  "x": 140.0,
-  "y": 83,
+  "x": 150.0,
+  "y": 103,
   "width": 1,
-  "height": 54,
+  "height": 64,
   "start": {
    "id": "call"
   },
@@ -117,17 +117,17 @@
  },
  {
   "type": "text",
-  "x": 150.0,
-  "y": 100.0,
+  "x": 162.0,
+  "y": 123.0,
   "text": "inside",
-  "fontSize": 16,
+  "fontSize": 18,
   "strokeColor": "#495057"
  },
  {
   "type": "arrow",
-  "x": 283,
-  "y": 190.0,
-  "width": 94,
+  "x": 303,
+  "y": 230.0,
+  "width": 84,
   "height": 1,
   "start": {
    "id": "msg"
@@ -139,17 +139,17 @@
  },
  {
   "type": "text",
-  "x": 321.0,
-  "y": 160.0,
+  "x": 335.0,
+  "y": 198.0,
   "text": "in",
-  "fontSize": 16,
+  "fontSize": 18,
   "strokeColor": "#495057"
  },
  {
   "type": "arrow",
-  "x": 283,
-  "y": 345.0,
-  "width": 94,
+  "x": 303,
+  "y": 420.0,
+  "width": 84,
   "height": 1,
   "start": {
    "id": "spec"
@@ -161,17 +161,17 @@
  },
  {
   "type": "text",
-  "x": 321.0,
-  "y": 315.0,
+  "x": 335.0,
+  "y": 388.0,
   "text": "in",
-  "fontSize": 16,
+  "fontSize": 18,
   "strokeColor": "#495057"
  },
  {
   "type": "arrow",
-  "x": 623,
-  "y": 190.0,
-  "width": 94,
+  "x": 633,
+  "y": 230.0,
+  "width": 84,
   "height": 1,
   "start": {
    "id": "prov"
@@ -183,17 +183,17 @@
  },
  {
   "type": "text",
-  "x": 656.5,
-  "y": 160.0,
+  "x": 660.0,
+  "y": 198.0,
   "text": "out",
-  "fontSize": 16,
+  "fontSize": 18,
   "strokeColor": "#495057"
  },
  {
   "type": "arrow",
-  "x": 623,
-  "y": 345.0,
-  "width": 94,
+  "x": 633,
+  "y": 420.0,
+  "width": 84,
   "height": 1,
   "start": {
    "id": "prov"
@@ -205,10 +205,10 @@
  },
  {
   "type": "text",
-  "x": 656.5,
-  "y": 315.0,
+  "x": 660.0,
+  "y": 388.0,
   "text": "out",
-  "fontSize": 16,
+  "fontSize": 18,
   "strokeColor": "#495057"
  }
 ]

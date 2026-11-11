@@ -4,19 +4,15 @@ The provider layer is the only code that talks to model backends. Everything abo
 
 ## Structure
 
-![Provider structure](img/providers.svg)
+![How a message reaches the model, and how /doctor finds backends](img/providers.svg)
 
 ## `kestrel ask "hello"` (streaming)
-
-![What happens on one question](img/ask-steps.svg)
 
 Retries: only when the connection fails **before** any byte arrives (backend not up yet). A generation that started is never retried silently.
 
 Output split: the answer goes to stdout, everything else (spinner, `--show-thinking` reasoning, token counts, `REMOTE` label, errors) goes to stderr, so `kestrel ask "..." > answer.txt` saves only the answer. Model comes from `--model`, else `default_model`; provider from `--provider`, else `default_provider`. Exit code 0 ok, 1 backend error, 2 usage or config error, 130 Ctrl-C.
 
 ## `kestrel doctor`
-
-![How doctor checks backends](img/doctor.svg)
 
 Three outcomes per backend: `up` (model list read), `down` (nothing listening) and `error` (something answered, but not with a model list: bad key, wrong URL). Probes are not retried, so doctor finishes in about 1.5s. Exit code 0 if any backend is up, 1 if none, 2 for a broken `config.toml`.
 

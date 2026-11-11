@@ -31,7 +31,7 @@ Small models (3B to 14B) make predictable mistakes: broken JSON, wrong tool name
 
 ### The layers
 
-![Kestrel's layers](docs/diagrams/img/layers.svg)
+![Kestrel on one page](docs/diagrams/img/overview.svg)
 
 Each layer only talks to the layers below it, so any piece can be swapped or tested alone.
 
@@ -47,7 +47,7 @@ Each layer only talks to the layers below it, so any piece can be swapped or tes
 ### Talking to the model (M1)
 Kestrel never runs a model itself. A **backend** (Ollama, LM Studio, llama.cpp, mlx-lm, vLLM) loads the model and listens on a local port. All of them speak the same HTTP format, called "OpenAI-compatible" (OpenAI invented it; local programs copied it). So one small client covers them all.
 
-![How Kestrel talks to the model](docs/diagrams/img/talking-to-model.svg)
+![How a message reaches the model, and how /doctor finds backends](docs/diagrams/img/providers.svg)
 
 How a reply travels:
 1. Kestrel turns your conversation into the backend's JSON format and sends it.
@@ -58,8 +58,6 @@ How a reply travels:
 
 Finding backends (`kestrel doctor`): Kestrel knocks on every known port at once and asks each one for its model list. Each backend comes back as running, not running, or answering wrongly (bad key, wrong address).
 
-![How doctor checks backends](docs/diagrams/img/doctor.svg)
-
 Things worth knowing:
 - **Thinking.** qwen3 thinks before answering. Kestrel keeps that apart from the answer and hides it unless you ask (`--show-thinking`, or `/think` in the shell). Add `/no_think` to a prompt to skip it; much faster on a laptop.
 - **Ollama context.** On machines with under 24GB of GPU memory (all 16GB Macs), Ollama gives models only 4K tokens of memory. Kestrel needs 8K to 16K. Raise it in the Ollama app (Settings, Context length) or run `OLLAMA_CONTEXT_LENGTH=16384 ollama serve`. `kestrel doctor` reminds you; `ollama ps` shows the current value.
@@ -69,7 +67,7 @@ Things worth knowing:
 ### The interactive shell (M1.5)
 Type `kestrel` and you are inside Kestrel's own prompt. Plain text goes to the model; lines starting with `/` control the session.
 
-![How the shell handles a line](docs/diagrams/img/shell-line.svg)
+![How the shell handles each line](docs/diagrams/img/shell.svg)
 
 - The model "remembers" because every turn resends the whole conversation. `/clear` starts fresh.
 - Ctrl-C stops a reply; that unfinished turn is dropped so the conversation stays clean. Ctrl-D or `/exit` leaves.
@@ -94,13 +92,12 @@ Type `kestrel` and you are inside Kestrel's own prompt. Plain text goes to the m
 ### The agent loop (M2)
 An agent is a model that can use tools. The loop is what makes that work: the model cannot run anything itself, it can only *ask*. Kestrel runs what it asks for and shows it the result, again and again, until the model gives an answer.
 
-![The agent loop](docs/diagrams/img/agent-loop.svg)
+![One agent run: the loop, the window, and the checks before every tool](docs/diagrams/img/agent-run.svg)
 
 - **Budgets** keep a confused model from running forever: at most 15 model calls by default, plus optional limits on total tokens and time. A run always ends with a clear reason: answered, out of steps, over budget, cancelled (Ctrl-C), or backend error.
 - **Tool mistakes are not crashes.** A wrong tool name, bad arguments or a tool that breaks comes back to the model as `ERROR: ...`, so it can try again.
 - **The model's memory is small.** Before every call, Kestrel fits the conversation into the model's context window. Old tool results are emptied first, then the oldest turns are dropped. The task and the latest step are always kept. A huge tool result is cut short; the full text stays in the log.
 - **Thinking is recorded but not repeated.** The model's reasoning goes into the log, but is never sent back to it, which saves space.
-![What the context manager keeps and trims](docs/diagrams/img/context-budget.svg)
 
 - **Tools:** since M3, real ones (see the next section).
 
@@ -118,7 +115,7 @@ qwen3:8b> /trace
 ### The run log (M2)
 Every run writes a diary: one line per thing that happened (task received, model asked, model replied, tool called, tool answered, final answer, run ended). It is written as it happens, so even a crash leaves a complete record up to that point.
 
-![The run log](docs/diagrams/img/run-log.svg)
+![How every step is recorded and used](docs/diagrams/img/run-log.svg)
 
 - **Secrets never reach the file.** Values of environment variables named like `*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, and well-known key formats, are replaced with `[REDACTED]` first.
 - **Readable later.** `kestrel trace last` (or a run id) shows the timeline; `--full` shows full text including the model's thinking; `--list` shows recent runs.
@@ -138,7 +135,7 @@ tools: [list_dir, read_file, write_file]
 
 **Tools:** `list_dir`, `read_file`, `write_file`, `run_shell`, `python_exec`, `ask_user`. A tool is a plain Python function; Kestrel describes it to the model from its name, docstring and argument types, and checks the model's arguments before running it.
 
-![The path of one tool call](docs/diagrams/img/tool-call-path.svg)
+![Agent files, tools and the safety checks](docs/diagrams/img/tools-and-safety.svg)
 
 Safety, in plain words:
 - **One folder.** Agents can only touch `workspace/` inside the Kestrel folder. Paths like `../x`, `/etc/passwd`, or a shortcut (symlink) pointing outside are refused, whatever the model asks.
@@ -161,7 +158,7 @@ qwen3:8b> /run count the lines in every .py file in the workspace and write the 
 - `kestrel ask "..." --model M`: one message, one streamed answer, for scripts.
 
 ### Diagrams
-All diagrams are hand-drawn [Excalidraw](https://excalidraw.com) pictures in [docs/diagrams/img/](docs/diagrams/img/). To edit one, drag its `.excalidraw` file onto excalidraw.com; to redraw them all, see [docs/diagrams/README.md](docs/diagrams/README.md).
+All diagrams are hand-drawn [Excalidraw](https://excalidraw.com) pictures in [docs/diagrams/img/](docs/diagrams/img/), one per idea. They are drawn from [docs/diagrams/build/diagrams.py](docs/diagrams/build/diagrams.py); see [docs/diagrams/README.md](docs/diagrams/README.md) to redraw them.
 
 | Diagram | Shows |
 |---|---|

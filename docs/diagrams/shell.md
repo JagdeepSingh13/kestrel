@@ -4,13 +4,11 @@
 
 ## Structure
 
-![Shell structure](img/shell-structure.svg)
+![How the shell handles each line](img/shell.svg)
 
 `Shell` takes a `read_line` function. The real one is prompt_toolkit; tests pass a list of scripted lines and a `FakeProvider`, so no terminal and no model are needed.
 
 ## How one line is handled
-
-![How the shell handles a line](img/shell-line.svg)
 
 Ctrl-C at the prompt only clears the line. A turn that failed or was stopped is removed from history, so the next message starts clean.
 

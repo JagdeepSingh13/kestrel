@@ -32,3 +32,6 @@ htmlcov/
 
 # The agents' only folder (files they create while running)
 /workspace/
+
+# Editable Excalidraw drawings: generated locally by docs/diagrams/build, not published
+docs/diagrams/img/*.excalidraw

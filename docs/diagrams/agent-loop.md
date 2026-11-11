@@ -4,21 +4,21 @@ The agent loop is the heart of the harness: ask the model, run the tools it asks
 
 ## Structure
 
-![Agent loop structure](img/loop-structure.svg)
+![One agent run: the loop, the window, and the checks before every tool](img/agent-run.svg)
 
 The loop only knows the `Provider`, `Toolbox` and `Frontend` protocols from `core/types.py`. It never imports a concrete provider or tool.
 
 ## One run
 
-![One run, step by step](img/run-steps.svg)
-
 Stops: `final` (answered), `max_steps`, `budget` (tokens or wall time), `cancelled` (Ctrl-C), `error` (backend failure).
 
 ## Context budget
 
-![What the context manager keeps and trims](img/context-budget.svg)
-
 Never dropped: system prompt, the original task, the latest assistant message and its tool results. Tokens are estimated as characters / 3.5. A single tool result over 1500 tokens is cut with a marker; the full text stays in the log.
+
+## The run log
+
+![How every step is recorded and used](img/run-log.svg)
 
 ## Data, before and after
 

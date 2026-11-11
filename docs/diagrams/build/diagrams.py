@@ -2,10 +2,11 @@
 
 Run `python3 docs/diagrams/build/diagrams.py` to write `src/<name>.json` (Excalidraw
 skeletons), then open build.html (see server.py) to render them with Excalidraw into
-`docs/diagrams/img/<name>.svg` and `.excalidraw`.
+`docs/diagrams/img/<name>.svg` (published) and `.excalidraw` (local only, not in git).
 
-Style rules: few boxes, short straight arrows, labels beside arrows (never on them),
-plain words. Arrows connect boxes along the middle of where they overlap, so line boxes
+Style rules: one picture per idea, big enough to read on GitHub (about 920 wide, text
+18 to 20), boxes that explain themselves in a line or two, short straight arrows, labels
+beside arrows (never on them), plain words. Arrows connect boxes along the middle of where they overlap, so line boxes
 up (same row or same column) to keep arrows straight.
 """
 
@@ -45,7 +46,7 @@ class Diagram:
         text: str,
         *,
         shape: str = "rectangle",
-        size: int = 18,
+        size: int = 20,
     ) -> None:
         self.boxes[id] = Box(x, y, w, h)
         self.elements.append(
@@ -63,7 +64,11 @@ class Diagram:
             }
         )
 
-    def text(self, x: float, y: float, text: str, size: int = 16, color: str = NOTE) -> None:
+    def title(self, x: float, y: float, text: str) -> None:
+        """A heading over a part of the picture."""
+        self.text(x, y, text, size=22, color="#1e1e1e")
+
+    def text(self, x: float, y: float, text: str, size: int = 18, color: str = NOTE) -> None:
         self.elements.append(
             {"type": "text", "x": x, "y": y, "text": text, "fontSize": size, "strokeColor": color}
         )
@@ -80,14 +85,14 @@ class Diagram:
             y0 = p.y + p.h + gap if down else p.y - gap
             y1 = q.y - gap if down else q.y + q.h + gap
             start, end = (x, y0), (x, y1)
-            label_at = (x + 10, (y0 + y1) / 2 - 10)
+            label_at = (x + 12, (y0 + y1) / 2 - 12)
         else:  # side by side
             y = (max(p.y, q.y) + min(p.y + p.h, q.y + q.h)) / 2 + shift
             right = q.x >= p.x + p.w
             x0 = p.x + p.w + gap if right else p.x - gap
             x1 = q.x - gap if right else q.x + q.w + gap
             start, end = (x0, y), (x1, y)
-            label_at = ((x0 + x1) / 2 - 4.5 * len(label or ""), y + (10 if shift > 0 else -30))
+            label_at = ((x0 + x1) / 2 - 5 * len(label or ""), y + (10 if shift > 0 else -32))
         dx, dy = end[0] - start[0], end[1] - start[1]
         self.elements.append(
             {
@@ -108,69 +113,388 @@ class Diagram:
         (SRC / f"{self.name}.json").write_text(json.dumps(self.elements, indent=1))
 
 
-def layers(name: str, code: bool) -> Diagram:
-    """The layers of Kestrel. `code=True` labels them with folders (for docs/diagrams)."""
-    d = Diagram(name)
-    t = (
-        {
-            "fe": "cli/\nshell, commands",
-            "loop": "core/loop.py + core/context.py",
-            "rel": "reliability/\n(M4)",
-            "tools": "tools/ + safety/\n(M3)",
-            "prov": "providers/\nHTTP client",
-            "back": "Backend\nOllama, LM Studio ...",
-            "log": "core/events.py\nrun log",
-        }
-        if code
-        else {
-            "fe": "Where you type\nthe Kestrel shell",
-            "loop": "Agent loop + memory: ask, act, repeat",
-            "rel": "Reliability\nfixes bad calls (M4)",
-            "tools": "Tools + safety\nfiles, shell (M3)",
-            "prov": "Providers\ntalk to the model",
-            "back": "Backend\nOllama runs the model",
-            "log": "Run log\nevery step saved",
-        }
+def overview() -> Diagram:
+    """README: the whole of Kestrel on one page."""
+    d = Diagram("overview")
+    d.box(
+        "you",
+        0,
+        0,
+        420,
+        110,
+        BLUE,
+        "Where you type\nthe Kestrel shell: chat with a model,\n/run an agent, /trace a run",
     )
-    d.box("fe", 0, 0, 500, 70, BLUE, t["fe"])
-    d.box("loop", 0, 130, 500, 70, VIOLET, t["loop"])
-    d.box("rel", 0, 260, 240, 80, ORANGE, t["rel"])
-    d.box("tools", 260, 260, 240, 80, RED, t["tools"])
-    d.box("prov", 0, 400, 240, 80, GREEN, t["prov"])
-    d.box("back", 0, 540, 240, 80, GRAY, t["back"])
-    d.box("log", 600, 130, 220, 70, YELLOW, t["log"])
-    d.arrow("fe", "loop")
+    d.box(
+        "log",
+        500,
+        0,
+        420,
+        110,
+        YELLOW,
+        "Run log\nevery step saved, secrets removed;\n/trace shows it as a timeline",
+    )
+    d.box(
+        "loop",
+        0,
+        170,
+        920,
+        110,
+        VIOLET,
+        "Agent loop + memory\nask the model, run the tools it asks for, show it the results, repeat;\nkeeps the conversation inside the model's small window",
+    )
+    d.box(
+        "rel",
+        0,
+        340,
+        420,
+        110,
+        ORANGE,
+        "Reliability (M4, next)\nfixes small models' broken tool calls,\nstops loops",
+    )
+    d.box(
+        "tools",
+        500,
+        340,
+        420,
+        110,
+        RED,
+        "Tools + safety\nfiles, shell, Python, ask you;\nasks before risky actions",
+    )
+    d.box(
+        "prov",
+        0,
+        510,
+        420,
+        110,
+        GREEN,
+        "Providers\none HTTP client for every backend;\nstreams replies, keeps thinking apart",
+    )
+    d.box("ws", 500, 510, 420, 110, YELLOW, "workspace/\nthe only folder agents can touch")
+    d.box(
+        "back",
+        0,
+        680,
+        420,
+        110,
+        GRAY,
+        "Backend on your machine\nOllama, LM Studio, llama.cpp, mlx-lm, vLLM\nruns the model",
+        size=18,
+    )
+    d.arrow("you", "loop")
+    d.arrow("loop", "log", "every step", dashed=True)
     d.arrow("loop", "rel")
     d.arrow("loop", "tools")
     d.arrow("rel", "prov")
+    d.arrow("tools", "ws")
     d.arrow("prov", "back")
-    d.arrow("loop", "log", dashed=True)
+    return d
+
+
+def providers() -> Diagram:
+    """How one message reaches the model, and how /doctor finds backends."""
+    d = Diagram("providers")
+    d.title(0, -50, "Answering one message")
+    steps = [
+        ("1. You type a message", YELLOW),
+        ("2. Kestrel turns the conversation\ninto the backend's JSON format", BLUE),
+        ("3. Sent to the backend\nPOST /v1/chat/completions", BLUE),
+        ("4. The reply streams back in pieces;\nthinking is kept apart from the answer", GREEN),
+        ("5. Shown live; the last piece\nholds the complete reply", GREEN),
+    ]
+    for i, (text, color) in enumerate(steps):
+        d.box(f"s{i}", 0, i * 150, 420, 100, color, text, size=18)
+        if i:
+            d.arrow(f"s{i - 1}", f"s{i}")
+    d.title(500, -50, "Finding backends: /doctor")
+    d.box(
+        "doc",
+        500,
+        0,
+        420,
+        100,
+        BLUE,
+        "/doctor asks every known port\nat the same time (1.5 s limit)",
+        size=18,
+    )
+    d.box(
+        "ports",
+        500,
+        160,
+        420,
+        190,
+        GRAY,
+        "Ollama :11434\nLM Studio :1234\nllama.cpp or mlx-lm :8080\n(asks /props to tell them apart)\nvLLM :8000",
+        size=18,
+    )
+    d.box(
+        "table",
+        500,
+        410,
+        420,
+        140,
+        GREEN,
+        "A table: running or not,\nwhich models each one has,\nwarnings (Ollama's 4K default,\nREMOTE = data leaves your machine)",
+        size=18,
+    )
+    d.arrow("doc", "ports")
+    d.arrow("ports", "table")
+    d.text(
+        500,
+        600,
+        "If a backend is not up yet, Kestrel retries the\nconnection twice. A reply that already started\nis never silently repeated.",
+        18,
+    )
+    return d
+
+
+def shell() -> Diagram:
+    """How the shell handles each line you type."""
+    d = Diagram("shell")
+    d.box(
+        "line", 0, 0, 400, 90, YELLOW, "You type a line\n(Tab completes, up arrow recalls)", size=18
+    )
+    d.box("q", 60, 150, 280, 150, VIOLET, "Starts\nwith / ?", shape="diamond")
+    d.box(
+        "cmd",
+        500,
+        120,
+        420,
+        210,
+        ORANGE,
+        "Run the command\n/run  /trace  /agent  /agents\n/tools  /workspace  /model\n/provider  /think  /doctor\n/clear  /help  /exit",
+        size=18,
+    )
+    d.box(
+        "send",
+        0,
+        370,
+        400,
+        100,
+        BLUE,
+        "Send it to the model with\nthe conversation so far",
+        size=18,
+    )
+    d.box(
+        "reply",
+        0,
+        530,
+        400,
+        100,
+        BLUE,
+        "The reply streams in;\nCtrl-C stops it and drops that turn",
+        size=18,
+    )
+    d.box(
+        "keep",
+        0,
+        690,
+        400,
+        100,
+        GREEN,
+        "Both are added to the conversation;\nold turns are left out when it\noutgrows the model's window",
+        size=18,
+    )
+    d.arrow("line", "q")
+    d.arrow("q", "cmd", "yes")
+    d.arrow("q", "send", "no")
+    d.arrow("send", "reply")
+    d.arrow("reply", "keep")
+    d.text(500, 700, "Then back to the prompt.\nCtrl-D or /exit leaves.", 18)
+    return d
+
+
+def agent_run() -> Diagram:
+    """One agent run: the loop, the window, and the checks before every tool."""
+    d = Diagram("agent-run")
+    d.box(
+        "task", 0, 0, 420, 90, YELLOW, "Your task\n/run count the lines in every .py file", size=18
+    )
+    d.box(
+        "ctx",
+        0,
+        150,
+        420,
+        130,
+        ORANGE,
+        "Fit the conversation into the window\nalways keeps the task and the latest step;\nempties old tool results first,\nthen drops the oldest steps",
+        size=18,
+    )
+    d.box("ask", 0, 340, 420, 90, BLUE, "Ask the model\n(the reply streams in live)", size=18)
+    d.box("q", 70, 490, 280, 150, VIOLET, "Did it ask\nfor a tool?", shape="diamond")
+    d.box("answer", 0, 710, 420, 90, GREEN, "No: its reply is the answer", size=18)
+    d.box(
+        "result",
+        540,
+        150,
+        380,
+        130,
+        GREEN,
+        "Result added to the conversation,\nmarked untrusted (data, not orders)",
+        size=18,
+    )
+    d.box(
+        "run",
+        540,
+        440,
+        380,
+        250,
+        RED,
+        "Yes: run it, after checks\n\n1. known tool, right argument types\n2. permission: allow, ask you, or deny\n3. path stays inside workspace/\n4. time limit and output cap\n\nany failure comes back as ERROR",
+        size=18,
+    )
+    d.arrow("task", "ctx")
+    d.arrow("ctx", "ask")
+    d.arrow("ask", "q")
+    d.arrow("q", "answer")
+    d.arrow("q", "run")
+    d.arrow("run", "result")
+    d.arrow("result", "ctx", "next step")
+    d.text(
+        540,
+        730,
+        "Also stops when out of steps, tokens\nor time, or on Ctrl-C. Every box\nwrites a line to the run log.",
+        18,
+    )
+    return d
+
+
+def run_log() -> Diagram:
+    """How every step gets recorded, and what the record is used for."""
+    d = Diagram("run-log")
+    d.box("loop", 0, 60, 260, 120, VIOLET, "Agent loop\nannounces\neach step", size=18)
+    d.box(
+        "bus", 320, 40, 220, 160, YELLOW, "Event bus\nhands every step\nto each listener", size=18
+    )
+    d.box("screen", 660, 0, 260, 100, BLUE, "Screen\nshows it live", size=18)
+    d.box("writer", 660, 150, 260, 110, RED, "Log writer\nremoves secrets first", size=18)
+    d.box(
+        "file",
+        660,
+        330,
+        260,
+        130,
+        YELLOW,
+        "Run log file\none line per step,\nwritten instantly",
+        size=18,
+    )
+    d.box(
+        "replay",
+        280,
+        330,
+        260,
+        130,
+        GREEN,
+        "Replay\nthe same run without\nthe model (tests)",
+        size=18,
+    )
+    d.box("trace", 660, 530, 260, 100, GREEN, "/trace\na readable timeline", size=18)
+    d.arrow("loop", "bus")
+    d.arrow("bus", "screen", "listener")
+    d.arrow("bus", "writer", "listener", shift=10)
+    d.arrow("writer", "file")
+    d.arrow("file", "replay")
+    d.arrow("file", "trace")
+    return d
+
+
+def tools_and_safety() -> Diagram:
+    """Agents are files; tools are guarded."""
+    d = Diagram("tools-and-safety")
+    d.box(
+        "file",
+        0,
+        0,
+        420,
+        170,
+        YELLOW,
+        "An agent file (YAML)\nname: counter\ntools: [list_dir, read_file, write_file]\npermissions:\n  write_file: confirm",
+        size=18,
+    )
+    d.box(
+        "load",
+        0,
+        230,
+        420,
+        130,
+        VIOLET,
+        "Checked when loaded\nunknown settings or tools refused;\nlooser permissions need --trust-agent",
+        size=18,
+    )
+    d.box(
+        "run",
+        0,
+        420,
+        420,
+        110,
+        BLUE,
+        "/run uses the agent's model,\ninstructions, tools and limits",
+        size=18,
+    )
+    d.box(
+        "tools",
+        540,
+        0,
+        380,
+        200,
+        GREEN,
+        "Tools\nlist_dir, read_file\nwrite_file (asks before overwriting)\nrun_shell, python_exec (always ask)\nask_user",
+        size=18,
+    )
+    d.box(
+        "safety",
+        540,
+        260,
+        380,
+        270,
+        RED,
+        "Safety on every call\nonly workspace/ (paths outside,\nincluding via shortcuts, refused)\ncommands: time limit, output cap,\nno secret environment variables\noutput marked untrusted\n(not a sandbox, so they ask first)",
+        size=18,
+    )
+    d.arrow("file", "load")
+    d.arrow("load", "run")
+    d.arrow("run", "safety", "every call")
+    d.arrow("safety", "tools", "guards")
     return d
 
 
 def core_types() -> Diagram:
     d = Diagram("core-types")
-    d.box("call", 0, 0, 280, 80, RED, "ToolCall\nid, name, arguments")
-    d.box("msg", 0, 140, 280, 100, BLUE, "Message\nrole + content\n+ tool calls + reasoning")
-    d.box("spec", 0, 300, 280, 90, ORANGE, "ToolSpec\na tool's name +\nJSON schema of arguments")
+    d.box("call", 0, 0, 300, 100, RED, "ToolCall\nid, name, arguments")
+    d.box(
+        "msg", 0, 170, 300, 120, BLUE, "Message\nrole + content\n+ tool calls + reasoning", size=18
+    )
+    d.box(
+        "spec",
+        0,
+        360,
+        300,
+        120,
+        ORANGE,
+        "ToolSpec\na tool's name +\nJSON schema of arguments",
+        size=18,
+    )
     d.box(
         "prov",
-        380,
-        140,
+        390,
+        170,
         240,
-        250,
+        310,
         VIOLET,
         "Provider\n(any backend)\n\nchat()\nstream()\nlist_models()",
     )
-    d.box("resp", 720, 140, 280, 100, GREEN, "ModelResponse\nthe full reply\n+ token usage")
+    d.box(
+        "resp", 720, 170, 300, 120, GREEN, "ModelResponse\nthe full reply\n+ token usage", size=18
+    )
     d.box(
         "chunk",
         720,
+        360,
         300,
-        280,
-        90,
+        120,
         GREEN,
         "StreamChunk\na piece of the reply;\nthe last holds it all",
+        size=18,
     )
     d.arrow("call", "msg", "inside")
     d.arrow("msg", "prov", "in")
@@ -180,304 +504,22 @@ def core_types() -> Diagram:
     return d
 
 
-def providers() -> Diagram:
-    d = Diagram("providers")
-    d.box("wire", 250, -140, 210, 80, ORANGE, "wire.py\nJSON in and out")
-    d.box("sse", 480, -140, 230, 80, ORANGE, "sse.py + think.py\nstitch the pieces")
-    d.box("ask", 0, 0, 220, 70, BLUE, "chat, ask, /run")
-    d.box("oai", 300, 0, 380, 70, VIOLET, "OpenAICompatProvider")
-    d.box("doc", 0, 200, 220, 70, BLUE, "/doctor")
-    d.box("disc", 300, 200, 380, 70, VIOLET, "discovery.py\nasks every known port")
-    d.box(
-        "back",
-        900,
-        0,
-        240,
-        270,
-        GRAY,
-        "Backend\n\nOllama :11434\nLM Studio :1234\nllama.cpp / mlx-lm :8080\nvLLM :8000",
-        size=16,
-    )
-    d.arrow("ask", "oai")
-    d.arrow("oai", "wire")
-    d.arrow("oai", "sse")
-    d.arrow("oai", "back", "HTTP")
-    d.arrow("doc", "disc")
-    d.arrow("disc", "back", "GET /models")
-    return d
-
-
-def steps(
-    name: str,
-    items: list[tuple[str, str]],
-    notes: list[str] | None = None,
-    notes_title: str = "written to the run log",
-) -> Diagram:
-    """A numbered column of steps, optionally with what gets logged beside each."""
-    d = Diagram(name)
-    for i, (text, color) in enumerate(items):
-        d.box(f"s{i}", 0, i * 120, 380, 76, color, f"{i + 1}. {text}")
-        if i:
-            d.arrow(f"s{i - 1}", f"s{i}")
-        if notes and notes[i]:
-            d.box(f"n{i}", 480, i * 120 + 8, 260, 60, GRAY, notes[i], size=16)
-            d.arrow(f"s{i}", f"n{i}", dashed=True)
-    if notes:
-        d.text(480, -36, notes_title, 16)
-    return d
-
-
-def doctor() -> Diagram:
-    d = Diagram("doctor")
-    d.box("doc", 0, 0, 780, 70, BLUE, "/doctor asks every backend at once (1.5 s limit)")
-    ports = ["Ollama\n:11434", "LM Studio\n:1234", "llama.cpp or\nmlx-lm :8080", "vLLM\n:8000"]
-    for i, port in enumerate(ports):
-        d.box(f"p{i}", i * 200, 140, 180, 80, GRAY, port)
-        d.arrow("doc", f"p{i}")
-    d.box(
-        "table",
-        0,
-        300,
-        780,
-        80,
-        GREEN,
-        "Table: running or not, which models,\nwarnings (4K context, REMOTE)",
-    )
-    for i in range(4):
-        d.arrow(f"p{i}", "table")
-    return d
-
-
-def talking() -> Diagram:
-    d = Diagram("talking-to-model")
-    d.box("you", 0, 40, 160, 80, YELLOW, "You")
-    d.box("k", 260, 20, 260, 120, VIOLET, "Kestrel\nturns your chat\ninto JSON")
-    d.box("back", 780, 20, 260, 120, GRAY, "Backend\nOllama runs\nthe model")
-    d.box("screen", 260, 240, 260, 90, GREEN, "Your screen\nanswer appears live")
-    d.arrow("you", "k")
-    d.arrow("k", "back", "your chat", shift=-28)
-    d.arrow("back", "k", "reply, piece by piece", shift=28)
-    d.arrow("k", "screen")
-    return d
-
-
-def shell_structure() -> Diagram:
-    d = Diagram("shell-structure")
-    d.box("app", 0, 0, 760, 70, BLUE, "app.py: kestrel, kestrel chat")
-    d.box("shell", 0, 140, 760, 70, VIOLET, "shell.py: the session + read, handle, repeat")
-    d.box("prompt", 0, 280, 240, 80, GRAY, "prompt.py\ntyping, history, Tab")
-    d.box("cmds", 260, 280, 240, 80, ORANGE, "commands.py\n/model /run /trace ...")
-    d.box("out", 520, 280, 240, 80, GREEN, "output.py\nstreams answers")
-    d.box("run", 260, 430, 240, 80, RED, "agent_run.py\none agent run")
-    d.arrow("app", "shell")
-    d.arrow("shell", "prompt")
-    d.arrow("shell", "cmds")
-    d.arrow("shell", "out")
-    d.arrow("cmds", "run")
-    return d
-
-
-def shell_line() -> Diagram:
-    d = Diagram("shell-line")
-    d.box("line", 0, 0, 280, 70, YELLOW, "You type a line")
-    d.box("q", 30, 130, 220, 130, VIOLET, "Starts\nwith / ?", shape="diamond")
-    d.box("cmd", 380, 160, 280, 70, ORANGE, "Run the command\n/model /run /trace ...")
-    d.box("send", 0, 320, 280, 70, BLUE, "Send it with the\nconversation so far")
-    d.box("reply", 0, 450, 280, 70, BLUE, "The reply streams in")
-    d.box("keep", 0, 580, 280, 70, GREEN, "Both are added to\nthe conversation")
-    d.arrow("line", "q")
-    d.arrow("q", "cmd", "yes")
-    d.arrow("q", "send", "no")
-    d.arrow("send", "reply")
-    d.arrow("reply", "keep")
-    d.text(320, 600, "then back to the prompt", 16)
-    return d
-
-
-def agent_loop() -> Diagram:
-    d = Diagram("agent-loop")
-    d.box("task", 0, 0, 240, 70, YELLOW, 'Your task\n"what is 17 + 25?"')
-    d.box("ask", 0, 150, 240, 70, BLUE, "Ask the model", size=20)
-    d.box("q", 10, 290, 220, 120, VIOLET, "Wants a\ntool?", shape="diamond", size=20)
-    d.box("run", 360, 315, 220, 70, RED, "Run the tool\nadd(17, 25) = 42")
-    d.box("show", 360, 150, 220, 70, GREEN, "Give the model\nthe result")
-    d.box("answer", 0, 490, 240, 70, GREEN, 'Answer: "It is 42."', size=20)
-    d.arrow("task", "ask")
-    d.arrow("ask", "q")
-    d.arrow("q", "run", "yes")
-    d.arrow("run", "show")
-    d.arrow("show", "ask", "repeat")
-    d.arrow("q", "answer", "no")
-    d.text(300, 500, "also stops when out of steps,\ntokens or time, or on Ctrl-C", 16)
-    return d
-
-
-def loop_structure() -> Diagram:
-    d = Diagram("loop-structure")
-    d.box(
-        "cmd", 0, 0, 1100, 70, BLUE, "/run (shell) or kestrel run: agent_run.py sets everything up"
-    )
-    d.box("loop", 0, 140, 1100, 70, VIOLET, "loop.py: run_agent() asks, runs tools, repeats")
-    d.box("ctx", 0, 290, 200, 80, ORANGE, "context.py\nfits the window")
-    d.box("prov", 220, 290, 200, 80, GRAY, "Provider\nthe model")
-    d.box("tools", 440, 290, 200, 80, RED, "Toolbox\nadd, echo (demo)")
-    d.box("bus", 660, 290, 440, 80, YELLOW, "events.py: EventBus\nannounces every step")
-    d.box("screen", 660, 450, 210, 80, GREEN, "frontend.py\nprints it live")
-    d.box("writer", 890, 450, 210, 80, GREEN, "JsonlWriter\n+ redact.py")
-    d.box("file", 890, 600, 210, 70, GRAY, "runs/<id>.jsonl")
-    d.arrow("cmd", "loop")
-    for target in ["ctx", "prov", "tools", "bus"]:
-        d.arrow("loop", target)
-    d.arrow("bus", "screen", "listener")
-    d.arrow("bus", "writer", "listener")
-    d.arrow("writer", "file")
-    return d
-
-
-def context_budget() -> Diagram:
-    d = Diagram("context-budget")
-    d.text(60, 0, "always kept", 18)
-    d.text(420, 0, "can be trimmed", 18)
-    d.text(790, 0, "always kept", 18)
-    d.box("sys", 0, 40, 130, 80, GREEN, "system\nprompt")
-    d.box("task", 145, 40, 130, 80, GREEN, "the task")
-    d.box("o1", 320, 40, 130, 80, ORANGE, "old step")
-    d.box("o2", 465, 40, 130, 80, ORANGE, "old step")
-    d.box("o3", 610, 40, 130, 80, ORANGE, "old step")
-    d.box("last", 785, 40, 160, 80, GREEN, "latest\nstep")
-    d.box("r1", 320, 200, 420, 70, RED, "1. empty old tool results first")
-    d.box("r2", 320, 340, 420, 70, RED, "2. still too big? drop the oldest steps")
-    d.arrow("o2", "r1")
-    d.arrow("r1", "r2")
-    d.text(0, 450, "Budget = context window (16K) minus 1K kept free for the reply.", 16)
-    return d
-
-
-def run_log() -> Diagram:
-    d = Diagram("run-log")
-    d.box("run", 0, 60, 180, 80, VIOLET, "A run\nevery step")
-    d.box("scrub", 250, 60, 200, 80, RED, "Remove\nsecrets")
-    d.box("file", 520, 20, 220, 160, YELLOW, "Run log\none line\nper step")
-    d.box("trace", 820, 0, 220, 80, GREEN, "/trace\nreadable timeline")
-    d.box("replay", 820, 120, 220, 80, BLUE, "Replay\nsame run, no model")
-    d.arrow("run", "scrub")
-    d.arrow("scrub", "file")
-    d.arrow("file", "trace")
-    d.arrow("file", "replay")
-    return d
-
-
-def m3_structure() -> Diagram:
-    d = Diagram("m3-structure")
-    d.box("file", 0, 0, 440, 80, YELLOW, "agents/coder.yaml\nmodel, prompt, tools, permissions")
-    d.box(
-        "loader",
-        0,
-        140,
-        440,
-        80,
-        VIOLET,
-        "agents/loader.py\nchecks the file; refuses loosened\npermissions without --trust-agent",
-        size=16,
-    )
-    d.box("run", 0, 280, 900, 70, BLUE, "/run with an agent (shell) or kestrel run --agent")
-    d.box("loop", 0, 410, 900, 70, VIOLET, "loop.py: the same agent loop as M2")
-    d.box(
-        "reg",
-        0,
-        540,
-        640,
-        80,
-        ORANGE,
-        "tools/registry.py: @tool, checks arguments,\ntime limit, size cap",
-    )
-    d.box("safety", 700, 540, 200, 80, RED, "safety/\npermissions\npath jail", size=16)
-    d.box("files", 0, 690, 200, 80, GREEN, "read_file\nlist_dir\nwrite_file")
-    d.box("proc", 220, 690, 200, 80, RED, "run_shell\npython_exec")
-    d.box("ask", 440, 690, 200, 80, GRAY, "ask_user")
-    d.arrow("file", "loader")
-    d.arrow("loader", "run")
-    d.arrow("run", "loop")
-    d.arrow("loop", "reg")
-    d.arrow("reg", "safety", "asks")
-    for t in ["files", "proc", "ask"]:
-        d.arrow("reg", t)
-    return d
-
-
-def tool_call_path() -> Diagram:
-    return steps(
-        "tool-call-path",
-        [
-            ("The model asks:\nwrite_file(report.md, ...)", YELLOW),
-            ("Known tool? Arguments\nthe right types?", ORANGE),
-            ("Permission:\nallow, confirm or deny", RED),
-            ("Path inside the\nworkspace folder?", RED),
-            ("Run it, with a\ntime limit and size cap", BLUE),
-            ("Result marked untrusted,\nsent back to the model", GREEN),
-        ],
-        notes=[
-            "",
-            "no: ERROR back\nto the model",
-            "confirm: you answer\ny / n / a (always)",
-            "no (../, symlink):\nERROR, never runs",
-            "too slow or too big:\nstopped or cut",
-            "logged with\nsecrets removed",
-        ],
-        notes_title="if it fails",
-    )
-
-
 def all_diagrams() -> list[Diagram]:
     return [
-        layers("layers", code=False),
-        layers("layers-code", code=True),
-        core_types(),
+        overview(),
         providers(),
-        steps(
-            "ask-steps",
-            [
-                ("You type a question", YELLOW),
-                ("Kestrel turns it into JSON", BLUE),
-                ("Sends it to the backend\nPOST /v1/chat/completions", BLUE),
-                ("The reply streams back\nin small pieces", GREEN),
-                ("Pieces shown live;\nthe last holds the full reply", GREEN),
-            ],
-        ),
-        doctor(),
-        talking(),
-        shell_structure(),
-        shell_line(),
-        agent_loop(),
-        loop_structure(),
-        steps(
-            "run-steps",
-            [
-                ("The task goes into memory", YELLOW),
-                ("Fit the conversation\ninto the window", ORANGE),
-                ("Ask the model\n(reply streams live)", BLUE),
-                ("Tool calls? Run each one,\nadd the results, go to 2", RED),
-                ("No tool calls:\nthe reply is the answer", GREEN),
-                ("End: reason + totals", GRAY),
-            ],
-            notes=[
-                "run_start",
-                "context_trim\n(only if needed)",
-                "model_request\nmodel_response",
-                "tool_call\ntool_result",
-                "final",
-                "run_end",
-            ],
-        ),
-        context_budget(),
+        shell(),
+        agent_run(),
         run_log(),
-        m3_structure(),
-        tool_call_path(),
+        tools_and_safety(),
+        core_types(),
     ]
 
 
 if __name__ == "__main__":
     SRC.mkdir(exist_ok=True)
+    for old in SRC.glob("*.json"):
+        old.unlink()  # drop skeletons of diagrams that no longer exist
     diagrams = all_diagrams()
     for diagram in diagrams:
         diagram.save()
