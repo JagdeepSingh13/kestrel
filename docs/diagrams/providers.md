@@ -66,6 +66,8 @@ sequenceDiagram
 
 Retries: only when the connection fails **before** any byte arrives (backend not up yet). A generation that started is never retried silently.
 
+Output split: the answer goes to stdout, everything else (spinner, `--show-thinking` reasoning, token counts, `REMOTE` label, errors) goes to stderr, so `kestrel ask "..." > answer.txt` saves only the answer. Model comes from `--model`, else `default_model`; provider from `--provider`, else `default_provider`. Exit code 0 ok, 1 backend error, 2 usage or config error, 130 Ctrl-C.
+
 ## `kestrel doctor`
 
 ```mermaid

@@ -57,15 +57,26 @@ def test_doctor_labels_remote(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     assert "REMOTE" in runner.invoke(cli.app, ["doctor"]).output
 
 
-def test_doctor_exits_1_when_nothing_runs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("ollama_path", "hint"),
+    [(None, "brew install ollama"), ("/opt/homebrew/bin/ollama", "ollama serve")],
+)
+def test_doctor_exits_1_when_nothing_runs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, ollama_path: str | None, hint: str
+) -> None:
     use_reports(
         monkeypatch,
         tmp_path,
         BackendReport("ollama", "http://localhost:11434/v1", Status.down, "Ollama", False),
     )
+
+    def fake_which(_: str) -> str | None:
+        return ollama_path
+
+    monkeypatch.setattr(cli.shutil, "which", fake_which)
     result = runner.invoke(cli.app, ["doctor"])
     assert result.exit_code == 1
-    assert "brew install ollama" in result.output
+    assert hint in result.output
 
 
 def test_doctor_reports_bad_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
