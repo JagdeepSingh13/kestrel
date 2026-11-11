@@ -112,3 +112,25 @@ Inner vs outer harness: much "harness engineering" writing is about the outer ha
 - Security: Lethal Trifecta https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/, OWASP LLM Top 10 https://genai.owasp.org/llm-top-10/
 - Python stack: uv https://docs.astral.sh/uv/, asyncio https://docs.python.org/3/library/asyncio.html, Pydantic https://docs.pydantic.dev, httpx https://www.python-httpx.org, Typer https://typer.tiangolo.com, pytest https://docs.pytest.org
 - Newsletter/podcast: Latent Space https://www.latent.space
+
+## Going deeper: context, tools, small models (added after M2)
+
+Picked for what Kestrel is betting on: making 3B to 14B models reliable at tool use.
+
+### Context (how much the model sees, and in what order)
+- Chroma, Context Rot (2025): https://research.trychroma.com/context-rot and code https://github.com/chroma-core/context-rot
+- Lost in the Middle (2023): https://arxiv.org/abs/2307.03172
+- Manus, Context Engineering for AI Agents: https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
+
+### Small models and tool calling
+- Small Models, Big Tasks (2025): https://arxiv.org/abs/2504.19277
+- Small Language Models for Agentic Systems, survey (2025): https://arxiv.org/abs/2510.03847
+- Berkeley Function Calling Leaderboard: https://gorilla.cs.berkeley.edu/leaderboard.html
+
+### Preventing bad output instead of repairing it (M4)
+- Outlines, Efficient Guided Generation (2023): https://arxiv.org/abs/2307.09702
+- XGrammar (2024): https://arxiv.org/abs/2411.15100 and XGrammar 2 for agents (2026): https://arxiv.org/abs/2601.04426
+- llama.cpp GBNF grammars: https://github.com/ggml-org/llama.cpp/blob/master/grammars/README.md
+
+### Edit formats for the coder agent (M5.5)
+- Aider, Unified diffs make GPT-4 Turbo less lazy: https://aider.chat/2023/12/21/unified-diffs.html
