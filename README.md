@@ -6,7 +6,7 @@
 
 Kestrel is a local-first, model-agnostic agent harness for 3B to 14B models on an ordinary 16GB laptop. It plugs into any OpenAI-compatible backend (Ollama, LM Studio, llama.cpp, mlx-lm, vLLM), defines agents as YAML files, and fixes the tool-calling mistakes small models make.
 
-> **Status: early development (v0.0.1).** Kestrel can find local backends and chat with a model (`kestrel doctor`, `kestrel ask`). No agent loop or tools yet. See the [roadmap](#roadmap).
+> **Status: early development (v0.0.1).** Kestrel can find local backends and chat with a model in its own shell (`kestrel`), or one-shot (`kestrel ask`). No agent loop or tools yet. See the [roadmap](#roadmap).
 
 ## Planned features
 - **Reliability:** repairs broken JSON, wrong tool names and bad arguments; detects loops; constrained decoding where the backend supports it.
@@ -54,54 +54,79 @@ Each layer only talks to the layers below it, so any piece can be swapped or tes
 
 | Layer | What it does, in plain words | Status |
 |---|---|---|
-| Frontends | Where you type. Today: the `kestrel` command. | `doctor`, `ask` (M1) |
+| Frontends | Where you type. Today: the `kestrel` command and its shell. | shell, `doctor`, `ask` (M1, M1.5) |
 | Agent loop + context | The repeat-until-done cycle; decides what fits in the model's small memory each turn. | *planned, M2* |
 | Reliability | Turns messy model output into valid tool calls; stops loops. | *planned, M4* |
 | Tools + safety | Runs tools; asks before risky actions; blocks files outside the workspace. | *planned, M3* |
 | Providers | Talks HTTP to the model program on your machine. | done (M1); model profiles later |
 | Event log | Writes every step to a file so runs can be inspected and replayed. | *planned, M2* |
 
-### Providers: talking to the model (M1)
+### Talking to the model (M1)
 Kestrel never runs a model itself. A **backend** (Ollama, LM Studio, llama.cpp, mlx-lm, vLLM) loads the model and listens on a local port. All of them speak the same HTTP format, called "OpenAI-compatible" (OpenAI invented it; local programs copied it). So one small client covers them all.
 
 ```mermaid
 flowchart LR
-    CLI["kestrel ask / doctor"] --> P["OpenAICompatProvider<br/>openai_compat.py"]
-    P --> W["wire.py<br/>Kestrel types to JSON and back"]
-    P --> S["sse.py + think.py<br/>stitch the streamed reply"]
-    P -- "HTTP, localhost" --> B[("Ollama :11434<br/>LM Studio :1234<br/>llama.cpp / mlx-lm :8080<br/>vLLM :8000")]
-    D["discovery.py"] -- "GET /v1/models" --> B
+    YOU["You"] --> K["Kestrel"]
+    K -- "your conversation" --> B[("Backend on<br/>your machine")]
+    B -- "reply, piece by piece" --> K
+    K --> SCREEN["Answer on screen<br/>thinking kept apart"]
 ```
 
-What each piece does:
-- **`core/types.py`**: Kestrel's own words for a conversation: `Message`, `ToolCall`, `ModelResponse`, `StreamChunk`. Everything above the provider layer uses only these, never the backend's JSON.
-- **`core/config.py`**: reads `~/.config/kestrel/config.toml` (optional). Knows the four default backends; you can add your own. API keys are never stored in the file, only the name of the environment variable that holds them.
-- **`providers/wire.py`**: translates Kestrel messages into the JSON the backend expects, and the backend's reply back into a `ModelResponse`.
-- **`providers/sse.py`**: a streamed reply arrives as many small `data: {...}` lines. This stitches them back into text pieces and, at the end, one complete reply (including tool calls split across lines).
-- **`providers/think.py`**: some models write their reasoning inside `<think>...</think>`. This separates it from the answer, even when a tag is split across two pieces.
-- **`providers/openai_compat.py`**: the HTTP client. Retries only if the backend is not up yet (connection refused); never repeats a reply that already started. Turns every failure into a clear error.
-- **`providers/discovery.py`**: checks every known backend at once and reports what is running, which models it has, and warnings (see below).
-- **`providers/fake.py`**: a pretend model with scripted replies, so tests never need a real one.
+How a reply travels:
+1. Kestrel turns your conversation into the backend's JSON format and sends it.
+2. The reply streams back in small pieces, so words appear as soon as the model writes them.
+3. Kestrel stitches the pieces into one complete reply, and keeps the model's thinking apart from its answer.
+4. If the backend is not up yet, Kestrel retries the connection twice. A reply that already started is never silently repeated.
+5. Every failure becomes a plain message ("Nothing is listening at ... Is the backend running?") instead of a crash.
+
+Finding backends (`kestrel doctor`): Kestrel knocks on every known port at once and asks each one for its model list. Each backend comes back as running, not running, or answering wrongly (bad key, wrong address).
+
+```mermaid
+flowchart LR
+    D["kestrel doctor"] --> P1["Ollama port"] & P2["LM Studio port"] & P3["llama.cpp / mlx-lm port"] & P4["vLLM port"]
+    P1 & P2 & P3 & P4 --> T["Table: running?<br/>which models?<br/>warnings"]
+```
 
 Things worth knowing:
-- **Thinking.** qwen3 thinks before answering. Ollama sends that thinking in a separate `reasoning` field; Kestrel keeps it apart from the answer. `kestrel ask --show-thinking` prints it dimmed. Add `/no_think` to a prompt to skip it (much faster on a laptop).
+- **Thinking.** qwen3 thinks before answering. Kestrel keeps that apart from the answer and hides it unless you ask (`--show-thinking`, or `/think` in the shell). Add `/no_think` to a prompt to skip it; much faster on a laptop.
 - **Ollama context.** On machines with under 24GB of GPU memory (all 16GB Macs), Ollama gives models only 4K tokens of memory. Kestrel needs 8K to 16K. Raise it in the Ollama app (Settings, Context length) or run `OLLAMA_CONTEXT_LENGTH=16384 ollama serve`. `kestrel doctor` reminds you; `ollama ps` shows the current value.
 - **REMOTE.** Any backend that is not on this machine is labelled `REMOTE`: your prompt leaves your computer.
+- **Settings.** Optional file `~/.config/kestrel/config.toml`: default model, default backend, extra backends. API keys never go in the file, only the name of the environment variable holding them.
 
-Try it:
+### The interactive shell (M1.5)
+Type `kestrel` and you are inside Kestrel's own prompt. Plain text goes to the model; lines starting with `/` control the session.
 
-```bash
-uv run kestrel doctor
-uv run kestrel ask "Say hello in five words." --model qwen3:8b
+```mermaid
+flowchart TB
+    READ["You type a line"] --> Q{"Starts with / ?"}
+    Q -- yes --> CMD["Run the command<br/>/model /think /doctor ..."]
+    Q -- no --> SEND["Send it with the<br/>conversation so far"]
+    SEND --> REPLY["Reply streams in"]
+    REPLY --> KEEP["Turn added to<br/>the conversation"]
+    CMD --> READ
+    KEEP --> READ
 ```
 
-`ask` prints only the answer on standard output (so `> answer.txt` works); progress, thinking and token counts go to standard error.
+- The model "remembers" because every turn resends the whole conversation. `/clear` starts fresh.
+- Ctrl-C stops a reply; that unfinished turn is dropped so the conversation stays clean. Ctrl-D or `/exit` leaves.
+- `/model` lists the backend's models; `/model NAME` switches and keeps the conversation. Tab completes commands and model names. The up arrow recalls earlier lines.
+- The conversation has to fit the model's memory (16K tokens). Ollama quietly forgets the oldest part when it does not, so the shell warns above 12K. Proper trimming comes with the agent loop (M2).
 
-### What exists today (M1)
+| Command | Does |
+|---|---|
+| `/help` | list commands |
+| `/model [name]` | list models, or switch |
+| `/provider [name]` | list backends, or switch |
+| `/think [on\|off]` | show or hide the model's thinking |
+| `/clear` | forget the conversation |
+| `/doctor` | check which backends are running |
+| `/exit` | leave (also `/quit`, Ctrl-D) |
+
+### What exists today
+- `kestrel`: the interactive shell (also `kestrel chat --model M`).
 - `kestrel doctor`: finds running backends and their models.
-- `kestrel ask "..." --model M [--provider P] [--show-thinking]`: one message, streamed answer. No agent, no tools.
-- Tests: unit tests with a fake network and recorded real Ollama replies (`uv run pytest`); live tests against a running Ollama (`uv run pytest -m live`).
-- Quality checks on every push (GitHub Actions, macOS + Ubuntu + Windows): ruff (style, likely bugs), pyright (types), pytest (tests).
+- `kestrel ask "..." --model M [--provider P] [--show-thinking]`: one message, one streamed answer, for scripts.
+- No agent, no tools yet: those start in M2 and M3.
 
 ### Diagrams
 All diagrams live in [docs/diagrams/](docs/diagrams/) and render on GitHub.
@@ -111,6 +136,7 @@ All diagrams live in [docs/diagrams/](docs/diagrams/) and render on GitHub.
 | [architecture.md](docs/diagrams/architecture.md) | The layers above, with code folders and milestones |
 | [core-types.md](docs/diagrams/core-types.md) | Kestrel's message and error types |
 | [providers.md](docs/diagrams/providers.md) | Provider structure, `ask` sequence, `doctor` flowchart, data before and after |
+| [shell.md](docs/diagrams/shell.md) | Shell structure, how a line is handled, session data |
 
 ## Install (development)
 Requires [uv](https://docs.astral.sh/uv/).
@@ -121,6 +147,7 @@ cd kestrel
 uv sync
 uv run kestrel --version
 uv run kestrel doctor
+uv run kestrel          # interactive shell
 ```
 
 For a real chat you need a backend with a model, e.g. [Ollama](https://ollama.com) and `ollama pull qwen3:8b`.
@@ -130,6 +157,7 @@ For a real chat you need a backend with a model, e.g. [Ollama](https://ollama.co
 |---|---|---|
 | M0 | Scaffold, CI on macOS/Ubuntu/Windows | done |
 | M1 | Providers, `kestrel doctor`, `kestrel ask` | done |
+| M1.5 | Interactive shell (`kestrel`) | done |
 | M2 | Agent loop, event log, `kestrel trace` | next |
 | M3 | Agent YAML, file/shell/python tools, safety | |
 | M4 | Reliability layer, web tools | |

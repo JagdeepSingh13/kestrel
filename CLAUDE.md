@@ -58,7 +58,7 @@ uv run kestrel chat          # interactive session
 7. **Everything emits events.** Any model call, tool call, permission decision, error, or final answer goes through the event bus and into the JSONL log.
 8. **Fail loudly in dev, gracefully at runtime.** Tool errors are returned to the model as tool results, not raised to the user, unless fatal.
 9. **No hidden network calls.** No telemetry. Web tools only run when an agent explicitly has them enabled.
-10. **Update docs** (`docs/SPEC.md`, README) in the same commit when behavior or interfaces change. The README "How Kestrel works" section explains every built system in plain words with its diagram; update it at the end of every milestone.
+10. **Update docs** (`docs/SPEC.md`, README) in the same commit when behavior or interfaces change. The README "How Kestrel works" section explains every built system in plain words with its diagram; update it at the end of every milestone. README text and diagrams describe concepts and behaviour only: no file-by-file explanations, no file or module names in diagrams (those belong in `docs/diagrams/`).
 11. Type hints everywhere. Public functions get docstrings. No `Any` in public interfaces unless justified in a comment.
 12. Stop and ask when the spec is ambiguous instead of guessing.
 13. Owner style: concise, no filler, no em dashes, no arrow symbols in prose.
