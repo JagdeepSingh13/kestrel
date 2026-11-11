@@ -4,65 +4,11 @@ The provider layer is the only code that talks to model backends. Everything abo
 
 ## Structure
 
-```mermaid
-flowchart TB
-    subgraph CLI["cli/app.py"]
-        DOC["kestrel doctor"]
-        ASK["kestrel ask"]
-    end
-
-    subgraph CORE["core/"]
-        TYPES["types.py<br/>Message, ToolCall, ToolSpec,<br/>ModelResponse, StreamChunk,<br/>Provider protocol, errors"]
-        CFG["config.py<br/>providers from config.toml"]
-    end
-
-    subgraph PROV["providers/"]
-        OAI["openai_compat.py<br/>OpenAICompatProvider"]
-        WIRE["wire.py<br/>Kestrel types to/from OpenAI JSON"]
-        SSE["sse.py<br/>parse streamed events"]
-        DISC["discovery.py<br/>probe known ports"]
-        FAKE["fake.py<br/>FakeProvider (tests)"]
-    end
-
-    BACK[("Backend<br/>Ollama / LM Studio / llama.cpp / mlx-lm / vLLM")]
-
-    ASK --> CFG
-    ASK --> OAI
-    DOC --> DISC
-    OAI --> WIRE
-    OAI --> SSE
-    OAI -- "httpx" --> BACK
-    DISC -- "httpx" --> BACK
-    OAI -. implements .-> TYPES
-    FAKE -. implements .-> TYPES
-```
+![Provider structure](img/providers.svg)
 
 ## `kestrel ask "hello"` (streaming)
 
-```mermaid
-sequenceDiagram
-    actor You
-    participant CLI as kestrel ask
-    participant P as OpenAICompatProvider
-    participant W as wire.py + sse.py
-    participant O as Ollama :11434
-
-    You->>CLI: kestrel ask "hello" --model qwen3:8b
-    CLI->>P: stream([Message(user, "hello")], model)
-    P->>W: to_wire(messages)
-    W-->>P: {"model":..., "messages":[...], "stream":true}
-    P->>O: POST /v1/chat/completions
-    loop each SSE event
-        O-->>P: data: {"choices":[{"delta":{"content":"Hi"}}]}
-        P->>W: parse event
-        W-->>P: StreamChunk(text="Hi")
-        P-->>CLI: StreamChunk(text="Hi")
-        CLI-->>You: prints "Hi" immediately
-    end
-    O-->>P: data: [DONE]
-    P-->>CLI: StreamChunk(done=ModelResponse(...))
-    CLI-->>You: newline + token usage
-```
+![What happens on one question](img/ask-steps.svg)
 
 Retries: only when the connection fails **before** any byte arrives (backend not up yet). A generation that started is never retried silently.
 
@@ -70,29 +16,7 @@ Output split: the answer goes to stdout, everything else (spinner, `--show-think
 
 ## `kestrel doctor`
 
-```mermaid
-flowchart TB
-    START["kestrel doctor"] --> LIST["Known backends<br/>+ providers from config.toml"]
-    LIST --> PROBE["Probe all in parallel<br/>GET /v1/models, 1.5s timeout"]
-    PROBE --> UP{"Responds?"}
-    UP -- no --> DOWN["not running"]
-    UP -- yes --> PORT{"Port 8080?"}
-    PORT -- yes --> FP{"GET /props works?"}
-    FP -- yes --> LCPP["llama.cpp"]
-    FP -- no --> MLX["mlx-lm (probably)"]
-    PORT -- no --> NAMED["named by its port"]
-    LCPP --> MODELS["list models"]
-    MLX --> MODELS
-    NAMED --> MODELS
-    MODELS --> OLL{"Ollama?"}
-    OLL -- yes --> CTX["warn: default context 4K on 16GB;<br/>show how to raise it"]
-    OLL -- no --> REMOTE
-    CTX --> REMOTE{"Non-local URL?"}
-    REMOTE -- yes --> LBL["label REMOTE:<br/>data leaves this machine"]
-    REMOTE -- no --> TABLE["print table"]
-    LBL --> TABLE
-    DOWN --> TABLE
-```
+![How doctor checks backends](img/doctor.svg)
 
 Three outcomes per backend: `up` (model list read), `down` (nothing listening) and `error` (something answered, but not with a model list: bad key, wrong URL). Probes are not retried, so doctor finishes in about 1.5s. Exit code 0 if any backend is up, 1 if none, 2 for a broken `config.toml`.
 

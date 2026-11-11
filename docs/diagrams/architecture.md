@@ -2,26 +2,7 @@
 
 Layers, top to bottom. Each layer depends only on layers below it plus `core/types.py` (SPEC section 2). Every layer reports what it does to the event log.
 
-```mermaid
-flowchart TB
-    FE["Frontends<br/><small>CLI now; web, Telegram later</small>"]
-    LOOP["Agent loop + context manager<br/><small>plan, act, observe; token budget</small>"]
-    REL["Reliability layer<br/><small>parse + repair tool calls, loop detection</small>"]
-    TOOLS["Tools + safety<br/><small>registry, MCP, permissions, path jail</small>"]
-    PROV["Provider layer<br/><small>HTTP client, discovery, model profiles</small>"]
-    BACK[("Local model backends<br/><small>Ollama, LM Studio, llama.cpp, mlx-lm, vLLM</small>")]
-    LOG[["Event log<br/><small>JSONL per run</small>"]]
-
-    FE --> LOOP
-    LOOP --> REL
-    LOOP --> TOOLS
-    REL --> PROV
-    PROV --> BACK
-
-    LOOP -.-> LOG
-    TOOLS -.-> LOG
-    PROV -.-> LOG
-```
+![Layers with their code folders](img/layers-code.svg)
 
 | Layer | Code | Milestone |
 |---|---|---|

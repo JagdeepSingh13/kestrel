@@ -49,7 +49,7 @@ uv run kestrel chat          # interactive session
 
 ## Working rules
 
-1. **Plan before code.** For each milestone, write a short plan (files, interfaces, tests) and wait for approval before implementing. Every plan includes visuals for each system it introduces, saved as Mermaid in `docs/diagrams/<name>.md` and updated when the design changes. Default set: (a) structure diagram, (b) sequence diagram or flowchart of how it runs, (c) before/after example of the real data, (d) interactive stepper or simulator only for core ideas (agent loop, repair pipeline), (e) plain-words walkthrough of the code after building.
+1. **Plan before code.** For each milestone, write a short plan (files, interfaces, tests) and wait for approval before implementing. Every plan includes visuals for each system it introduces: hand-drawn Excalidraw pictures defined in `docs/diagrams/build/diagrams.py` and rendered to `docs/diagrams/img/` (see `docs/diagrams/README.md`), shown on `docs/diagrams/<name>.md` pages and updated when the design changes. No Mermaid. Few boxes, short straight arrows, labels beside arrows; sequences become numbered step lists, not lifeline diagrams. Default set: (a) structure diagram, (b) sequence diagram or flowchart of how it runs, (c) before/after example of the real data, (d) interactive stepper or simulator only for core ideas (agent loop, repair pipeline), (e) plain-words walkthrough of the code after building.
 2. **One milestone at a time.** Milestones are in `docs/SPEC.md` section 9. Do not jump ahead.
 3. **Tests with every change.** Unit tests use `FakeProvider` with scripted responses. Never hit a real model or network in default test run. Mark real-model tests `@pytest.mark.live`.
 4. **Small commits**, conventional commit messages (`feat:`, `fix:`, `test:`, `docs:`, `refactor:`). Commits and PRs are authored by the owner only: no `Co-Authored-By` AI trailers, no "Generated with" footers, no AI attribution of any kind.
@@ -85,7 +85,7 @@ src/kestrel/
   cli/         # typer app
 tests/
 docs/SPEC.md
-docs/diagrams/ # Mermaid diagrams, one per system
+docs/diagrams/ # Excalidraw diagrams (img/) + their source (build/)
 docs/learning/ # M0 lesson notes + reading list (reference only)
 private/       # owner's personal notes, gitignored
 agents/        # user-facing example agent YAMLs
