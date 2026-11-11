@@ -1,4 +1,4 @@
 """Package metadata. Single source of truth for the version and name."""
 
-__version__ = "0.0.0"
+__version__ = "0.0.1"
 __app_name__ = "kestrel"

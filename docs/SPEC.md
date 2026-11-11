@@ -309,6 +309,7 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - `kestrel doctor` lists reachable backends and models.
 - `kestrel ask "hello" --model qwen3:8b` does a single non-agent chat call, streams to terminal.
 - **Done when:** unit tests cover request building, response parsing, streaming, errors (with mocked httpx). Live test passes against Ollama.
+- **Status: done (v0.0.1).** Verified against Ollama 0.40 + qwen3:8b: reasoning arrives in the `reasoning` field (content is `""` while thinking); recorded in `tests/fixtures/ollama/`. `ask` writes the answer to stdout and everything else to stderr. Exit codes: 0 ok, 1 backend error / no backend (doctor), 2 usage or config error, 130 Ctrl-C.
 
 ### M2: Agent loop + events (no real tools yet)
 - `core/loop.py`, `core/events.py` (in-process bus + JSONL writer to `~/.local/share/kestrel/runs/<run_id>.jsonl`), `core/context.py` (basic budget).
