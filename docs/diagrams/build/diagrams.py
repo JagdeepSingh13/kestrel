@@ -153,9 +153,25 @@ def core_types() -> Diagram:
     d.box("call", 0, 0, 280, 80, RED, "ToolCall\nid, name, arguments")
     d.box("msg", 0, 140, 280, 100, BLUE, "Message\nrole + content\n+ tool calls + reasoning")
     d.box("spec", 0, 300, 280, 90, ORANGE, "ToolSpec\na tool's name +\nJSON schema of arguments")
-    d.box("prov", 380, 140, 240, 250, VIOLET, "Provider\n(any backend)\n\nchat()\nstream()\nlist_models()")
+    d.box(
+        "prov",
+        380,
+        140,
+        240,
+        250,
+        VIOLET,
+        "Provider\n(any backend)\n\nchat()\nstream()\nlist_models()",
+    )
     d.box("resp", 720, 140, 280, 100, GREEN, "ModelResponse\nthe full reply\n+ token usage")
-    d.box("chunk", 720, 300, 280, 90, GREEN, "StreamChunk\na piece of the reply;\nthe last holds it all")
+    d.box(
+        "chunk",
+        720,
+        300,
+        280,
+        90,
+        GREEN,
+        "StreamChunk\na piece of the reply;\nthe last holds it all",
+    )
     d.arrow("call", "msg", "inside")
     d.arrow("msg", "prov", "in")
     d.arrow("spec", "prov", "in")
@@ -172,7 +188,16 @@ def providers() -> Diagram:
     d.box("oai", 300, 0, 380, 70, VIOLET, "OpenAICompatProvider")
     d.box("doc", 0, 200, 220, 70, BLUE, "/doctor")
     d.box("disc", 300, 200, 380, 70, VIOLET, "discovery.py\nasks every known port")
-    d.box("back", 900, 0, 240, 270, GRAY, "Backend\n\nOllama :11434\nLM Studio :1234\nllama.cpp / mlx-lm :8080\nvLLM :8000", size=16)
+    d.box(
+        "back",
+        900,
+        0,
+        240,
+        270,
+        GRAY,
+        "Backend\n\nOllama :11434\nLM Studio :1234\nllama.cpp / mlx-lm :8080\nvLLM :8000",
+        size=16,
+    )
     d.arrow("ask", "oai")
     d.arrow("oai", "wire")
     d.arrow("oai", "sse")
@@ -204,7 +229,15 @@ def doctor() -> Diagram:
     for i, port in enumerate(ports):
         d.box(f"p{i}", i * 200, 140, 180, 80, GRAY, port)
         d.arrow("doc", f"p{i}")
-    d.box("table", 0, 300, 780, 80, GREEN, "Table: running or not, which models,\nwarnings (4K context, REMOTE)")
+    d.box(
+        "table",
+        0,
+        300,
+        780,
+        80,
+        GREEN,
+        "Table: running or not, which models,\nwarnings (4K context, REMOTE)",
+    )
     for i in range(4):
         d.arrow(f"p{i}", "table")
     return d
@@ -276,7 +309,9 @@ def agent_loop() -> Diagram:
 
 def loop_structure() -> Diagram:
     d = Diagram("loop-structure")
-    d.box("cmd", 0, 0, 1100, 70, BLUE, "/run (shell) or kestrel run: agent_run.py sets everything up")
+    d.box(
+        "cmd", 0, 0, 1100, 70, BLUE, "/run (shell) or kestrel run: agent_run.py sets everything up"
+    )
     d.box("loop", 0, 140, 1100, 70, VIOLET, "loop.py: run_agent() asks, runs tools, repeats")
     d.box("ctx", 0, 290, 200, 80, ORANGE, "context.py\nfits the window")
     d.box("prov", 220, 290, 200, 80, GRAY, "Provider\nthe model")
