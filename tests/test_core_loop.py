@@ -14,6 +14,7 @@ from kestrel.core.types import (
     EventType,
     JSONObject,
     Message,
+    PermissionDecision,
     Provider,
     Role,
     RunResult,
@@ -219,3 +220,29 @@ async def test_cancel_logs_run_end_then_propagates() -> None:
     with pytest.raises(asyncio.CancelledError):
         await rec.run(CancelledProvider())
     assert rec.of(EventType.run_end)[0].data["stopped_reason"] == "cancelled"
+
+
+class SayNo:
+    """A permission gate that refuses everything."""
+
+    async def check(self, call: ToolCall, spec: ToolSpec) -> PermissionDecision:
+        return PermissionDecision(allowed=False, reason="user said no")
+
+
+async def test_refused_call_is_not_run_and_the_model_is_told() -> None:
+    rec = Recorded()
+    fake = FakeProvider([call("add", {"a": 1, "b": 2}), text("ok, I won't")])
+    bus = EventBus("test-run")
+    bus.subscribe(rec.events.append)
+    await run_agent(
+        TASK,
+        provider=fake,
+        model="m",
+        toolbox=DemoToolbox(),
+        bus=bus,
+        context=ContextManager(DEFAULT_SYSTEM_PROMPT),
+        gate=SayNo(),
+    )
+    assert tool_messages(fake.calls[1].messages) == ["ERROR: add was not run: user said no"]
+    [permission] = rec.of(EventType.permission)
+    assert permission.data["allowed"] is False

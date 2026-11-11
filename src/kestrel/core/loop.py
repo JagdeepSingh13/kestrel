@@ -20,6 +20,7 @@ from kestrel.core.types import (
     JSONValue,
     Message,
     ModelResponse,
+    PermissionGate,
     Provider,
     ProviderError,
     Role,
@@ -65,6 +66,7 @@ async def run_agent(
     bus: EventBus,
     context: ContextManager,
     budgets: Budgets | None = None,
+    gate: PermissionGate | None = None,
     temperature: float = 0.2,
     clock: Callable[[], float] = time.monotonic,
 ) -> RunResult:
@@ -117,7 +119,7 @@ async def run_agent(
 
             for call in message.tool_calls:
                 totals.tool_calls += 1
-                result = await _run_tool(toolbox, call, bus, step, clock)
+                result = await _run_tool(toolbox, call, bus, step, clock, gate, specs)
                 context.add(
                     Message(
                         role=Role.tool, tool_call_id=call.id, name=call.name, content=result.content
@@ -210,10 +212,38 @@ async def _ask_model(
 
 
 async def _run_tool(
-    toolbox: Toolbox, call: ToolCall, bus: EventBus, step: int, clock: Callable[[], float]
+    toolbox: Toolbox,
+    call: ToolCall,
+    bus: EventBus,
+    step: int,
+    clock: Callable[[], float],
+    gate: PermissionGate | None,
+    specs: list[ToolSpec],
 ) -> ToolResult:
-    """Execute one call. A crashing tool becomes an `ERROR:` result, never a crashed run."""
+    """Check permission, then execute one call. A refused or crashing call becomes an
+    `ERROR:` result the model can read, never a crashed run."""
     bus.emit(EventType.tool_call, step, _call_data(call))
+    spec = next((s for s in specs if s.name == call.name), None)
+    if gate is not None and spec is not None:  # unknown tools are reported by the toolbox
+        decision = await gate.check(call, spec)
+        bus.emit(
+            EventType.permission,
+            step,
+            {
+                "id": call.id,
+                "name": call.name,
+                "allowed": decision.allowed,
+                "reason": decision.reason,
+            },
+        )
+        if not decision.allowed:
+            result = ToolResult(
+                call_id=call.id,
+                content=f"ERROR: {call.name} was not run: {decision.reason}",
+                is_error=True,
+            )
+            bus.emit(EventType.tool_result, step, _result_data(call, result, 0))
+            return result
     started = clock()
     try:
         result = await toolbox.execute(call)
@@ -223,18 +253,18 @@ async def _run_tool(
             content=f"ERROR: tool {call.name} crashed: {type(exc).__name__}: {exc}",
             is_error=True,
         )
-    bus.emit(
-        EventType.tool_result,
-        step,
-        {
-            "id": call.id,
-            "name": call.name,
-            "content": result.content,
-            "is_error": result.is_error,
-            "ms": round((clock() - started) * 1000),
-        },
-    )
+    bus.emit(EventType.tool_result, step, _result_data(call, result, clock() - started))
     return result
+
+
+def _result_data(call: ToolCall, result: ToolResult, seconds: float) -> JSONObject:
+    return {
+        "id": call.id,
+        "name": call.name,
+        "content": result.content,
+        "is_error": result.is_error,
+        "ms": round(seconds * 1000),
+    }
 
 
 def _call_data(call: ToolCall) -> JSONObject:

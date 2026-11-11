@@ -59,6 +59,7 @@ def tool(
     *,
     permission: Permission = "allow",
     side_effects: bool = False,
+    confirm_if_true: str | None = None,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
     max_output_chars: int = DEFAULT_MAX_OUTPUT_CHARS,
 ) -> Callable[[Callable[..., object]], Tool]:
@@ -91,6 +92,7 @@ def tool(
             parameters=_clean_schema(cast(JSONObject, arguments.model_json_schema())),
             permission=permission,
             side_effects=side_effects,
+            confirm_if_true=confirm_if_true,
         )
         return Tool(spec, fn, arguments, wants_context, timeout, max_output_chars)
 

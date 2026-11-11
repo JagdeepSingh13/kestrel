@@ -78,6 +78,9 @@ class ToolSpec(_Model):
     """JSON Schema for the arguments object."""
     permission: Literal["allow", "confirm", "deny"] = "allow"
     side_effects: bool = False
+    confirm_if_true: str | None = None
+    """Name of a boolean argument that, when true, makes an allowed call need confirmation
+    (e.g. `write_file`'s `overwrite`, spec gap 5)."""
 
 
 class Usage(_Model):
@@ -221,6 +224,24 @@ class Toolbox(Protocol):
         ...
 
 
+type ConfirmAnswer = Literal["yes", "no", "always"]
+
+
+class PermissionDecision(_Model):
+    """Whether one tool call may run, and why (logged as a `permission` event)."""
+
+    allowed: bool
+    reason: str
+
+
+class PermissionGate(Protocol):
+    """Decides, before each tool call, whether it may run (CLAUDE.md security rules)."""
+
+    async def check(self, call: ToolCall, spec: ToolSpec) -> PermissionDecision:
+        """Allow, deny, or ask the user."""
+        ...
+
+
 class Frontend(Protocol):
     """Whoever is watching a run: the CLI now, web or Telegram later (spec gap 12)."""
 
@@ -228,8 +249,8 @@ class Frontend(Protocol):
         """Called for every event, including live-only ones."""
         ...
 
-    async def confirm(self, call: ToolCall, spec: ToolSpec) -> bool:
-        """Ask the user whether a risky call may run (used from M3)."""
+    async def confirm(self, call: ToolCall, spec: ToolSpec) -> "ConfirmAnswer":
+        """Ask the user whether a risky call may run: yes, no, or always (this run)."""
         ...
 
     async def ask(self, question: str) -> str:

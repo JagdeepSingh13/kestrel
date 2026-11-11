@@ -7,13 +7,14 @@ import json
 
 from rich.console import Console
 from rich.markup import escape
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Prompt
 from rich.status import Status
 
 from kestrel.cli.output import console, err_console
-from kestrel.core.types import Event, EventType, JSONValue, ToolCall, ToolSpec
+from kestrel.core.types import ConfirmAnswer, Event, EventType, JSONValue, ToolCall, ToolSpec
 
 PREVIEW_CHARS = 300
+CONFIRM_PREVIEW_CHARS = 600
 
 
 class CliFrontend:
@@ -65,11 +66,24 @@ class CliFrontend:
             case _:
                 pass
 
-    async def confirm(self, call: ToolCall, spec: ToolSpec) -> bool:
-        """Ask before a risky tool runs (permissions arrive in M3)."""
+    async def confirm(self, call: ToolCall, spec: ToolSpec) -> ConfirmAnswer:
+        """Ask before a risky tool runs: [y]es, [n]o, or [a]lways for this run."""
         self.stop()
         args = json.dumps(call.arguments, ensure_ascii=False)
-        return Confirm.ask(f"Run {call.name} {args}?", console=err_console, default=False)
+        if len(args) > CONFIRM_PREVIEW_CHARS:
+            args = args[:CONFIRM_PREVIEW_CHARS] + "..."
+        err_console.print(
+            f"[bold yellow]{escape(call.name)}[/bold yellow] wants to run: {escape(args)}"
+        )
+        answer = Prompt.ask(
+            "Allow? [y]es / [n]o / [a]lways this run",
+            choices=["y", "n", "a"],
+            default="n",
+            console=err_console,
+            show_choices=False,
+        )
+        answers: dict[str, ConfirmAnswer] = {"y": "yes", "a": "always"}
+        return answers.get(answer, "no")
 
     async def ask(self, question: str) -> str:
         """Ask the user something on the agent's behalf (M3)."""
