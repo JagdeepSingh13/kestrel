@@ -43,6 +43,11 @@ Existing tools are chat-UI-first (Open WebUI, AnythingLLM) or assume strong clou
 
 Kestrel is an **inner harness** (the runtime: loop, tools, context, safety), not an outer harness (AGENTS.md, linters, CI around a coding agent).
 
+### Model, harness, context (framing, 2026-11-11)
+An agent is three parts: the **model** (reasons and decides; the user picks it, a backend runs it), the **harness** (Kestrel: what the model sees, what it may do, what gets checked and recorded) and the **context** (the agent file and the workspace files). Harness parts, used as shared vocabulary in README, docs and later `/trace` output: context, control, safety gate, action, results back, run log, inspect and replay. See `GLOSSARY.md`.
+
+Each part can improve by hand, with the user's OK, or automatically. Kestrel improves the harness (autotune, repair, model ladder) and the context (tests from runs, recipes, memory), always with the user's OK for lasting changes. Model weights are out of scope on a laptop, except a possible later export of good runs as fine-tuning data (mlx-lm LoRA). The improvement loop: run, feedback, look at the trace, keep it as a test (`/keep`), change the agent or settings, rerun all tests. Traces and tests are the base of it, which is why the run log must hold exact inputs.
+
 ### Identity and pillars
 Identity: **the harness that makes small models work.**
 
@@ -354,6 +359,7 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - Schema-driven constrained decoding (5.5) where the backend supports it.
 - Failure corpus: fixtures folder + `kestrel report-failure` (5.6).
 - `web_search`, `fetch_url`, `read_tool_output`, untrusted wrapping.
+- `model_request` events log the exact messages sent after trimming (side files over 64KB), so a run shows exactly what the model saw. Today they only log the message count and token estimate.
 - **Done when:** test corpus of 30+ malformed model outputs (in `tests/fixtures/bad_outputs/`) parsed or correctly rejected; constrained mode tested against a mocked llama.cpp and a mocked JSON-schema backend; demo research task works on a 4B model in react mode.
 
 ### M4.5: Model ladder, basic (headline feature)
@@ -367,6 +373,7 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 ### M5: Interactive chat + MCP client
 - `kestrel chat --agent X`: multi-turn session, `/agent`, `/model`, `/tools`, `/trace`, `/exit` slash commands.
 - Session persistence (SQLite) and `kestrel chat --resume <id>`.
+- Session id: every run started from one shell conversation carries the session id, so `/trace` can list a session's runs (trace levels: step, run, session).
 - MCP client: stdio + HTTP servers from config.
 - **Done when:** filesystem MCP server and one third-party MCP server work end to end.
 
@@ -388,6 +395,8 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 
 ### M7: Eval harness
 - `evals/tasks/*.yaml`: task prompt, workspace fixture, success checker (python function or file assertion).
+- Checks can judge the final answer (exact or criteria), the workspace end state (files left behind), or the sequence of tool calls. Each task starts from a fresh copy of its fixture folder as the workspace.
+- Shell: `/keep [run] "check"` turns a run (usually a failed one) into a task; `/eval` runs the agent's tasks.
 - `kestrel eval --models qwen3:8b,gemma4:4b --suite core` outputs table: success rate, avg steps, repairs per run, tokens, wall time.
 - Results saved as JSON + markdown for README leaderboard.
 - Designed as the foundation for the autotuner: the runner takes a harness config (tool mode, prompt template, tool description style, max tools, temperature, context strategy) as an input, not hardcoded, and is callable as a library, not just a CLI.
@@ -423,6 +432,9 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 ### Backlog (unscheduled)
 - Hardware-aware runtime: knows RAM, loaded models, battery, thermals; avoids loading two 8B models on 16GB; laptop mode on battery; warns on fanless throttling.
 - Agent tests: each agent YAML ships test cases; `kestrel test agents/researcher.yaml --model qwen3:8b` gives a pass rate.
+- Consistency probe: run the same task phrased two ways; different answers mean one is wrong. Candidate stuck signal for the model ladder.
+- Export good runs as fine-tuning data (mlx-lm LoRA on a 16GB Mac).
+- Review agent: an agent that reads recent run logs and proposes agent-file changes, applied only with the user's OK.
 - Time-travel debugging: fork a past run at step N, change model, prompt or tool, rerun, diff.
 - Multi-model team: tiny model for routing and summarizing tool output, 8B for reasoning, embeddings for memory, scheduled to minimize model swapping.
 - Tool output shaping: compact, paged, structured outputs for 8K windows.
