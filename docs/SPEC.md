@@ -453,6 +453,8 @@ Uses: `kestrel trace`, replay tests (feed recorded `model_response`s into FakePr
 
 ```toml
 default_agent = "default"
+default_provider = "ollama"          # used by `kestrel ask` when --provider is not given
+default_model = "qwen3:8b"           # used when --model is not given (optional)
 
 [providers.ollama]
 base_url = "http://localhost:11434/v1"
@@ -473,7 +475,14 @@ name = "fs"
 command = ["npx", "-y", "@modelcontextprotocol/server-filesystem", "."]
 ```
 
-Env overrides: `KESTREL_CONFIG`, `KESTREL_DATA_DIR`.
+Env overrides: `KESTREL_CONFIG`, `KESTREL_DATA_DIR`. Without `KESTREL_CONFIG`, non-Windows systems honour `XDG_CONFIG_HOME`.
+
+Rules (implemented in `core/config.py`, M1):
+- No file: built-in providers `ollama` (11434), `lmstudio` (1234), `llamacpp` (8080), `vllm` (8000).
+- `[providers.X]` replaces the built-in of the same name; other built-ins stay.
+- Unknown keys are errors, reported with their location (e.g. `providers.ollama.port`).
+- An `api_key` written in the file is refused; use `api_key_env`.
+- A provider is `remote` when its host is not loopback (`localhost`, `127.0.0.1`, `::1`); LAN hosts count as remote.
 
 ---
 
