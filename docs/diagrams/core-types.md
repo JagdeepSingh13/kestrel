@@ -69,9 +69,9 @@ Errors (all subclass `ProviderError`, so callers can catch one type):
 
 | Error | When | What the user sees |
 |---|---|---|
-| `BackendUnreachable` | connection refused / DNS fails (after retries) | "Nothing is listening at http://localhost:11434. Is Ollama running?" |
-| `BackendTimeout` | no response within the timeout | which phase timed out |
+| `BackendUnreachableError` | connection refused / DNS fails (after retries) | "Nothing is listening at http://localhost:11434. Is Ollama running?" |
+| `BackendTimeoutError` | no response within the timeout | which phase timed out |
 | `BackendHTTPError` | 4xx/5xx | status + first 500 chars of the body (e.g. "model not found") |
-| `BadBackendResponse` | response isn't the expected JSON | what was missing |
+| `BadBackendResponseError` | response isn't the expected JSON | what was missing |
 
 `JSONValue` is a recursive type alias (str, int, float, bool, None, list, dict) used instead of `Any` for tool arguments and JSON Schemas.
