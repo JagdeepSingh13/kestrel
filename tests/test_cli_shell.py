@@ -2,22 +2,20 @@
 
 from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import pytest
 
 from kestrel.cli.prompt import SlashCompleter
-from kestrel.cli.shell import CONTEXT_WARNING_TOKENS, Session, Shell
+from kestrel.cli.shell import Session, Shell
 from kestrel.core.config import KestrelConfig, ProviderConfig
 from kestrel.core.types import (
     BackendUnreachableError,
     JSONObject,
     Message,
-    ModelResponse,
     Provider,
-    Role,
     StreamChunk,
     ToolSpec,
-    Usage,
 )
 from kestrel.providers.fake import FakeProvider
 
@@ -25,7 +23,10 @@ type Line = str | type[BaseException]
 
 
 def make_shell(
-    lines: list[Line], provider: Provider, model: str | None = "m"
+    lines: list[Line],
+    provider: Provider,
+    model: str | None = "m",
+    env: dict[str, str] | None = None,
 ) -> tuple[Shell, list[str]]:
     """A shell whose input is `lines` (an exception class is raised instead of read)."""
     opened: list[str] = []
@@ -47,7 +48,7 @@ def make_shell(
         KestrelConfig(),
         Session(provider="ollama", model=model),
         open_provider=open_provider,
-        env={},
+        env=env or {},
         read_line=read_line,
     )
     return shell, opened
@@ -161,15 +162,16 @@ def test_no_model_asks_to_pick_one(capsys: pytest.CaptureFixture[str]) -> None:
     assert fake.calls == []
 
 
-def test_long_conversation_warns(capsys: pytest.CaptureFixture[str]) -> None:
-    reply = ModelResponse(
-        message=Message(role=Role.assistant, content="ok"),
-        raw_text="ok",
-        usage=Usage(prompt_tokens=CONTEXT_WARNING_TOKENS + 1, completion_tokens=1),
-    )
-    shell, _ = make_shell(["hi"], FakeProvider([reply]))
+def test_long_conversation_is_trimmed_to_fit(capsys: pytest.CaptureFixture[str]) -> None:
+    fake = FakeProvider([FakeProvider.text("x" * 200) for _ in range(4)])
+    shell, _ = make_shell(["one", "two", "three", "four"], fake)
+    shell.session.context_window = 100
     shell.run()
-    assert "/clear starts fresh" in capsys.readouterr().err
+    assert len(shell.session.history) == 8  # the shell still remembers everything
+    last_sent = [m.content for m in fake.calls[-1].messages]
+    assert last_sent[-1] == "four"
+    assert "one" not in last_sent  # but older turns were left out of the prompt
+    assert "Left out" in capsys.readouterr().err
 
 
 def test_completer_suggests_commands_and_models() -> None:
@@ -184,3 +186,34 @@ def test_completer_suggests_commands_and_models() -> None:
     assert complete("/mo") == ["/model"]
     assert complete("/model q") == ["qwen3:8b"]
     assert complete("hello") == []
+
+
+def test_run_then_trace_inside_the_shell(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake = FakeProvider(
+        [FakeProvider.tool_call("add", {"a": 17, "b": 25}), FakeProvider.text("It is 42.")]
+    )
+    env = {"KESTREL_DATA_DIR": str(tmp_path)}
+    shell, _ = make_shell(["/run What is 17 + 25?", "/trace", "/trace list"], fake, env=env)
+    shell.run()
+    out = capsys.readouterr()
+    assert "It is 42." in out.out  # the agent's answer
+    assert "tool add" in out.err  # tool calls shown live
+    for text in ["run_start", "tool_call", "final", "run_end"]:
+        assert text in out.out  # /trace timeline
+    assert "What is 17 + 25?" in out.out  # /trace list
+    assert len(list((tmp_path / "runs").glob("*.jsonl"))) == 1
+    assert shell.session.history == []  # agent runs do not enter the chat
+
+
+def test_run_needs_a_task_and_trace_needs_a_run(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    shell, _ = make_shell(
+        ["/run", "/trace"], FakeProvider(), env={"KESTREL_DATA_DIR": str(tmp_path)}
+    )
+    shell.run()
+    err = capsys.readouterr().err
+    assert "Usage: /run TASK" in err
+    assert "No runs yet" in err

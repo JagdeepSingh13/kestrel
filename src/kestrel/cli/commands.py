@@ -5,9 +5,12 @@ from dataclasses import dataclass
 
 from rich.markup import escape
 
-from kestrel.cli.output import err_console, print_reports
+from kestrel.cli.agent_run import start_run
+from kestrel.cli.output import console, err_console, print_reports
 from kestrel.cli.shell import Shell
+from kestrel.cli.trace import print_run_list, print_trace
 from kestrel.core.config import ConfigError
+from kestrel.core.events import find_run, runs_dir
 from kestrel.core.types import ProviderError
 from kestrel.providers.discovery import discover
 
@@ -39,7 +42,7 @@ def run_command(shell: Shell, line: str) -> bool:
 def _help(shell: Shell, arg: str) -> bool:
     for command in COMMANDS.values():
         if not command.hidden:
-            usage = escape(f"{command.usage:<18}")  # pad before escaping, or [..] skews it
+            usage = escape(f"{command.usage:<22}")  # pad before escaping, or [..] skews it
             err_console.print(f"  [bold]{usage}[/bold] {command.help}")
     err_console.print("  Anything else is sent to the model. Ctrl-C stops a reply, Ctrl-D quits.")
     return True
@@ -114,6 +117,45 @@ def _think(shell: Shell, arg: str) -> bool:
     return True
 
 
+def _run(shell: Shell, arg: str) -> bool:
+    if not arg:
+        err_console.print("Usage: /run TASK, e.g. /run What is 17 + 25? Use the add tool.")
+        return True
+    if shell.session.model is None:
+        err_console.print("[red]No model chosen.[/red] /model NAME picks one.")
+        return True
+    name = shell.session.provider
+    start_run(
+        arg,
+        provider_name=name,
+        provider_config=shell.config.provider(name),
+        open_provider=shell.open_provider,
+        model=shell.session.model,
+        env=shell.env,
+        show_thinking=shell.session.show_thinking,
+        window=shell.session.context_window,
+    )
+    return True
+
+
+def _trace(shell: Shell, arg: str) -> bool:
+    words = arg.split()
+    full = "--full" in words
+    words = [w for w in words if w != "--full"]
+    directory = runs_dir(shell.env)
+    if words == ["list"]:
+        print_run_list(directory, console)
+        return True
+    wanted = words[0] if words else "last"
+    path = find_run(directory, wanted)
+    if path is None:
+        err_console.print(f"No single run matches {escape(wanted)!r}.")
+        print_run_list(directory, err_console)
+        return True
+    print_trace(path, console, full=full)
+    return True
+
+
 def _doctor(shell: Shell, arg: str) -> bool:
     reports = shell.run_async(discover(shell.config.providers, env=shell.env))
     print_reports(reports, err_console)
@@ -125,6 +167,8 @@ COMMANDS: dict[str, Command] = {
     "model": Command(_model, "/model [name]", "list models, or switch (keeps the conversation)"),
     "provider": Command(_provider, "/provider [name]", "list backends, or switch"),
     "think": Command(_think, "/think [on|off]", "show or hide the model's thinking"),
+    "run": Command(_run, "/run TASK", "agent run with tools (demo tools: add, echo)"),
+    "trace": Command(_trace, "/trace [id] [--full]", "show a run step by step (/trace list)"),
     "clear": Command(_clear, "/clear", "forget the conversation"),
     "doctor": Command(_doctor, "/doctor", "check which backends are running"),
     "exit": Command(_exit, "/exit", "leave (also /quit, Ctrl-D)"),

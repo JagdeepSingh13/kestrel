@@ -34,3 +34,27 @@ async def test_stream() -> None:
     assert done is not None
     assert "4" in (done.message.content or "")
     assert done.usage is not None
+
+
+async def test_agent_uses_the_add_tool() -> None:
+    from kestrel.core.context import ContextManager
+    from kestrel.core.events import EventBus
+    from kestrel.core.loop import DEFAULT_SYSTEM_PROMPT, run_agent
+    from kestrel.core.types import Event, EventType, StopReason
+    from kestrel.tools.demo import DemoToolbox
+
+    events: list[Event] = []
+    bus = EventBus("live")
+    bus.subscribe(events.append)
+    async with OpenAICompatProvider(URL) as provider:
+        result = await run_agent(
+            "What is 17 + 25? Use the add tool. /no_think",
+            provider=provider,
+            model=MODEL,
+            toolbox=DemoToolbox(),
+            bus=bus,
+            context=ContextManager(DEFAULT_SYSTEM_PROMPT),
+        )
+    assert result.stopped_reason is StopReason.final
+    assert "42" in (result.answer or "")
+    assert any(e.type is EventType.tool_call and e.data["name"] == "add" for e in events)

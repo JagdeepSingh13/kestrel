@@ -15,15 +15,13 @@ from rich.markup import escape
 from kestrel.__about__ import __version__
 from kestrel.cli.output import describe_usage, err_console, stream_answer
 from kestrel.core.config import KestrelConfig, ProviderConfig
+from kestrel.core.context import DEFAULT_WINDOW, ContextManager
 from kestrel.core.types import Message, ModelResponse, Provider, ProviderError, Role
 
 type ReadLine = Callable[[str], str]
 """Show a prompt, return the typed line. Raises EOFError (Ctrl-D) or KeyboardInterrupt."""
 type OpenProvider = Callable[[str, ProviderConfig], AbstractAsyncContextManager[Provider]]
 """Opens a provider by name and config; `cli.output.open_provider` in real use."""
-
-# Until M2 trims old messages, warn before the conversation outgrows a 16K context.
-CONTEXT_WARNING_TOKENS = 12_000
 
 
 @dataclass
@@ -33,6 +31,7 @@ class Session:
     provider: str
     model: str | None
     show_thinking: bool = False
+    context_window: int = DEFAULT_WINDOW
     history: list[Message] = field(default_factory=list[Message])
 
 
@@ -57,7 +56,7 @@ class Shell:
         """Models last listed by `/model`, used for Tab completion."""
         self.read_line = read_line
         """Set before `run()`; the terminal version needs the shell for Tab completion."""
-        self._open_provider = open_provider
+        self.open_provider = open_provider
 
     def run(self) -> None:
         """Loop until `/exit` or Ctrl-D."""
@@ -96,7 +95,15 @@ class Shell:
             )
             return
         user = Message(role=Role.user, content=text)
-        messages = [*self.session.history, user]
+        ctx = ContextManager(None, window=self.session.context_window, pin_first_user=False)
+        ctx.history = [*self.session.history, user]
+        prompt = ctx.build()
+        if prompt.trimmed:
+            err_console.print(
+                f"[dim]Left out {prompt.dropped_messages} older messages to fit the model's "
+                "memory. /clear starts fresh.[/dim]"
+            )
+        messages = prompt.messages
         try:
             response = self.run_async(self._turn(messages, model))
         except KeyboardInterrupt:
@@ -110,12 +117,6 @@ class Shell:
         self.session.history += [user, reply]
         if response.usage is not None:
             err_console.print(f"[dim]{describe_usage(response.usage)}[/dim]")
-            used = response.usage.prompt_tokens or 0
-            if used > CONTEXT_WARNING_TOKENS:
-                err_console.print(
-                    f"[yellow]The conversation is {used} tokens long; the model may start "
-                    "forgetting the beginning. /clear starts fresh.[/yellow]"
-                )
 
     def run_async[T](self, work: Coroutine[object, object, T]) -> T:
         """Run one piece of async work to completion (commands use this too)."""
@@ -124,7 +125,7 @@ class Shell:
     def provider(self) -> AbstractAsyncContextManager[Provider]:
         """Open the session's current provider."""
         name = self.session.provider
-        return self._open_provider(name, self.config.provider(name))
+        return self.open_provider(name, self.config.provider(name))
 
     async def _turn(self, messages: list[Message], model: str) -> ModelResponse:
         async with self.provider() as provider:

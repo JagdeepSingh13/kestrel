@@ -12,9 +12,13 @@ from rich.markup import escape
 
 from kestrel.__about__ import __app_name__, __version__
 from kestrel.cli import output
+from kestrel.cli.agent_run import start_run
 from kestrel.cli.output import console, describe_usage, err_console, print_reports
+from kestrel.cli.trace import print_run_list, print_trace
 from kestrel.core.config import ConfigError, KestrelConfig, ProviderConfig, load_config
-from kestrel.core.types import Message, ModelResponse, ProviderError, Role
+from kestrel.core.context import DEFAULT_WINDOW
+from kestrel.core.events import find_run, runs_dir
+from kestrel.core.types import Message, ModelResponse, ProviderError, Role, StopReason
 from kestrel.providers.discovery import Status, discover
 
 app = typer.Typer(name=__app_name__, help="Local-first agent harness for small local models.")
@@ -93,21 +97,7 @@ def ask(
     ] = False,
 ) -> None:
     """Send one message to a model and stream the answer. No agent, no tools."""
-    config = _load_config_or_exit()
-    provider_name, provider_config = _pick_provider_or_exit(config, provider)
-    model_name = model or config.default_model
-    if model_name is None:
-        err_console.print(
-            "[red]No model given.[/red] Pass --model, or set default_model in config.toml. "
-            "Run `kestrel doctor` to see which models are available."
-        )
-        raise typer.Exit(2)
-    if provider_config.is_remote:
-        err_console.print(
-            f"[bold yellow]REMOTE[/bold yellow] {escape(provider_config.base_url)}: "
-            "your prompt leaves this machine."
-        )
-
+    provider_name, provider_config, model_name = _resolve_or_exit(provider, model)
     messages = [Message(role=Role.user, content=prompt)]
     try:
         response = asyncio.run(
@@ -137,6 +127,55 @@ async def _ask(
         )
 
 
+@app.command()
+def run(
+    task: Annotated[str, typer.Argument(help="What the agent should do.")],
+    model: ModelOption = None,
+    provider: ProviderOption = None,
+    max_steps: Annotated[int, typer.Option(help="Stop after this many model calls.")] = 15,
+    context: Annotated[int, typer.Option(help="Model context window in tokens.")] = DEFAULT_WINDOW,
+    show_thinking: Annotated[
+        bool, typer.Option("--show-thinking", help="Print the model's reasoning, dimmed.")
+    ] = False,
+) -> None:
+    """Run an agent on a task. M2: only the demo tools add and echo."""
+    provider_name, provider_config, model_name = _resolve_or_exit(provider, model)
+    result = start_run(
+        task,
+        provider_name=provider_name,
+        provider_config=provider_config,
+        open_provider=output.open_provider,
+        model=model_name,
+        env=os.environ,
+        show_thinking=show_thinking,
+        max_steps=max_steps,
+        window=context,
+    )
+    if result is None:
+        raise typer.Exit(130)
+    if result.stopped_reason is not StopReason.final:
+        raise typer.Exit(1)
+
+
+@app.command()
+def trace(
+    run: Annotated[str, typer.Argument(help="Run id, a unique prefix, or 'last'.")] = "last",
+    full: Annotated[bool, typer.Option("--full", help="Show full text, not previews.")] = False,
+    list_runs: Annotated[bool, typer.Option("--list", help="List recent runs.")] = False,
+) -> None:
+    """Show what happened in a recorded run."""
+    directory = runs_dir(os.environ)
+    if list_runs:
+        print_run_list(directory, console)
+        return
+    path = find_run(directory, run)
+    if path is None:
+        err_console.print(f"[red]No single run matches {escape(run)!r}.[/red]")
+        print_run_list(directory, err_console)
+        raise typer.Exit(2)
+    print_trace(path, console, full=full)
+
+
 def _start_shell(model: str | None, provider: str | None) -> None:
     from kestrel.cli.prompt import terminal_read_line
     from kestrel.cli.shell import Session, Shell
@@ -147,6 +186,25 @@ def _start_shell(model: str | None, provider: str | None) -> None:
     shell = Shell(config, session, open_provider=output.open_provider, env=os.environ)
     shell.read_line = terminal_read_line(lambda: shell.model_names)
     shell.run()
+
+
+def _resolve_or_exit(provider: str | None, model: str | None) -> tuple[str, ProviderConfig, str]:
+    """Provider name, its config, and the model, from options or config defaults."""
+    config = _load_config_or_exit()
+    provider_name, provider_config = _pick_provider_or_exit(config, provider)
+    model_name = model or config.default_model
+    if model_name is None:
+        err_console.print(
+            "[red]No model given.[/red] Pass --model, or set default_model in config.toml. "
+            "Run `kestrel doctor` to see which models are available."
+        )
+        raise typer.Exit(2)
+    if provider_config.is_remote:
+        err_console.print(
+            f"[bold yellow]REMOTE[/bold yellow] {escape(provider_config.base_url)}: "
+            "your prompt leaves this machine."
+        )
+    return provider_name, provider_config, model_name
 
 
 def _load_config_or_exit() -> KestrelConfig:

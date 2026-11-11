@@ -321,6 +321,8 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - Native tool mode only. Test tools: `add(a, b)`, `echo(text)`.
 - `kestrel trace <run_id>` pretty-prints a run.
 - **Done when:** FakeProvider-driven tests cover: final answer, single tool call, multi-step, max_steps stop, tool error returned to model.
+- **Decisions (2026-11-11):** the loop streams; live pieces are `model_delta` events shown on screen but never written to the log. `kestrel run "task"` ships in M2 with only the `add`/`echo` demo tools. The shell uses the context manager to trim long chats (shell chats are not logged as runs). Run ids are `YYYYMMDD-HHMMSS-xxxx`; `kestrel trace last` opens the newest. Context window defaults to 16384 (`--context`), moving to agent YAML in M3 and profiles in M4. Reasoning is logged in full, never sent back to the model.
+- **Status: done (v0.0.2).** Live run on qwen3:8b: answered in 2 steps. Findings for M4: qwen3 issued `add` and `echo` in one step and passed `echo` the sum before seeing `add`'s result (it guessed); the chars/3.5 estimate was about 20% below the backend's prompt token count (198 vs 247).
 
 ### M3: Agent YAML + core tools + safety
 - `agents/schema.py`, loader, built-in `default` agent.

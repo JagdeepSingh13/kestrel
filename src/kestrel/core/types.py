@@ -5,6 +5,7 @@ Providers convert backend wire formats into these types; nothing above
 """
 
 from collections.abc import AsyncIterator, Sequence
+from datetime import datetime
 from enum import StrEnum
 from typing import Literal, Protocol, Self
 
@@ -141,6 +142,98 @@ class Provider(Protocol):
 
     async def list_models(self) -> list[str]:
         """Names of the models the backend can serve."""
+        ...
+
+
+class EventType(StrEnum):
+    """Kinds of things that happen during a run (spec section 11)."""
+
+    run_start = "run_start"
+    model_request = "model_request"
+    model_delta = "model_delta"
+    """A streamed piece of the reply. Live only: shown on screen, never written to the log."""
+    model_response = "model_response"
+    repair = "repair"
+    tool_call = "tool_call"
+    permission = "permission"
+    tool_result = "tool_result"
+    context_trim = "context_trim"
+    loop_warning = "loop_warning"
+    error = "error"
+    final = "final"
+    run_end = "run_end"
+
+
+LIVE_ONLY_EVENTS = frozenset({EventType.model_delta})
+
+
+class Event(_Model):
+    """One thing that happened in a run. One JSONL line in the run log."""
+
+    ts: datetime
+    run_id: str
+    step: int
+    """0 before the first model call; then the loop's step number."""
+    type: EventType
+    data: JSONObject = Field(default_factory=dict[str, JSONValue])
+
+
+class StopReason(StrEnum):
+    """Why a run ended."""
+
+    final = "final"
+    max_steps = "max_steps"
+    budget = "budget"
+    loop = "loop"
+    cancelled = "cancelled"
+    error = "error"
+
+
+class ToolResult(_Model):
+    """What a tool gave back. Failures are results too (`is_error`), never exceptions."""
+
+    call_id: str
+    content: str
+    is_error: bool = False
+
+
+class RunResult(_Model):
+    """Summary of a finished run."""
+
+    run_id: str
+    stopped_reason: StopReason
+    answer: str | None
+    steps: int
+    prompt_tokens: int
+    completion_tokens: int
+    wall_seconds: float
+
+
+class Toolbox(Protocol):
+    """The tools an agent may use. The loop only sees this interface (CLAUDE.md rule 5)."""
+
+    def specs(self) -> list[ToolSpec]:
+        """Descriptions of every available tool, sent to the model."""
+        ...
+
+    async def execute(self, call: ToolCall) -> ToolResult:
+        """Run one call. Unknown tools, bad arguments and crashes return `is_error=True`."""
+        ...
+
+
+class Frontend(Protocol):
+    """Whoever is watching a run: the CLI now, web or Telegram later (spec gap 12)."""
+
+    def on_event(self, event: Event) -> None:
+        """Called for every event, including live-only ones."""
+        ...
+
+    async def confirm(self, call: ToolCall, spec: ToolSpec) -> bool:
+        """Ask the user whether a risky call may run (used from M3)."""
+        ...
+
+    async def ask(self, question: str) -> str:
+        """Ask the user a question on the agent's behalf (used from M3)."""
         ...
 
 

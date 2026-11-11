@@ -1,0 +1,221 @@
+"""Seam: run_agent() driven by scripted FakeProvider replies (spec M2 done list and more)."""
+
+import asyncio
+from collections.abc import AsyncIterator, Iterator, Sequence
+
+import pytest
+
+from kestrel.core.context import ContextManager
+from kestrel.core.events import EventBus
+from kestrel.core.loop import DEFAULT_SYSTEM_PROMPT, Budgets, run_agent
+from kestrel.core.types import (
+    BackendUnreachableError,
+    Event,
+    EventType,
+    JSONObject,
+    Message,
+    Provider,
+    Role,
+    RunResult,
+    StopReason,
+    StreamChunk,
+    ToolCall,
+    ToolResult,
+    ToolSpec,
+    Usage,
+)
+from kestrel.providers.fake import FakeProvider
+from kestrel.tools.demo import DemoToolbox
+
+TASK = "What is 17 + 25? Then echo the answer."
+text = FakeProvider.text
+call = FakeProvider.tool_call
+
+
+class Recorded:
+    """Runs the agent and keeps every event."""
+
+    def __init__(self) -> None:
+        self.events: list[Event] = []
+
+    def types(self, *, live: bool = False) -> list[EventType]:
+        return [e.type for e in self.events if live or e.type is not EventType.model_delta]
+
+    def of(self, type: EventType) -> list[Event]:
+        return [e for e in self.events if e.type is type]
+
+    async def run(
+        self,
+        provider: Provider,
+        budgets: Budgets | None = None,
+        toolbox: DemoToolbox | None = None,
+        clock: Iterator[float] | None = None,
+    ) -> RunResult:
+        bus = EventBus("test-run")
+        bus.subscribe(self.events.append)
+        ticks = clock or iter(float(i) for i in range(10_000))
+        return await run_agent(
+            TASK,
+            provider=provider,
+            model="m",
+            toolbox=toolbox or DemoToolbox(),
+            bus=bus,
+            context=ContextManager(DEFAULT_SYSTEM_PROMPT),
+            budgets=budgets,
+            clock=lambda: next(ticks),
+        )
+
+
+def tool_messages(messages: Sequence[Message]) -> list[str | None]:
+    return [m.content for m in messages if m.role is Role.tool]
+
+
+async def test_final_answer_right_away() -> None:
+    rec = Recorded()
+    fake = FakeProvider([text("Hello there")])
+    result = await rec.run(fake)
+    assert result.stopped_reason is StopReason.final
+    assert result.answer == "Hello there"
+    assert result.steps == 1
+    assert rec.types() == [
+        EventType.run_start,
+        EventType.model_request,
+        EventType.model_response,
+        EventType.final,
+        EventType.run_end,
+    ]
+    assert EventType.model_delta in rec.types(live=True)  # streamed to the frontend
+    assert fake.calls[0].messages[0].content == DEFAULT_SYSTEM_PROMPT
+    assert fake.calls[0].messages[1].content == TASK
+    assert [t.name for t in fake.calls[0].tools] == ["add", "echo"]
+
+
+async def test_single_tool_call_result_goes_back_to_the_model() -> None:
+    rec = Recorded()
+    fake = FakeProvider([call("add", {"a": 17, "b": 25}), text("17 + 25 = 42.")])
+    result = await rec.run(fake)
+    assert result.answer == "17 + 25 = 42."
+    assert result.steps == 2
+    assert tool_messages(fake.calls[1].messages) == ["42"]
+    [tool_result] = rec.of(EventType.tool_result)
+    assert tool_result.data["content"] == "42"
+    assert tool_result.data["is_error"] is False
+
+
+async def test_multi_step_run() -> None:
+    rec = Recorded()
+    fake = FakeProvider(
+        [
+            call("add", {"a": 17, "b": 25}, call_id="c1"),
+            call("echo", {"text": "42"}, call_id="c2"),
+            text("42"),
+        ]
+    )
+    result = await rec.run(fake)
+    assert result.stopped_reason is StopReason.final
+    assert result.steps == 3
+    assert tool_messages(fake.calls[2].messages) == ["42", "42"]
+    assert [e.step for e in rec.of(EventType.tool_call)] == [1, 2]
+
+
+async def test_max_steps_stops_the_run() -> None:
+    rec = Recorded()
+    fake = FakeProvider([call("echo", {"text": "again"}) for _ in range(5)])
+    result = await rec.run(fake, Budgets(max_steps=2))
+    assert result.stopped_reason is StopReason.max_steps
+    assert result.answer is None
+    assert result.steps == 2
+    assert len(fake.calls) == 2
+    assert rec.of(EventType.run_end)[0].data["stopped_reason"] == "max_steps"
+
+
+async def test_tool_error_is_returned_to_the_model_and_run_continues() -> None:
+    rec = Recorded()
+    fake = FakeProvider([call("add", {"a": "17", "b": 25}), text("sorry")])
+    result = await rec.run(fake)
+    assert result.stopped_reason is StopReason.final
+    [sent] = tool_messages(fake.calls[1].messages)
+    assert sent is not None
+    assert sent.startswith("ERROR: add needs numbers")
+    assert rec.of(EventType.tool_result)[0].data["is_error"] is True
+
+
+async def test_unknown_tool_lists_the_real_ones() -> None:
+    fake = FakeProvider([call("multiply", {"a": 2, "b": 3}), text("ok")])
+    await Recorded().run(fake)
+    assert tool_messages(fake.calls[1].messages) == [
+        "ERROR: unknown tool 'multiply'. Available tools: add, echo"
+    ]
+
+
+class CrashingToolbox(DemoToolbox):
+    async def execute(self, call: ToolCall) -> ToolResult:
+        raise RuntimeError("disk on fire")
+
+
+async def test_crashing_tool_does_not_crash_the_run() -> None:
+    fake = FakeProvider([call("add", {"a": 1, "b": 2}), text("ok")])
+    result = await Recorded().run(fake, toolbox=CrashingToolbox())
+    assert result.stopped_reason is StopReason.final
+    assert tool_messages(fake.calls[1].messages) == [
+        "ERROR: tool add crashed: RuntimeError: disk on fire"
+    ]
+
+
+async def test_backend_failure_ends_run_with_error() -> None:
+    rec = Recorded()
+    result = await rec.run(FakeProvider([BackendUnreachableError("http://x")]))
+    assert result.stopped_reason is StopReason.error
+    [error] = rec.of(EventType.error)
+    assert error.data["kind"] == "BackendUnreachableError"
+    assert rec.types()[-1] is EventType.run_end
+
+
+async def test_token_budget() -> None:
+    usage = Usage(prompt_tokens=100, completion_tokens=60)
+    fake = FakeProvider([call("echo", {"text": "x"}, usage=usage), text("never")])
+    result = await Recorded().run(fake, Budgets(max_tokens_total=150))
+    assert result.stopped_reason is StopReason.budget
+    assert (result.prompt_tokens, result.completion_tokens) == (100, 60)
+
+
+async def test_wall_time_budget() -> None:
+    fake = FakeProvider([call("echo", {"text": "x"}), text("never")])
+    clock = iter([0.0, 0.0, 0.1, 99.0, 99.0, 99.0])  # start, tool timing, then late
+    result = await Recorded().run(fake, Budgets(max_wall_seconds=10), clock=clock)
+    assert result.stopped_reason is StopReason.budget
+    assert result.steps == 1
+
+
+async def test_reasoning_is_logged_but_never_resent() -> None:
+    rec = Recorded()
+    first = call("echo", {"text": "hi"})
+    first = first.model_copy(
+        update={"message": first.message.model_copy(update={"reasoning": "let me think"})}
+    )
+    fake = FakeProvider([first, text("hi")])
+    await rec.run(fake)
+    assert rec.of(EventType.model_response)[0].data["reasoning"] == "let me think"
+    assert all(m.reasoning is None for m in fake.calls[1].messages)
+
+
+class CancelledProvider(FakeProvider):
+    async def stream(
+        self,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec] | None = None,
+        *,
+        model: str,
+        temperature: float = 0.2,
+        max_tokens: int | None = None,
+        json_schema: JSONObject | None = None,
+    ) -> AsyncIterator[StreamChunk]:
+        yield StreamChunk(text="Hel")
+        raise asyncio.CancelledError
+
+
+async def test_cancel_logs_run_end_then_propagates() -> None:
+    rec = Recorded()
+    with pytest.raises(asyncio.CancelledError):
+        await rec.run(CancelledProvider())
+    assert rec.of(EventType.run_end)[0].data["stopped_reason"] == "cancelled"

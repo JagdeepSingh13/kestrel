@@ -4,13 +4,17 @@ from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 
 from kestrel.core.types import (
+    Event,
+    EventType,
     JSONObject,
     Message,
     ModelResponse,
     ProviderError,
     Role,
     StreamChunk,
+    ToolCall,
     ToolSpec,
+    Usage,
 )
 
 type Scripted = ModelResponse | ProviderError
@@ -49,6 +53,36 @@ class FakeProvider:
             raw_text=content,
             finish_reason="stop",
         )
+
+    @staticmethod
+    def tool_call(
+        name: str,
+        arguments: JSONObject | None = None,
+        *,
+        call_id: str = "c1",
+        content: str | None = None,
+        usage: Usage | None = None,
+    ) -> ModelResponse:
+        """Shortcut for a reply that asks to run one tool."""
+        return ModelResponse(
+            message=Message(
+                role=Role.assistant,
+                content=content,
+                tool_calls=[ToolCall(id=call_id, name=name, arguments=arguments or {})],
+            ),
+            raw_text=content or "",
+            finish_reason="tool_calls",
+            usage=usage,
+        )
+
+    @staticmethod
+    def replay(events: Sequence[Event]) -> "FakeProvider":
+        """A provider that gives back the model replies recorded in a run log, in order."""
+        script: list[Scripted] = []
+        for event in events:
+            if event.type is EventType.model_response:
+                script.append(_response_from_event(event.data))
+        return FakeProvider(script)
 
     async def chat(
         self,
@@ -120,3 +154,23 @@ def _pieces(text: str) -> list[str]:
     if start < len(text):
         pieces.append(text[start:])
     return pieces
+
+
+def _response_from_event(data: JSONObject) -> ModelResponse:
+    """Rebuild a `ModelResponse` from a `model_response` event's data."""
+    content, reasoning, raw = data.get("content"), data.get("reasoning"), data.get("raw_text")
+    reason, usage = data.get("finish_reason"), data.get("usage")
+    calls = data.get("tool_calls")
+    return ModelResponse(
+        message=Message(
+            role=Role.assistant,
+            content=content if isinstance(content, str) else None,
+            reasoning=reasoning if isinstance(reasoning, str) else None,
+            tool_calls=[ToolCall.model_validate(c) for c in calls]
+            if isinstance(calls, list)
+            else [],
+        ),
+        raw_text=raw if isinstance(raw, str) else "",
+        finish_reason=reason if isinstance(reason, str) else None,
+        usage=Usage.model_validate(usage) if isinstance(usage, dict) else None,
+    )
