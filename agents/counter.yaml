@@ -1,0 +1,12 @@
+# Example agent: counts lines of code and writes a report. Try it in the shell:
+#   /agent counter
+#   /run count lines in all .py files and write a summary to report.md
+name: counter
+description: Counts lines in files and writes a short report.
+system: |
+  You count lines in files and write short, accurate reports.
+  First list the folder (depth 3) to find the files. read_file shows each file's total
+  line count in its first line; use that number. Then write the report with write_file.
+tools: [list_dir, read_file, write_file]
+limits:
+  max_steps: 25

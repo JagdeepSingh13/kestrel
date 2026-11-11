@@ -13,10 +13,12 @@ from dataclasses import dataclass, field
 from rich.markup import escape
 
 from kestrel.__about__ import __version__
+from kestrel.agents.schema import AgentConfig
 from kestrel.cli.output import describe_usage, err_console, stream_answer
 from kestrel.core.config import KestrelConfig, ProviderConfig
 from kestrel.core.context import DEFAULT_WINDOW, ContextManager
 from kestrel.core.types import Message, ModelResponse, Provider, ProviderError, Role
+from kestrel.safety.paths import Workspace
 
 type ReadLine = Callable[[str], str]
 """Show a prompt, return the typed line. Raises EOFError (Ctrl-D) or KeyboardInterrupt."""
@@ -30,6 +32,8 @@ class Session:
 
     provider: str
     model: str | None
+    agent: AgentConfig = field(default_factory=lambda: AgentConfig(name="default"))
+    """The agent `/run` uses (`/agent NAME` switches)."""
     show_thinking: bool = False
     context_window: int = DEFAULT_WINDOW
     history: list[Message] = field(default_factory=list[Message])
@@ -46,6 +50,7 @@ class Shell:
         *,
         open_provider: OpenProvider,
         env: Mapping[str, str],
+        workspace: Workspace,
         read_line: ReadLine | None = None,
     ) -> None:
         """Create a shell; call `run()` to start it."""
@@ -57,6 +62,8 @@ class Shell:
         self.read_line = read_line
         """Set before `run()`; the terminal version needs the shell for Tab completion."""
         self.open_provider = open_provider
+        self.workspace = workspace
+        """The only folder agents may touch (owner decision: fixed for now)."""
 
     def run(self) -> None:
         """Loop until `/exit` or Ctrl-D."""
@@ -137,6 +144,10 @@ class Shell:
         provider = self.config.provider(self.session.provider)
         parts = [f"Kestrel {__version__}", self.session.provider, self.session.model or "no model"]
         err_console.print(" · ".join(parts) + " · /help for commands", highlight=False)
+        err_console.print(
+            f"[dim]agent {escape(self.session.agent.name)} · workspace {self.workspace.root}[/dim]",
+            highlight=False,
+        )
         if provider.is_remote:
             err_console.print(
                 f"[bold yellow]REMOTE[/bold yellow] {escape(provider.base_url)}: "

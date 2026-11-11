@@ -11,12 +11,12 @@ import typer
 from rich.markup import escape
 
 from kestrel.__about__ import __app_name__, __version__
-from kestrel.cli import output
+from kestrel.agents.loader import AgentError, load_agent
+from kestrel.cli import agent_run, output
 from kestrel.cli.agent_run import start_run
 from kestrel.cli.output import console, describe_usage, err_console, print_reports
 from kestrel.cli.trace import print_run_list, print_trace
 from kestrel.core.config import ConfigError, KestrelConfig, ProviderConfig, load_config
-from kestrel.core.context import DEFAULT_WINDOW
 from kestrel.core.events import find_run, runs_dir
 from kestrel.core.types import Message, ModelResponse, ProviderError, Role, StopReason
 from kestrel.providers.discovery import Status, discover
@@ -132,24 +132,34 @@ def run(
     task: Annotated[str, typer.Argument(help="What the agent should do.")],
     model: ModelOption = None,
     provider: ProviderOption = None,
-    max_steps: Annotated[int, typer.Option(help="Stop after this many model calls.")] = 15,
-    context: Annotated[int, typer.Option(help="Model context window in tokens.")] = DEFAULT_WINDOW,
+    agent: Annotated[str | None, typer.Option(help="Agent name or .yaml path.")] = None,
+    trust_agent: Annotated[
+        bool, typer.Option("--trust-agent", help="Allow the agent file to loosen permissions.")
+    ] = False,
     show_thinking: Annotated[
         bool, typer.Option("--show-thinking", help="Print the model's reasoning, dimmed.")
     ] = False,
 ) -> None:
-    """Run an agent on a task. M2: only the demo tools add and echo."""
-    provider_name, provider_config, model_name = _resolve_or_exit(provider, model)
+    """Run an agent on a task, with its tools, inside the workspace folder."""
+    config = _load_config_or_exit()
+    try:
+        chosen = load_agent(agent or config.default_agent, os.environ, trusted=trust_agent)
+    except AgentError as exc:
+        err_console.print(f"[red]{escape(str(exc))}[/red]")
+        raise typer.Exit(2) from None
+    provider_name, provider_config, model_name = _resolve_or_exit(
+        provider or chosen.provider, model or (chosen.model[0] if chosen.model else None)
+    )
     result = start_run(
         task,
+        agent=chosen,
+        workspace=agent_run.default_workspace(),
         provider_name=provider_name,
         provider_config=provider_config,
         open_provider=output.open_provider,
         model=model_name,
         env=os.environ,
         show_thinking=show_thinking,
-        max_steps=max_steps,
-        window=context,
     )
     if result is None:
         raise typer.Exit(130)
@@ -182,8 +192,19 @@ def _start_shell(model: str | None, provider: str | None) -> None:
 
     config = _load_config_or_exit()
     provider_name, _ = _pick_provider_or_exit(config, provider)
-    session = Session(provider=provider_name, model=model or config.default_model)
-    shell = Shell(config, session, open_provider=output.open_provider, env=os.environ)
+    try:
+        agent = load_agent(config.default_agent, os.environ)
+    except AgentError as exc:
+        err_console.print(f"[red]{escape(str(exc))}[/red]")
+        raise typer.Exit(2) from None
+    session = Session(provider=provider_name, model=model or config.default_model, agent=agent)
+    shell = Shell(
+        config,
+        session,
+        open_provider=output.open_provider,
+        env=os.environ,
+        workspace=agent_run.default_workspace(),
+    )
     shell.read_line = terminal_read_line(lambda: shell.model_names)
     shell.run()
 

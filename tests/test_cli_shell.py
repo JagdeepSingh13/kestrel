@@ -18,6 +18,7 @@ from kestrel.core.types import (
     ToolSpec,
 )
 from kestrel.providers.fake import FakeProvider
+from kestrel.safety.paths import Workspace
 
 type Line = str | type[BaseException]
 
@@ -49,6 +50,7 @@ def make_shell(
         Session(provider="ollama", model=model),
         open_provider=open_provider,
         env=env or {},
+        workspace=Workspace(Path(env["KESTREL_DATA_DIR"]) if env else Path.cwd()),
         read_line=read_line,
     )
     return shell, opened
@@ -191,18 +193,16 @@ def test_completer_suggests_commands_and_models() -> None:
 def test_run_then_trace_inside_the_shell(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    fake = FakeProvider(
-        [FakeProvider.tool_call("add", {"a": 17, "b": 25}), FakeProvider.text("It is 42.")]
-    )
+    fake = FakeProvider([FakeProvider.tool_call("list_dir", {}), FakeProvider.text("It is empty.")])
     env = {"KESTREL_DATA_DIR": str(tmp_path)}
-    shell, _ = make_shell(["/run What is 17 + 25?", "/trace", "/trace list"], fake, env=env)
+    shell, _ = make_shell(["/run What is here?", "/trace", "/trace list"], fake, env=env)
     shell.run()
     out = capsys.readouterr()
-    assert "It is 42." in out.out  # the agent's answer
-    assert "tool add" in out.err  # tool calls shown live
+    assert "It is empty." in out.out  # the agent's answer
+    assert "tool list_dir" in out.err  # tool calls shown live
     for text in ["run_start", "tool_call", "final", "run_end"]:
         assert text in out.out  # /trace timeline
-    assert "What is 17 + 25?" in out.out  # /trace list
+    assert "What is here?" in out.out  # /trace list
     assert len(list((tmp_path / "runs").glob("*.jsonl"))) == 1
     assert shell.session.history == []  # agent runs do not enter the chat
 
@@ -217,3 +217,22 @@ def test_run_needs_a_task_and_trace_needs_a_run(
     err = capsys.readouterr().err
     assert "Usage: /run TASK" in err
     assert "No runs yet" in err
+
+
+def test_agent_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    env = {"KESTREL_DATA_DIR": str(tmp_path), "KESTREL_CONFIG": str(tmp_path / "c.toml")}
+    lines: list[Line] = [
+        "/agents",
+        "/agent counter",
+        "/tools",
+        "/workspace elsewhere",
+        "/agent nope",
+    ]
+    shell, _ = make_shell(lines, FakeProvider(), env=env)
+    shell.run()
+    err = capsys.readouterr().err
+    assert "default" in err and "counter" in err  # /agents
+    assert shell.session.agent.name == "counter"
+    assert "write_file" in err and "overwrite: confirm" in err  # /tools
+    assert "Changing it is turned off" in err  # /workspace refuses to move
+    assert "No agent named 'nope'" in err

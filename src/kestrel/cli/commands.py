@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from rich.markup import escape
 
+from kestrel.agents.loader import AgentError, list_agents, load_agent
 from kestrel.cli.agent_run import start_run
 from kestrel.cli.output import console, err_console, print_reports
 from kestrel.cli.shell import Shell
@@ -13,6 +14,7 @@ from kestrel.core.config import ConfigError
 from kestrel.core.events import find_run, runs_dir
 from kestrel.core.types import ProviderError
 from kestrel.providers.discovery import discover
+from kestrel.tools.builtin import BUILTIN_TOOLS
 
 type Handler = Callable[[Shell, str], bool]
 """Gets the shell and the text after the command name. Returns False to leave the shell."""
@@ -119,22 +121,82 @@ def _think(shell: Shell, arg: str) -> bool:
 
 def _run(shell: Shell, arg: str) -> bool:
     if not arg:
-        err_console.print("Usage: /run TASK, e.g. /run What is 17 + 25? Use the add tool.")
+        err_console.print("Usage: /run TASK, e.g. /run list the files and summarize them")
         return True
-    if shell.session.model is None:
+    agent = shell.session.agent
+    model = agent.model[0] if agent.model else shell.session.model
+    if model is None:
         err_console.print("[red]No model chosen.[/red] /model NAME picks one.")
         return True
-    name = shell.session.provider
+    name = agent.provider or shell.session.provider
+    try:
+        provider_config = shell.config.provider(name)
+    except ConfigError as exc:
+        err_console.print(f"[red]{escape(str(exc))}[/red]")
+        return True
     start_run(
         arg,
+        agent=agent,
+        workspace=shell.workspace,
         provider_name=name,
-        provider_config=shell.config.provider(name),
+        provider_config=provider_config,
         open_provider=shell.open_provider,
-        model=shell.session.model,
+        model=model,
         env=shell.env,
         show_thinking=shell.session.show_thinking,
-        window=shell.session.context_window,
     )
+    return True
+
+
+def _agents(shell: Shell, arg: str) -> bool:
+    for name, where in list_agents(shell.env).items():
+        marker = "*" if name == shell.session.agent.name else " "
+        err_console.print(f" {marker} {escape(name):<12} [dim]{escape(where)}[/dim]")
+    return True
+
+
+def _agent(shell: Shell, arg: str) -> bool:
+    words = arg.split()
+    trusted = "--trust-agent" in words
+    names = [w for w in words if w != "--trust-agent"]
+    if not names:
+        agent = shell.session.agent
+        err_console.print(f"Agent: {escape(agent.name)}. {escape(agent.description)}")
+        err_console.print(
+            "[dim]/agent NAME switches; /agents lists them; /tools shows tools.[/dim]"
+        )
+        return True
+    try:
+        agent = load_agent(names[0], shell.env, trusted=trusted)
+    except AgentError as exc:
+        err_console.print(f"[red]{escape(str(exc))}[/red]")
+        return True
+    shell.session.agent = agent
+    model = agent.model[0] if agent.model else "the shell's model"
+    err_console.print(f"Agent: {escape(agent.name)} ({escape(model)}). {escape(agent.description)}")
+    err_console.print(f"[dim]tools: {escape(', '.join(agent.tools) or 'none')}[/dim]")
+    return True
+
+
+def _tools(shell: Shell, arg: str) -> bool:
+    agent = shell.session.agent
+    if not agent.tools:
+        err_console.print(f"Agent {escape(agent.name)} has no tools.")
+    for name in agent.tools:
+        spec = BUILTIN_TOOLS[name].spec
+        level = agent.permissions.get(name, spec.permission)
+        if spec.confirm_if_true:
+            level += f" ({spec.confirm_if_true}: confirm)"
+        err_console.print(
+            f"  [bold]{name:<12}[/bold] [dim]{escape(level):<22}[/dim] {escape(spec.description)}"
+        )
+    return True
+
+
+def _workspace(shell: Shell, arg: str) -> bool:
+    err_console.print(f"Agents can only use this folder: {shell.workspace.root}")
+    if arg:
+        err_console.print("[dim]Changing it is turned off for now, for safety.[/dim]")
     return True
 
 
@@ -167,7 +229,11 @@ COMMANDS: dict[str, Command] = {
     "model": Command(_model, "/model [name]", "list models, or switch (keeps the conversation)"),
     "provider": Command(_provider, "/provider [name]", "list backends, or switch"),
     "think": Command(_think, "/think [on|off]", "show or hide the model's thinking"),
-    "run": Command(_run, "/run TASK", "agent run with tools (demo tools: add, echo)"),
+    "run": Command(_run, "/run TASK", "run the agent on a task, with its tools"),
+    "agent": Command(_agent, "/agent [name]", "show or switch the agent /run uses"),
+    "agents": Command(_agents, "/agents", "list available agents"),
+    "tools": Command(_tools, "/tools", "the agent's tools and their permissions"),
+    "workspace": Command(_workspace, "/workspace", "the only folder agents may use"),
     "trace": Command(_trace, "/trace [id] [--full]", "show a run step by step (/trace list)"),
     "clear": Command(_clear, "/clear", "forget the conversation"),
     "doctor": Command(_doctor, "/doctor", "check which backends are running"),

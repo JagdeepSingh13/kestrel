@@ -11,7 +11,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from kestrel.core.context import ContextManager
+from kestrel.core.context import ContextManager, wrap_untrusted
 from kestrel.core.events import EventBus
 from kestrel.core.types import (
     BadBackendResponseError,
@@ -120,10 +120,13 @@ async def run_agent(
             for call in message.tool_calls:
                 totals.tool_calls += 1
                 result = await _run_tool(toolbox, call, bus, step, clock, gate, specs)
+                content = (
+                    result.content
+                    if result.is_error  # Kestrel's own message, not outside data
+                    else wrap_untrusted(_source(call), result.content)
+                )
                 context.add(
-                    Message(
-                        role=Role.tool, tool_call_id=call.id, name=call.name, content=result.content
-                    )
+                    Message(role=Role.tool, tool_call_id=call.id, name=call.name, content=content)
                 )
 
             used = totals.prompt_tokens + totals.completion_tokens
@@ -265,6 +268,15 @@ def _result_data(call: ToolCall, result: ToolResult, seconds: float) -> JSONObje
         "is_error": result.is_error,
         "ms": round(seconds * 1000),
     }
+
+
+def _source(call: ToolCall) -> str:
+    """`read_file:src/app.py`: the tool plus what it looked at, for the untrusted tag."""
+    for key in ("path", "command"):
+        value = call.arguments.get(key)
+        if isinstance(value, str):
+            return f"{call.name}:{value[:80]}"
+    return call.name
 
 
 def _call_data(call: ToolCall) -> JSONObject:
