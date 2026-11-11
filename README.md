@@ -14,6 +14,7 @@ Kestrel is a local-first, model-agnostic agent harness for 3B to 14B models on a
 - **Recipes:** turns a successful run into a fast, replayable recipe.
 - **Safe by default:** per-tool permissions, workspace path jail, confirmation before side effects, web content treated as untrusted.
 - **Inspectable:** every run writes a JSONL event log you can trace, replay and evaluate.
+- **Coder agent (planned):** a built-in agent for software development on small local models: reads the repo, makes small edits, runs tests, fixes failures.
 
 ## How Kestrel works
 
@@ -90,7 +91,9 @@ uv run kestrel --version
 | M2 | Agent loop, event log, `kestrel trace` | |
 | M3 | Agent YAML, file/shell/python tools, safety | |
 | M4 | Reliability layer, web tools | |
-| M5+ | Chat, MCP, memory, evals, autotuner, recipes | |
+| M5 | Interactive chat, MCP client | |
+| M5.5 | Coder agent: repo map, small edits, run tests (tentative) | |
+| M6+ | Memory, evals, autotuner, recipes | |
 
 Full design: [docs/SPEC.md](docs/SPEC.md).
 

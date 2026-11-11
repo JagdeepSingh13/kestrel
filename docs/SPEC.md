@@ -26,7 +26,7 @@ v0.3 (2026-11-11): all spec gaps decided (section 14), open decisions tagged wit
 - Hosting models (we call backends, we do not run them).
 - A polished GUI before the harness is solid.
 - Multi-user / server deployment.
-- Competing with Claude Code or Cursor on coding agents.
+- Replacing Claude Code or Cursor for strong cloud models. (A coder agent for small local models is in scope: M5.5.)
 
 ### Positioning
 Existing tools are chat-UI-first (Open WebUI, AnythingLLM) or assume strong cloud models (most agent frameworks). Kestrel is harness-first and small-model-first.
@@ -51,7 +51,9 @@ Pitch: Kestrel tunes itself to your local model, fixes its tool-calling mistakes
 
 Target proof chart for README: same task, same 4B model. Plain harness about 30% success; Kestrel with repair + tuned profile about 75%; Kestrel recipe replay about 98% and 8x faster.
 
-Three sharp pillars beat fifteen shallow features. Do not: build an early chat UI, compete as a coding agent, make agents Python classes, chase every feature.
+Three sharp pillars beat fifteen shallow features. Do not: build an early chat UI, make agents Python classes, chase every feature.
+
+**Flagship use case (tentative, 2026-11-11):** software development. Kestrel stays a general harness, but its first serious agent is a **coder agent** that reads a repo, makes small edits, runs tests and fixes failures on a local 8B model (M5.5). Direction to be revisited after the M4 demo (section 14).
 
 ---
 
@@ -335,6 +337,16 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - MCP client: stdio + HTTP servers from config.
 - **Done when:** filesystem MCP server and one third-party MCP server work end to end.
 
+### M5.5: Coder agent (software development, tentative)
+- Built-in `coder` agent YAML plus code tools:
+  - `repo_map`: compact outline of the repo (files, top-level symbols) that fits an 8K window.
+  - `search_code`: text/regex search with file and line results.
+  - `edit_file`: apply a small search/replace edit instead of rewriting whole files; confirm by default, shows a diff.
+  - `run_tests` / `run_check`: run the project's test or lint command (from agent YAML), return failures compactly.
+  - `git_status` / `git_diff`: read-only git view. No commits or pushes by the agent unless explicitly allowed.
+- Loop: read, edit, test, read failures, fix, until tests pass or budget hit.
+- **Done when:** on qwen3:8b, the coder agent fixes a failing test in a small fixture repo end to end, with every edit confirmed and logged.
+
 ### M6: Memory + context upgrades
 - Summarization of dropped turns.
 - Long-term memory store (SQLite + sqlite-vec or similar, ask before choosing), `remember` / `recall` tools.
@@ -486,6 +498,7 @@ Each is resolved at the start of the named milestone's plan, with evidence from 
 - Constrained decoding coverage across backends: which support GBNF, JSON schema, neither (M4).
 - Windows sandboxing story for `run_shell` / `python_exec` (M3).
 - Recipe format: how decision points are marked and replayed (M8.5).
+- Project direction: stay a general harness with coding as flagship, or narrow further towards coding agents (revisit after the M4 demo, with real small-model results).
 - Autotuner search space size vs time budget on a 16GB laptop (M7.5).
 
 ### Spec gap decisions (raised and decided 2026-11-11)
