@@ -92,6 +92,8 @@ flowchart TB
     DOWN --> TABLE
 ```
 
+Three outcomes per backend: `up` (model list read), `down` (nothing listening) and `error` (something answered, but not with a model list: bad key, wrong URL). Probes are not retried, so doctor finishes in about 1.5s. Exit code 0 if any backend is up, 1 if none, 2 for a broken `config.toml`.
+
 ## Data, before and after
 
 What Kestrel holds internally:
