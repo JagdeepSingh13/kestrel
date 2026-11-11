@@ -2,9 +2,11 @@
 
 Local-first, model-agnostic agent harness for small models.
 
-Status: draft v0.2. Owner edits this file; Claude Code proposes changes via PR.
+Status: draft v0.3. Owner edits this file; Claude Code proposes changes via PR.
 
 v0.2 (2026-11-11): applied the milestone changes agreed in the project handoff (section 1 identity + pillars, 5.5 constrained decoding, M4/M7 changes, new M7.5/M8.5/M9.5, backlog) and logged spec gaps in section 14.
+
+v0.3 (2026-11-11): all spec gaps decided (section 14), open decisions tagged with their milestone; sections 8.3, 10, 11 updated to match.
 
 ---
 
@@ -277,7 +279,7 @@ Decorator builds `ToolSpec` from signature + docstring (pydantic model from type
 |---|---|---|---|
 | `read_file` | M3 | allow | jailed, size cap, text only |
 | `list_dir` | M3 | allow | jailed, depth limit |
-| `write_file` | M3 | confirm | jailed, no overwrite unless flag |
+| `write_file` | M3 | allow (new file), confirm (overwrite) | jailed, no overwrite unless flag (gap 5) |
 | `run_shell` | M3 | confirm | cwd = workspace, timeout, output cap |
 | `python_exec` | M3 | confirm | subprocess with `-I`, timeout, temp dir in workspace |
 | `web_search` | M4 | allow | pluggable backend: SearXNG URL in config, else DuckDuckGo via small library (ask before adding dep) |
@@ -377,6 +379,7 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - Time-travel debugging: fork a past run at step N, change model, prompt or tool, rerun, diff.
 - Multi-model team: tiny model for routing and summarizing tool output, 8B for reasoning, embeddings for memory, scheduled to minimize model swapping.
 - Tool output shaping: compact, paged, structured outputs for 8K windows.
+- Agent trust list: mark specific agent files trusted by content hash so `--trust-agent` is not needed each run; changing the file revokes trust.
 - Niche: offline knowledge packs (Kiwix, dev docs), Indian language support, memory as editable markdown, energy and cost meter, portable open agent spec.
 
 ---
@@ -386,9 +389,9 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 ```yaml
 name: researcher                 # unique, [a-z0-9_-]
 description: Researches a topic and writes a cited summary.
-model: qwen3:8b
+model: qwen3:8b                  # or an ordered list: [qwen3:4b, qwen3:8b] (later = fallback)
 provider: ollama                 # name from user config providers
-fallback_model: null
+allow_cloud: false               # cloud models need true (gap 14)
 tool_mode: auto                  # auto | native | json | react
 temperature: 0.2
 system: |
@@ -398,7 +401,7 @@ tools:
   - web_search
   - fetch_url
   - write_file
-permissions:                     # overrides tool defaults
+permissions:                     # overrides tool defaults; loosening needs --trust-agent (gap 7)
   write_file: confirm
 limits:
   max_steps: 15
@@ -421,6 +424,8 @@ One JSON object per line:
 {"ts": "2026-11-06T10:15:02.123Z", "run_id": "r_8f3a", "step": 3,
  "type": "tool_call", "data": {"id": "c1", "name": "read_file", "arguments": {"path": "notes.md"}}}
 ```
+
+Events store full tool arguments, full results and verbatim model output; results over 64KB go to a side file referenced by path (gap 13). Every line is redacted before writing (gaps 6, 11).
 
 Event types: `run_start`, `model_request`, `model_response`, `repair`, `tool_call`, `permission`, `tool_result`, `context_trim`, `loop_warning`, `error`, `final`, `run_end`.
 
@@ -472,33 +477,35 @@ Env overrides: `KESTREL_CONFIG`, `KESTREL_DATA_DIR`.
 
 ## 14. Open decisions (resolve when reached)
 
-- Final project name (check PyPI, GitHub, trademark).
-- Web search default when no SearXNG: which library.
-- Vector store for M6: sqlite-vec vs LanceDB vs Chroma.
-- Tokenizer: keep approximation or use per-model tokenizers.
-- Constrained decoding coverage across backends (which support GBNF, JSON schema, neither).
-- Windows sandboxing story for `run_shell` / `python_exec`.
-- Recipe format: how decision points are marked and replayed.
-- Autotuner search space size vs time budget on a 16GB laptop.
+Each is resolved at the start of the named milestone's plan, with evidence from real runs.
 
-### Spec gaps (raised 2026-11-11, resolve in the milestone noted)
-1. **Ollama context size (M1).** Ollama's `/v1` endpoint cannot set `num_ctx`; its default window is smaller than our 8K to 16K target. Options: an Ollama-native provider (`/api/chat`, listed in CLAUDE.md layout as `providers/ollama`) or document a Modelfile / `OLLAMA_CONTEXT_LENGTH` setup. `doctor` should at least warn.
-2. **Port 8080 clash (M1).** llama.cpp and mlx-lm share the default port. `doctor` needs a fingerprint (e.g. llama.cpp `GET /props`) to label it.
-3. **Streaming types (M1).** `StreamChunk` and the `stream()` signature are undefined.
-4. **Data dirs (M2).** `~/.local/share/kestrel` and `~/.cache/kestrel` are XDG paths. Define macOS and Windows equivalents (stdlib helper, no `platformdirs` unless approved).
-5. **`write_file` default (M3).** Section 8.3 says always `confirm`; CLAUDE.md says confirm for overwrite. Pick one.
-6. **Redaction meaning (M3).** Assumed: redact the *values* of env vars whose names match `*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASSWORD*` wherever they appear in events. Confirm.
-7. **Loosening permissions (M3).** Can agent YAML set a `confirm` tool to `allow` (e.g. `run_shell: allow`)? Proposed: yes, with a warning event at run start.
+- Final project name (M3/M4, before going public). `kestrel` and `kestrel-agent` are taken on PyPI (the former by an inference engine); `kestrel-harness` is free (checked 2026-11-11).
+- Web search default when no SearXNG: which library (M4).
+- Vector store: sqlite-vec vs LanceDB vs Chroma (M6).
+- Tokenizer: keep approximation or use per-model tokenizers (M4).
+- Constrained decoding coverage across backends: which support GBNF, JSON schema, neither (M4).
+- Windows sandboxing story for `run_shell` / `python_exec` (M3).
+- Recipe format: how decision points are marked and replayed (M8.5).
+- Autotuner search space size vs time budget on a 16GB laptop (M7.5).
+
+### Spec gap decisions (raised and decided 2026-11-11)
+1. **Ollama context size (M1).** Ollama allocates context by VRAM: under 24 GiB (all 16GB Macs) the default is 4K tokens, below our 8K to 16K target, and `/v1` cannot change it per request. **Decision:** M1 uses only the OpenAI-compatible endpoint; `kestrel doctor` warns about the 4K default and prints the fix (Ollama app context slider, or `OLLAMA_CONTEXT_LENGTH=16384 ollama serve`). An Ollama-native provider (`/api/chat` with `num_ctx`) is added in M3/M4 only if real runs need it.
+2. **Port 8080 (M1).** **Decision:** `doctor` calls `GET /props`; success means llama.cpp, otherwise "mlx-lm (probably)". User config wins.
+3. **Streaming types (M1).** **Decision:** `stream()` yields `StreamChunk(text, reasoning, done)`; the final chunk carries the assembled `ModelResponse` in `done`, so callers never assemble deltas.
+4. **Data dirs (M2).** **Decision:** XDG-style paths on every OS: data `~/.local/share/kestrel`, cache `~/.cache/kestrel`, config `~/.config/kestrel` (Windows config: `%APPDATA%\kestrel`, as section 12). Stdlib only. `KESTREL_DATA_DIR` / `KESTREL_CONFIG` override.
+5. **`write_file` default (M3).** **Decision:** creating a new file inside the workspace is `allow`; overwriting an existing file is `confirm`.
+6. **Redaction meaning (M3).** **Decision:** redact (a) the exact values of env vars whose names match `*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, and (b) well-known secret formats (`sk-...`, `ghp_...`, `Bearer ...`, and similar), replaced with `[REDACTED]`.
+7. **Loosening permissions (M3).** **Decision:** an agent YAML may loosen a tool's default (e.g. `run_shell: allow`) only when the run is started with `--trust-agent`; otherwise Kestrel refuses to start and explains which permissions the file tries to loosen. Applies to every agent file regardless of location. Content-hash trust list is in the backlog.
 8. **License holder (M0). Resolved:** Apache-2.0, official text unmodified in `LICENSE`; `pyproject.toml` authors = "Kestrel contributors".
-9. **JSON typing (M1).** `ToolCall.arguments: dict[str, Any]` conflicts with "no `Any` in public interfaces". Proposed: a `JSONValue` type alias, justified in a comment.
-10. **Token usage when streaming (M1).** Many backends omit `usage` in SSE unless `stream_options: {"include_usage": true}`; fall back to the chars/3.5 estimate. `max_tokens_total` depends on this.
-11. **Redaction before M3 (M2).** The JSONL writer lands in M2 but `safety/redact.py` in M3. Proposed: move a minimal redactor into M2 so no log is ever written unredacted.
-12. **Frontend interface (M2).** Permission confirms (M3) and `ask_user` need the loop to call back into the frontend. Define a `Frontend`/interaction protocol in `core/types.py` during M2, not ad hoc in M3.
-13. **Recipe-ready events (M2).** M8.5 recipes and replay tests compile from the event log. M2 event schema must record full tool arguments, full results (or a pointer to them), and model responses verbatim, so no schema break later.
-14. **Model ladder in agent YAML (M9.5).** Schema has `model` + `fallback_model`; the escalation ladder needs an ordered list (and a cloud-allowed flag). Keep M3 schema forward-compatible.
-15. **Embeddings (M6).** Provider interface has no `embed()`; tool pruning and memory need one (`POST /v1/embeddings`).
-16. **Cloud before privacy filter (M1 to M9.5).** Cloud providers work from M1 but the privacy filter arrives in M9.5. Until then, `doctor`/`ask` should label a provider as remote, and README must say data is sent as-is.
-17. **Name (before going public at M3/M4).** Check `kestrel` on PyPI, GitHub, trademark before the repo goes public.
+9. **JSON typing (M1).** **Decision:** a recursive `JSONValue` type alias in `core/types.py` replaces `Any` for tool arguments and JSON Schemas.
+10. **Token usage when streaming (M1).** **Decision:** requests send `stream_options: {"include_usage": true}`; if the backend still omits usage, `usage` is `None`. The chars/3.5 estimate lives in the context manager (M2).
+11. **Redaction before M3 (M2).** **Decision:** the redactor (gap 6) is built in M2 inside the JSONL event writer, so no log line is ever written unredacted. M3 adds tool-output tests.
+12. **Frontend interface (M2).** **Decision:** a `Frontend` protocol in `core/types.py` (`confirm(call) -> bool`, `ask(question) -> str`, `on_event(event)`) defined in M2; the CLI implements it, tests use a fake.
+13. **Recipe-ready events (M2).** **Decision:** events record full tool arguments, full tool results and verbatim model output. Results larger than 64KB are written to a side file next to the run log and the event stores its path.
+14. **Model ladder in agent YAML (M3).** **Decision:** `model` accepts one name or an ordered list (`model: [qwen3:4b, qwen3:8b]`); `fallback_model` is removed (later list entries are fallbacks). Cloud models require `allow_cloud: true`.
+15. **Embeddings (M6).** **Decision:** add `embed(texts, model) -> list[list[float]]` (`POST /v1/embeddings`) to the provider interface in M6, not before.
+16. **Cloud before privacy filter (M1 to M9.5).** **Decision:** `doctor` and `ask` label any non-local base URL `REMOTE` (data leaves this machine); README states data is sent as-is until M9.5.
+17. **Name.** See open decisions above.
 
 ---
 
