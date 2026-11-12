@@ -1,0 +1,56 @@
+# Reliability layer (M4, plan)
+
+Small models break tool calls in predictable ways. M4 catches those breaks, fixes what can be fixed safely, gives the model two more tries when it cannot, and raises a clear "stuck" signal when nothing works. M4.5 (the model ladder) uses that signal to step up to a bigger model.
+
+## Structure
+
+![Where repair, profile and the watchdog sit](img/reliability.svg)
+
+- `providers/` stops raising on a broken `arguments` string: the call comes back with `arguments_text` (the raw text) and `arguments_error`. Providers still know nothing about tools.
+- `providers/profiles.py` asks the backend what the model can do (Ollama `/api/show` and `/api/ps`, llama.cpp `/props`; one tiny call elsewhere) and caches it in `~/.cache/kestrel/profiles.json`.
+- `reliability/repair.py` is a pure function: model reply plus tool specs in, checked calls (or a corrective note) out. The loop calls it between the model and the tools.
+- `reliability/watchdog.py` watches the calls and results step by step and emits `loop_warning` and `stuck`.
+
+## How a reply is handled
+
+![What repair does to every model reply](img/repair-steps.svg)
+
+## Data, before and after
+
+The real qwen3:8b case from the M3 demo, double-escaped new lines:
+
+```python
+# before: what the model sent (arguments as received)
+{"path": "report.md", "content": "# Line Count Summary\\n- **demo/interact.py**: 19 lines\\n- **Total**: 160 lines"}
+# the file got one line with literal \n in it
+
+# after repair step 5 (content is a text argument, has no real new line, has 2+ literal \n)
+{"path": "report.md", "content": "# Line Count Summary\n- **demo/interact.py**: 19 lines\n- **Total**: 160 lines"}
+# run log: {"type": "repair", "data": {"kind": "unescape_text", "arg": "content", "before": "...", "after": "..."}}
+```
+
+The real qwen3:8b case from the M2 demo, a guessed result:
+
+```python
+# before: two calls in one step; the second already uses a sum it has not seen
+[add(a=17, b=25), echo(text="the sum is 42")]
+# after repair step 6: only add runs; its result says
+# "(Only this call ran: one tool per step. Call others again if still needed.)"
+```
+
+A broken call that used to end the run:
+
+```python
+# before: provider raised BadBackendResponseError, stopped_reason=error
+ToolCall(name="read-file", arguments_text="{'path': 'notes.txt',}")
+# after: name fixed (read-file to read_file), quotes and trailing comma fixed
+ToolCall(name="read_file", arguments={"path": "notes.txt"})
+```
+
+When nothing can fix it, the model sees (about 80 tokens):
+
+```text
+ERROR: your call to write_file could not be used: content: Field required.
+write_file expects: {"path": string, "content": string, "overwrite": boolean (optional)}.
+Call it again with valid arguments.
+```

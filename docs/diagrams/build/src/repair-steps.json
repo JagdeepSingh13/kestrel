@@ -1,0 +1,383 @@
+[
+ {
+  "type": "text",
+  "x": 0,
+  "y": -70,
+  "text": "What repair does to every model reply",
+  "fontSize": 34,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "s0",
+  "x": 0,
+  "y": 0,
+  "width": 380,
+  "height": 190,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 14,
+  "text": "1. Find the calls",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 56,
+  "width": 344,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    344,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 68,
+  "text": "in the tool-call field, or in\nthe text: ```json blocks,\n<tool_call> tags, bare JSON",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "s1",
+  "x": 420,
+  "y": 0,
+  "width": 380,
+  "height": 190,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 438,
+  "y": 14,
+  "text": "2. Fix the JSON",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 438,
+  "y": 56,
+  "width": 344,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    344,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 438,
+  "y": 68,
+  "text": "trailing commas, single\nquotes, missing brackets,\narguments sent as a string",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "s2",
+  "x": 840,
+  "y": 0,
+  "width": 380,
+  "height": 190,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 858,
+  "y": 14,
+  "text": "3. Fix the name",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 858,
+  "y": 56,
+  "width": 344,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    344,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 858,
+  "y": 68,
+  "text": "read-file to read_file;\nonly when exactly one\ntool is that close",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "s3",
+  "x": 0,
+  "y": 230,
+  "width": 380,
+  "height": 190,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 244,
+  "text": "4. Check arguments",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 286,
+  "width": 344,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    344,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 298,
+  "text": "against the tool's schema;\n\"5\" becomes 5",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "s4",
+  "x": 420,
+  "y": 230,
+  "width": 380,
+  "height": 190,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 438,
+  "y": 244,
+  "text": "5. Fix escaped text",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 438,
+  "y": 286,
+  "width": 344,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    344,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 438,
+  "y": 298,
+  "text": "literal \\n in a file's text\nbecomes real new lines;\nonly on text arguments",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "s5",
+  "x": 840,
+  "y": 230,
+  "width": 380,
+  "height": 190,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 858,
+  "y": 244,
+  "text": "6. One call per step",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 858,
+  "y": 286,
+  "width": 344,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    344,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 858,
+  "y": 298,
+  "text": "only the first call runs,\nso the model cannot guess\nthe result of the next",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "fail",
+  "x": 0,
+  "y": 490,
+  "width": 1220,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 504,
+  "text": "Still broken?",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 546,
+  "width": 1184,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    1184,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 558,
+  "text": "the model gets a short note with the error and that tool's schema, and tries again\n(twice per step). Then the watchdog hears \"stuck\". Every fix is written to the run log.",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ }
+]

@@ -1,0 +1,549 @@
+[
+ {
+  "type": "text",
+  "x": 0,
+  "y": -70,
+  "text": "M4: making small models' tool calls reliable",
+  "fontSize": 34,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "provider",
+  "x": 0,
+  "y": 0,
+  "width": 360,
+  "height": 180,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 14,
+  "text": "Provider",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 56,
+  "width": 324,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    324,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 68,
+  "text": "talks to the backend; a broken\ntool call comes back as raw\ntext instead of ending\nthe run",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "repair",
+  "x": 460,
+  "y": 0,
+  "width": 360,
+  "height": 180,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 478,
+  "y": 14,
+  "text": "Repair",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 478,
+  "y": 56,
+  "width": 324,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    324,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 478,
+  "y": 68,
+  "text": "finds the calls in the reply,\nfixes JSON, names and\nescaped text; one call per\nstep; asks again twice",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "loop",
+  "x": 920,
+  "y": 0,
+  "width": 320,
+  "height": 180,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 938,
+  "y": 14,
+  "text": "Agent loop",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 938,
+  "y": 56,
+  "width": 284,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    284,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 938,
+  "y": 68,
+  "text": "runs the checked call\nthrough the safety gate,\nfeeds the result back",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "profile",
+  "x": 0,
+  "y": 290,
+  "width": 360,
+  "height": 180,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 304,
+  "text": "Profile",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 346,
+  "width": 324,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    324,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 358,
+  "text": "what this model can do:\nnative tools, JSON schema,\nreal window, thinking off;\n/profile shows it",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "log",
+  "x": 460,
+  "y": 290,
+  "width": 360,
+  "height": 180,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 478,
+  "y": 304,
+  "text": "Run log",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 478,
+  "y": 346,
+  "width": 324,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    324,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 478,
+  "y": 358,
+  "text": "the exact prompt of every\nstep and every repair;\n/report-failure turns a\nbad step into a test",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "watch",
+  "x": 920,
+  "y": 290,
+  "width": 320,
+  "height": 180,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 938,
+  "y": 304,
+  "text": "Watchdog",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 938,
+  "y": 346,
+  "width": 284,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    284,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 938,
+  "y": 358,
+  "text": "same call again and again,\nback and forth, no new\nresults, errors in a row",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "stuck",
+  "x": 920,
+  "y": 580,
+  "width": 320,
+  "height": 150,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 938,
+  "y": 594,
+  "text": "When stuck",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 938,
+  "y": 636,
+  "width": 284,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    284,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 938,
+  "y": 648,
+  "text": "M4: warn, then stop with\nthe reason\nM4.5: step up a model",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 363,
+  "y": 90.0,
+  "width": 94,
+  "height": 1,
+  "start": {
+   "id": "provider"
+  },
+  "end": {
+   "id": "repair"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 385.0,
+  "y": 58.0,
+  "text": "reply",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 823,
+  "y": 90.0,
+  "width": 94,
+  "height": 1,
+  "start": {
+   "id": "repair"
+  },
+  "end": {
+   "id": "loop"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 835.0,
+  "y": 58.0,
+  "text": "checked",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 180.0,
+  "y": 287,
+  "width": 1,
+  "height": -104,
+  "start": {
+   "id": "profile"
+  },
+  "end": {
+   "id": "provider"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 192.0,
+  "y": 223.0,
+  "text": "mode, window",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 640.0,
+  "y": 183,
+  "width": 1,
+  "height": 104,
+  "start": {
+   "id": "repair"
+  },
+  "end": {
+   "id": "log"
+  },
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 652.0,
+  "y": 223.0,
+  "text": "every fix",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 1080.0,
+  "y": 183,
+  "width": 1,
+  "height": 104,
+  "start": {
+   "id": "loop"
+  },
+  "end": {
+   "id": "watch"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 1092.0,
+  "y": 223.0,
+  "text": "each step",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 1080.0,
+  "y": 473,
+  "width": 1,
+  "height": 104,
+  "start": {
+   "id": "watch"
+  },
+  "end": {
+   "id": "stuck"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 1092.0,
+  "y": 513.0,
+  "text": "stuck",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 0,
+  "y": 770,
+  "text": "solid border: built today      dashed border: M4",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ }
+]

@@ -899,6 +899,117 @@ def core_types() -> Diagram:
     return d
 
 
+def reliability() -> Diagram:
+    """M4: where repair, profile and the watchdog sit around the agent loop."""
+    d = Diagram("reliability", clean=True)
+    d.text(0, -70, "M4: making small models' tool calls reliable", size=34, color="#1e1e1e")
+    d.card(
+        "provider",
+        0,
+        0,
+        360,
+        180,
+        "Provider",
+        "talks to the backend; a broken\ntool call comes back as raw\ntext instead of ending\nthe run",
+        planned=True,
+    )
+    d.card(
+        "repair",
+        460,
+        0,
+        360,
+        180,
+        "Repair",
+        "finds the calls in the reply,\nfixes JSON, names and\nescaped text; one call per\nstep; asks again twice",
+        planned=True,
+    )
+    d.card(
+        "loop",
+        920,
+        0,
+        320,
+        180,
+        "Agent loop",
+        "runs the checked call\nthrough the safety gate,\nfeeds the result back",
+    )
+    d.card(
+        "profile",
+        0,
+        290,
+        360,
+        180,
+        "Profile",
+        "what this model can do:\nnative tools, JSON schema,\nreal window, thinking off;\n/profile shows it",
+        planned=True,
+    )
+    d.card(
+        "log",
+        460,
+        290,
+        360,
+        180,
+        "Run log",
+        "the exact prompt of every\nstep and every repair;\n/report-failure turns a\nbad step into a test",
+        planned=True,
+    )
+    d.card(
+        "watch",
+        920,
+        290,
+        320,
+        180,
+        "Watchdog",
+        "same call again and again,\nback and forth, no new\nresults, errors in a row",
+        planned=True,
+    )
+    d.card(
+        "stuck",
+        920,
+        580,
+        320,
+        150,
+        "When stuck",
+        "M4: warn, then stop with\nthe reason\nM4.5: step up a model",
+        planned=True,
+    )
+    d.arrow("provider", "repair", "reply")
+    d.arrow("repair", "loop", "checked")
+    d.arrow("profile", "provider", "mode, window")
+    d.arrow("repair", "log", "every fix", dashed=True)
+    d.arrow("loop", "watch", "each step")
+    d.arrow("watch", "stuck", "stuck")
+    d.text(0, 770, "solid border: built today      dashed border: M4", size=18)
+    return d
+
+
+def repair_steps() -> Diagram:
+    """M4: the repair pipeline as numbered steps."""
+    d = Diagram("repair-steps", clean=True)
+    d.text(0, -70, "What repair does to every model reply", size=34, color="#1e1e1e")
+    steps = [
+        ("1. Find the calls", "in the tool-call field, or in\nthe text: ```json blocks,\n<tool_call> tags, bare JSON"),
+        ("2. Fix the JSON", "trailing commas, single\nquotes, missing brackets,\narguments sent as a string"),
+        ("3. Fix the name", "read-file to read_file;\nonly when exactly one\ntool is that close"),
+        ("4. Check arguments", "against the tool's schema;\n\"5\" becomes 5"),
+        ("5. Fix escaped text", "literal \\n in a file's text\nbecomes real new lines;\nonly on text arguments"),
+        ("6. One call per step", "only the first call runs,\nso the model cannot guess\nthe result of the next"),
+    ]
+    w, h, gx, gy = 380, 190, 40, 40
+    for i, (title, body) in enumerate(steps):
+        col, row = i % 3, i // 3
+        d.card(f"s{i}", col * (w + gx), row * (h + gy), w, h, title, body)
+    d.card(
+        "fail",
+        0,
+        2 * (h + gy) + 30,
+        3 * w + 2 * gx,
+        150,
+        "Still broken?",
+        "the model gets a short note with the error and that tool's schema, and tries again\n(twice per step). Then the watchdog hears \"stuck\". Every fix is written to the run log.",
+    )
+    return d
+
+
 def all_diagrams() -> list[Diagram]:
     return [
         harness(),
@@ -913,6 +1024,8 @@ def all_diagrams() -> list[Diagram]:
         run_log(),
         tools_and_safety(),
         core_types(),
+        reliability(),
+        repair_steps(),
     ]
 
 

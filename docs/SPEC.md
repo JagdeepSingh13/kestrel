@@ -2,11 +2,13 @@
 
 Local-first, model-agnostic agent harness for small models.
 
-Status: draft v0.5. Owner edits this file; Claude Code proposes changes via PR.
+Status: draft v0.6. Owner edits this file; Claude Code proposes changes via PR.
 
 v0.2 (2026-11-11): applied the milestone changes agreed in the project handoff (section 1 identity + pillars, 5.5 constrained decoding, M4/M7 changes, new M7.5/M8.5/M9.5, backlog) and logged spec gaps in section 14.
 
 v0.3 (2026-11-11): all spec gaps decided (section 14), open decisions tagged with their milestone; sections 8.3, 10, 11 updated to match.
+
+v0.6 (2026-11-12): M4 planned as four pieces; web tools split into M4.1; text tool-call modes moved to the backlog.
 
 v0.5 (2026-11-12): new M3.5, the shell becomes an agent conversation with a Claude Code style look.
 
@@ -363,14 +365,20 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - **Plan (2026-11-12), two pieces:** (1) conversation turns in the shell, (2) the new look. Diagram: `docs/diagrams/shell.md`.
 - **Status: done (v0.0.4).** Live on qwen3:8b: plain questions answered without tools, tool use when needed, confirm menu, Esc rolls a turn back. Also: with no model configured, the shell uses the first model the backend lists. After owner feedback the input box is fixed at the bottom for the whole session (one prompt_toolkit app, a worker thread runs each line, output printed above the box); lines typed during a turn are queued. The context manager now pins the latest user message instead of the first (same thing for one-shot runs).
 
-### M4: Reliability layer + web tools
-- Capability probe + profile cache.
-- `json` and `react` modes, parsing + repair pipeline, loop detection.
-- Schema-driven constrained decoding (5.5) where the backend supports it.
-- Failure corpus: fixtures folder + `kestrel report-failure` (5.6).
-- `web_search`, `fetch_url`, `read_tool_output`, untrusted wrapping.
-- `model_request` events log the exact messages sent after trimming (side files over 64KB), so a run shows exactly what the model saw. Today they only log the message count and token estimate.
-- **Done when:** test corpus of 30+ malformed model outputs (in `tests/fixtures/bad_outputs/`) parsed or correctly rejected; constrained mode tested against a mocked llama.cpp and a mocked JSON-schema backend; demo research task works on a 4B model in react mode.
+### M4: Reliability layer
+- **Plan (2026-11-12, from the kestrel-architect brief; owner decisions below), four pieces:**
+  1. **Capture.** Providers never raise on a broken `arguments` string: `ToolCall` gains `arguments_text` (raw) and `arguments_error`. `model_request` events log the exact messages sent after trimming (side file when over 64KB), plus tool spec hash, mode and think setting. Failure corpus in `tests/fixtures/bad_outputs/` (one JSON file per case: source, tools, response, expected result) with one parametrized test. Shell `/report-failure [run] [--step N]` writes a redacted case file to `<data dir>/reports/`; `/trace ID --prompt N` shows one step's prompt.
+  2. **Repair** (`reliability/repair.py`, pure function called by the loop between model and tools): find calls (native field, or ```json blocks, `<tool_call>` tags, bare JSON in the text), fix JSON (trailing commas, single quotes, missing brackets, arguments sent as a JSON string), fix tool names (case, `-`/`_`, edit distance 1 to 2 only when unique), check arguments with pydantic, unescape double-escaped text only in arguments a tool marks as text (`ToolSpec.text_args`; only when there is no real new line and 2 or more literal `\n`), one call per step (later calls dropped with a short note). Unusable call: corrective note with that tool's schema, `max_repairs` 2 per step. Every fix is a `repair` event.
+  3. **Watchdog** (`reliability/watchdog.py`): `loop_warning` on 3 identical calls in a row or A,B,A,B; `stuck` on 4 identical calls, 5 steps without a new result, 3 tool errors in a row, repairs exhausted, or prompt tokens at 95% of the real window. M4 policy: warn message once, then stop with `stopped_reason=loop`. `run_agent` takes an `on_stuck` hook so M4.5 can step up instead. Thresholds under `limits`.
+  4. **Profile** (`providers/profiles.py`, `providers/ollama.py` metadata helpers): read capabilities and the real window from backend metadata (Ollama `/api/show`, `/api/ps`; llama.cpp `/props`), cache in `~/.cache/kestrel/profiles.json` keyed by backend, model and digest. Thinking control through a neutral `think` setting (`reasoning_effort: "none"` for Ollama and llama.cpp, `chat_template_kwargs.enable_thinking` for mlx-lm and vLLM). Token estimate calibrated per model from backend-reported prompt tokens. Default `max_tokens` (mlx-lm cuts replies at 512). Shell `/profile`, `/profile probe`, `/profile set`; `/think on|off` controls generation, `/think show|hide` the display.
+- **Decisions (owner, 2026-11-12):** web tools move to M4.1, before M4.5. Thinking is off by default for agent steps. One tool call per step by default. Text tool-call modes (`json`, `react`) for models without native tools are moved to the backlog. Loop stop at 4 repeats (configurable). No GBNF grammars (llama.cpp rejects a grammar sent with tools; JSON schema output covers it). No real tokenizers (would need downloads). No separate Ollama `/api/chat` provider for now.
+- **Done when:** 30+ malformed outputs in the corpus are fixed or correctly rejected; both real qwen3 failures (guessed parallel result, double-escaped `write_file` content) are handled in a live run; qwen3:4b finishes a file task natively; thinking off works live on Ollama.
+
+### M4.1: Web tools
+- `read_tool_output` (page through cut results, kept per session in memory), `fetch_url` (stdlib HTML to text, GET only, size and time caps, private and loopback addresses blocked after every redirect, result untrusted), `web_search` (SearXNG preferred; best-effort fallback decided in the M4.1 plan).
+- `ToolSpec.network`; web tools only exist for agents that list them; a built-in `researcher` agent.
+- Open for the M4.1 plan: confirm fetches to hosts not seen this run (exfiltration risk), and the search fallback.
+- **Done when:** a research task works on a small local model, with every fetched page wrapped as untrusted.
 
 ### M4.5: Model ladder, basic (headline feature)
 - `model:` list in agent YAML (gap 14) becomes a ladder; shell `/ladder MODEL MODEL ...` and `/up`.
@@ -440,6 +448,7 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - Voice (whisper.cpp + Piper).
 
 ### Backlog (unscheduled)
+- **Text tool-call modes** (moved from M4 by owner, 2026-11-12): `json` mode (one JSON object per reply, forced by the backend's JSON schema output where supported) and `react` mode (`Thought` / `Action` / `Action Input` / `Final Answer` text, generation stopped at `Observation:` so the model cannot invent results). For models without native tool calls (gemma3, phi4). History stays in the neutral format; a renderer turns it into each mode's text.
 - Hardware-aware runtime: knows RAM, loaded models, battery, thermals; avoids loading two 8B models on 16GB; laptop mode on battery; warns on fanless throttling.
 - Agent tests: each agent YAML ships test cases; `kestrel test agents/researcher.yaml --model qwen3:8b` gives a pass rate.
 - Consistency probe: run the same task phrased two ways; different answers mean one is wrong. Candidate stuck signal for the model ladder.

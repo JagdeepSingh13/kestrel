@@ -152,7 +152,8 @@ From a normal terminal, `kestrel run "task" --agent NAME`, `kestrel trace last`,
 | M2 | Agent loop, run log, `/trace` | done |
 | M3 | Agent files, file/shell/Python tools, safety gate | done |
 | M3.5 | Shell as an agent conversation, Claude Code style look | done |
-| M4 | Repair broken tool calls, exact model input in the log, web tools | next |
+| M4 | Repair broken tool calls, watch for loops, model profiles, exact model input in the log | next |
+| M4.1 | Web search and page fetching | |
 | M4.5 | Step up only when stuck: model ladder (local models) | |
 | M5 | Sessions, MCP tools | |
 | M5.5 | Coder agent: repo map, small edits, run tests (tentative) | |
