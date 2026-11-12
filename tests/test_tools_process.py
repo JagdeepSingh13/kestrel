@@ -60,8 +60,10 @@ async def test_time_limit_stops_the_process(tmp_path: Path) -> None:
 
 
 async def test_huge_output_is_cut(tmp_path: Path) -> None:
-    out = await call(tmp_path, "python_exec", {"code": f"print('x' * {MAX_OUTPUT_BYTES * 3})"})
-    assert f"output cut at {MAX_OUTPUT_BYTES} bytes" in out
+    code = f"print('x' * {MAX_OUTPUT_BYTES * 3}); print('the error at the end')"
+    out = await call(tmp_path, "python_exec", {"code": code})
+    assert "cut from the middle" in out
+    assert out.rstrip().endswith("the error at the end")  # the end survives the cut
     assert len(out) < MAX_OUTPUT_BYTES + 200
 
 
@@ -75,3 +77,9 @@ async def test_ask_user(tmp_path: Path) -> None:
 def test_risky_tools_ask_first_by_default(name: str) -> None:
     spec = BUILTIN_TOOLS[name].spec
     assert (spec.permission, spec.side_effects) == ("confirm", True)
+
+
+async def test_text_is_not_garbled_where_output_is_split(tmp_path: Path) -> None:
+    code = "import sys; sys.stdout.buffer.write(b'a' * 9999 + '\u20ac'.encode() * 1000)"
+    out = await call(tmp_path, "python_exec", {"code": code})
+    assert "\ufffd" not in out and out.endswith("\u20ac" * 1000)

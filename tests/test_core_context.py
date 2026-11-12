@@ -48,12 +48,11 @@ def test_huge_tool_result_is_cut_when_added() -> None:
     ctx = ContextManager(SYSTEM, max_tool_result_tokens=10)
     ctx.add(user(GOAL))
     ctx.add(assistant(call="c1"))
-    ctx.add(tool("c1", "y" * 1000))
+    ctx.add(tool("c1", "y" * 1000 + "END"))
     text = ctx.build().messages[-1].content
     assert text is not None
-    assert text.startswith("y" * 35)  # 10 tokens of 3.5 chars
-    assert "truncated" in text
-    assert "965 more characters" in text
+    assert text.startswith("y" * 17) and text.endswith("END")  # 10 tokens: start and end kept
+    assert "968 characters cut from the middle" in text
 
 
 def build_long_run(ctx: ContextManager) -> None:

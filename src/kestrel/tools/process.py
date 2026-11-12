@@ -11,6 +11,7 @@ guards Kestrel's own file tools. That is why these tools ask first.
 """
 
 import asyncio
+import codecs
 import contextlib
 import os
 import signal
@@ -26,6 +27,9 @@ from kestrel.safety.redact import SECRET_NAME_PARTS
 from kestrel.tools.registry import ToolContext, ToolError, tool
 
 MAX_OUTPUT_BYTES = 20_000
+"""Kept per call: the first and the last half of this."""
+MAX_READ_BYTES = 5_000_000
+"""Past this much output the process is stopped rather than read forever."""
 DEFAULT_SECONDS = 60
 MAX_SECONDS = 120
 TEMP_FOLDER = ".kestrel-tmp"
@@ -105,22 +109,33 @@ async def _run(command: str | None, argv: list[str] | None, ctx: ToolContext, se
     assert proc.stdout is not None
     try:
         async with asyncio.timeout(seconds):
-            output = b""
-            while len(output) <= MAX_OUTPUT_BYTES:
+            half = MAX_OUTPUT_BYTES // 2
+            head, tail, total = b"", b"", 0
+            while total <= MAX_READ_BYTES:
                 chunk = await proc.stdout.read(65536)
                 if not chunk:
                     break  # the process closed its output
-                output += chunk
-            if len(output) > MAX_OUTPUT_BYTES:
-                _kill(proc)  # too much output: stop it rather than read forever
+                total += len(chunk)
+                room = half - len(head)
+                head += chunk[:room] if room > 0 else b""
+                tail = (tail + chunk[max(room, 0) :])[-half:]
+            if total > MAX_READ_BYTES:
+                _kill(proc)  # endless output: stop it rather than read forever
             await proc.wait()
     except TimeoutError:
         _kill(proc)
         await proc.wait()
         raise ToolError(f"stopped after {seconds}s (time limit)") from None
-    text = output[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")
-    if len(output) > MAX_OUTPUT_BYTES:
-        text += f"\n[... output cut at {MAX_OUTPUT_BYTES} bytes; the process was stopped]"
+    if total <= len(head) + len(tail):
+        text = (head + tail).decode("utf-8", errors="replace")  # nothing cut
+    else:
+        # Cut inside a character at either seam: drop its pieces rather than show junk.
+        start = codecs.getincrementaldecoder("utf-8")("replace").decode(head, final=False)
+        tail = tail.lstrip(bytes(range(0x80, 0xC0)))
+        stopped = "; the process was stopped" if total > MAX_READ_BYTES else ""
+        cut = total - len(head) - len(tail)
+        marker = f"\n[... {cut} bytes cut from the middle{stopped} ...]\n"
+        text = start + marker + tail.decode("utf-8", errors="replace")
     return f"exit code {proc.returncode}\n{text}".rstrip()
 
 

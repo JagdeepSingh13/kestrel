@@ -159,13 +159,19 @@ class ContextManager:
 
     def _cut(self, text: str) -> str:
         limit = int(self.max_tool_result_tokens * CHARS_PER_TOKEN)
-        if len(text) <= limit:
-            return text
-        more = len(text) - limit
-        return (
-            f"{text[:limit]}\n[... truncated: {more} more characters. "
-            "The full output is in the run log.]"
-        )
+        return head_tail(text, limit, " (the full output is in the run log)")
+
+
+def head_tail(text: str, limit: int, note: str = "") -> str:
+    """`text` cut to about `limit` characters, keeping its start and its end: errors and
+    results are usually at the end of long output, headers and context at the start."""
+    if len(text) <= limit:
+        return text
+    head = limit // 2
+    tail = limit - head
+    cut = len(text) - limit
+    end = text[len(text) - tail :]
+    return f"{text[:head]}\n[... {cut} characters cut from the middle{note} ...]\n{end}"
 
 
 NOTE_PREFIX = "(Kestrel:"

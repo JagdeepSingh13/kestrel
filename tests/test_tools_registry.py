@@ -118,7 +118,7 @@ async def test_crash_timeout_and_size_cap(registry: ToolRegistry) -> None:
     assert "took longer than 0.05s" in content
     content, is_error = await run(registry, "chatty", {})
     assert not is_error
-    assert content == "x" * 10 + "\n[... cut: 15 more characters]"
+    assert content.startswith("x" * 5) and "15 characters cut from the middle" in content
 
 
 def test_tools_must_document_and_type_their_parameters() -> None:

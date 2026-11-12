@@ -19,6 +19,7 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, ValidationError, create_model
 
+from kestrel.core.context import head_tail
 from kestrel.core.types import JSONObject, JSONValue, ToolCall, ToolResult, ToolSpec
 from kestrel.safety.paths import PathNotAllowedError, Workspace
 
@@ -185,9 +186,7 @@ async def _call(fn: Callable[..., object], kwargs: dict[str, object]) -> object:
 
 
 def _cap(text: str, limit: int) -> str:
-    if len(text) <= limit:
-        return text
-    return f"{text[:limit]}\n[... cut: {len(text) - limit} more characters]"
+    return head_tail(text, limit)
 
 
 def _error(call: ToolCall, message: str) -> ToolResult:
