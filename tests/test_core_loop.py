@@ -212,8 +212,10 @@ class CrashingToolbox(DemoToolbox):
 
 
 async def test_crashing_tool_does_not_crash_the_run() -> None:
-    fake = FakeProvider([call("add", {"a": 1, "b": 2}), text("ok")])
-    result = await Recorded().run(fake, toolbox=CrashingToolbox())
+    fake = FakeProvider([call("add", {"a": 1, "b": 2}), text("broken"), text("ok")])
+    recorded = Recorded()
+    result = await recorded.run(fake, toolbox=CrashingToolbox())
+    assert [e.data["kind"] for e in recorded.of(EventType.nudge)] == ["after_failure"]
     assert result.stopped_reason is StopReason.final
     assert tool_messages(fake.calls[1].messages) == [
         "ERROR: tool add crashed: RuntimeError: disk on fire"
@@ -301,7 +303,9 @@ async def test_refused_call_is_not_run_and_the_model_is_told() -> None:
         context=ContextManager(DEFAULT_SYSTEM_PROMPT),
         gate=SayNo(),
     )
-    assert tool_messages(fake.calls[1].messages) == ["ERROR: add was not run: user said no"]
+    assert tool_messages(fake.calls[1].messages) == [
+        "ERROR: (not allowed) add was not run: user said no"
+    ]
     [permission] = rec.of(EventType.permission)
     assert permission.data["allowed"] is False
 
@@ -375,7 +379,7 @@ async def test_a_call_that_cannot_work_is_refused_before_anyone_is_asked() -> No
     recorded = Recorded()
     bus = EventBus("test-run")
     bus.subscribe(recorded.events.append)
-    fake = FakeProvider([call("add", {"a": 1, "b": 2}), text("ok")])
+    fake = FakeProvider([call("add", {"a": 1, "b": 2}), text("ok"), text("ok")])
     await run_agent(
         TASK,
         provider=fake,
@@ -399,3 +403,14 @@ async def test_a_broken_precheck_does_not_end_the_run() -> None:
         FakeProvider([call("add", {"a": 1, "b": 2}), text("ok")]), toolbox=BrokenCheckToolbox()
     )
     assert result.stopped_reason is StopReason.final
+
+
+async def test_near_the_step_limit_each_result_says_how_many_steps_are_left() -> None:
+    fake = FakeProvider([call("add", {"a": 1, "b": 2}, call_id=f"c{i}") for i in range(3)])
+    await Recorded().run(fake, budgets=Budgets(max_steps=3))
+    sent = [m.content or "" for m in fake.calls[2].messages if m.role is Role.tool]
+    notes = [m.split("\n")[-1] for m in sent]
+    assert notes == [
+        "(Kestrel: 2 steps left. Finish the task or give your final answer soon.)",
+        "(Kestrel: this is your last step. Give your final answer now, without tools.)",
+    ]

@@ -1,8 +1,10 @@
-"""Nudge (M4.2): catch a reply that says it will act but calls no tool.
+"""Nudges: one short note when a reply with no tool call stops too early.
 
-Small models often end a turn with "Let me do that for you." and stop. When a reply
-with no tool call ends by announcing an action, the loop keeps the reply, adds one short
-note and asks again, once per run. Questions to the user and plain answers pass through.
+Two cases (once per run in all):
+- it announces an action and stops: "Let me do that for you." (M4.2);
+- its last tool call failed and it gives up without trying another way (M4.3, after the
+  Hookele harness: show the failure, nudge once if the model stalls).
+Questions to the user pass through.
 """
 
 import re
@@ -12,6 +14,11 @@ from kestrel.core.context import NOTE_PREFIX
 NOTE = (
     f"{NOTE_PREFIX} you said you would do something but made no tool call, so nothing "
     "happened. If a tool is needed, call it now. Otherwise give your final answer.)"
+)
+AFTER_FAILURE = (
+    f"{NOTE_PREFIX} your last tool call failed and you made no new call. If the task is "
+    "not done, try another way now. If it cannot be done, say why in your final answer; "
+    "never state a result that no tool gave you.)"
 )
 
 _PROMISE = re.compile(
@@ -31,3 +38,12 @@ def promises_action(text: str | None) -> bool:
     sentences = re.split(r"(?<=[.!?])\s+|\n+", text.strip().replace("\u2019", "'"))
     tail = " ".join(sentences[-LAST_SENTENCES:])
     return _PROMISE.search(_POLITE.sub("", tail)) is not None
+
+
+def nudge_for(reply: str | None, *, last_call_failed: bool) -> tuple[str, str] | None:
+    """(kind, note) when a reply with no tool call should get one more try."""
+    if promises_action(reply):
+        return "promise", NOTE
+    if last_call_failed and not (reply or "").rstrip().endswith("?"):
+        return "after_failure", AFTER_FAILURE
+    return None

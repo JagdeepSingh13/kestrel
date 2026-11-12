@@ -14,10 +14,10 @@ from kestrel.agents.schema import AgentConfig
 from kestrel.cli.frontend import BottomBox, CliFrontend
 from kestrel.cli.output import err_console, window_fix
 from kestrel.core.config import ProviderConfig
-from kestrel.core.context import UNTRUSTED_RULE, ContextManager
+from kestrel.core.context import NOTE_PREFIX, UNTRUSTED_RULE, ContextManager
 from kestrel.core.events import EventBus, JsonlWriter, new_run_id, runs_dir
 from kestrel.core.loop import DEFAULT_SYSTEM_PROMPT, Budgets, run_agent
-from kestrel.core.types import EventType, Provider, Role, RunResult, StopReason
+from kestrel.core.types import EventType, Message, Provider, Role, RunResult, StopReason
 from kestrel.providers.profiles import Profile, ProfileCache, cache_path, probe
 from kestrel.safety.paths import Workspace
 from kestrel.safety.permissions import Permissions
@@ -166,6 +166,8 @@ def start_run(
     except (KeyboardInterrupt, asyncio.CancelledError):
         pass  # the frontend already showed "Stopped"; the run so far is in the log
     finally:
+        while context.history[kept:] and _is_note(context.history[-1]):
+            context.history.pop()  # a nudge the run ended before answering: the reply stands
         unanswered = context.history[-1:] and context.history[-1].role is Role.user
         if result is None or result.stopped_reason is StopReason.error or unanswered:
             del context.history[kept:]  # never leave the conversation ending on a question
@@ -180,6 +182,10 @@ _probed: set[tuple[str, str]] = set()
 """(backend, model) pairs asked this session: once per session keeps profiles fresh
 (a re-pulled model, a restarted backend) without asking on every turn."""
 _warned_windows: set[tuple[str, int]] = set()
+
+
+def _is_note(message: Message) -> bool:
+    return message.role is Role.user and (message.content or "").startswith(NOTE_PREFIX)
 
 
 def today_note(today: date) -> str:

@@ -31,13 +31,25 @@ from kestrel.core.types import (
     ToolResult,
     ToolSpec,
 )
-from kestrel.reliability.nudge import NOTE as NUDGE_NOTE
-from kestrel.reliability.nudge import promises_action
+from kestrel.reliability.nudge import nudge_for
 from kestrel.reliability.repair import Fix, repair
 from kestrel.reliability.watchdog import Signal, Watchdog, WatchLimits
 
 type OnStuck = Callable[[Signal], Awaitable[bool]]
 """Called when a run is stuck; True means it was handled and the run goes on."""
+
+DENIED_PREFIX = "ERROR: (not allowed) "
+"""Start of the result for a call the permission gate refused."""
+STEPS_LEFT_WARNING = 2
+"""From this many steps left, each tool result says how many remain."""
+
+
+def steps_left_note(left: int) -> str:
+    """The countdown added after a tool result near the step limit."""
+    if left == 1:
+        return "(Kestrel: this is your last step. Give your final answer now, without tools.)"
+    return f"(Kestrel: {left} steps left. Finish the task or give your final answer soon.)"
+
 
 ONE_CALL_NOTE = "(Only this call ran: one tool per step. Call others again if still needed.)"
 
@@ -103,7 +115,9 @@ async def run_agent(
     """Unusable calls in a row; past `budgets.max_repairs` the run is stuck."""
     watchdog = Watchdog(budgets.watch)
     nudged = False
-    """One nudge per run for a reply that announced an action but called no tool."""
+    """One nudge per run, for a reply that stops too early (see reliability.nudge)."""
+    last_failed = False
+    """Whether the latest tool call failed (for the after-failure nudge)."""
 
     async def stop_for(signal: Signal, step: int) -> bool:
         """Log a stuck signal; True when the run should stop."""
@@ -163,6 +177,7 @@ async def run_agent(
                 extra = f"\n{ONE_CALL_NOTE}" if repaired.dropped else ""
                 context.add(_tool_message(broken, note.content + extra))
                 repairs_used += 1
+                last_failed = False  # the repair note already told it what went wrong
                 if repairs_used > budgets.max_repairs:
                     exhausted = Signal("stuck", "repairs_exhausted", repaired.problem)
                     if await stop_for(exhausted, step):
@@ -172,11 +187,16 @@ async def run_agent(
                 continue
             repairs_used = 0
 
-            if not repaired.calls and specs and not nudged and promises_action(message.content):
+            nudge = None
+            if not repaired.calls and specs and not nudged and step < budgets.max_steps:
+                nudge = nudge_for(message.content, last_call_failed=last_failed)
+            if nudge is not None:
                 nudged = True
+                kind, note = nudge
                 context.add(message.model_copy(update={"reasoning": None}))
-                context.add(Message(role=Role.user, content=NUDGE_NOTE))
-                bus.emit(EventType.nudge, step, {"said": (message.content or "")[-200:]})
+                context.add(Message(role=Role.user, content=note))
+                said = (message.content or "")[-200:]
+                bus.emit(EventType.nudge, step, {"kind": kind, "said": said})
                 continue
             if not repaired.calls:
                 context.add(message.model_copy(update={"reasoning": None}))  # never resent
@@ -212,6 +232,12 @@ async def run_agent(
                     {"signal": warning.signal, "detail": warning.detail},
                 )
                 content += f"\n{warning.note}"
+            # A "no" from the user is an answer, not a failure to work around.
+            last_failed = result.is_error and not result.content.startswith(DENIED_PREFIX)
+            left = budgets.max_steps - step
+            if 0 < left <= STEPS_LEFT_WARNING:
+                # Felt near the end, not read once at the start (Hookele harness).
+                content += f"\n{steps_left_note(left)}"
             context.add(_tool_message(call, content))
             stuck = next((s for s in signals if s.level == "stuck"), None)
             if stuck is not None and await stop_for(stuck, step):
@@ -357,7 +383,7 @@ async def _run_tool(
         if not decision.allowed:
             result = ToolResult(
                 call_id=call.id,
-                content=f"ERROR: {call.name} was not run: {decision.reason}",
+                content=f"{DENIED_PREFIX}{call.name} was not run: {decision.reason}",
                 is_error=True,
             )
             bus.emit(EventType.tool_result, step, _result_data(call, result, 0))
