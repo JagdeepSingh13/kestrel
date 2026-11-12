@@ -1,0 +1,45 @@
+{
+  "id": "near-miss-name-as-data",
+  "why": "JSON data with a name one letter from a tool is an answer, not a call",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "read_file tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "start_line": {
+            "type": "integer",
+            "default": 1
+          },
+          "max_lines": {
+            "type": "integer",
+            "default": 400
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": []
+    }
+  ],
+  "response": {
+    "content": "{\"name\": \"read_file2\", \"value\": 1}",
+    "raw_text": "{\"name\": \"read_file2\", \"value\": 1}",
+    "finish_reason": "stop",
+    "tool_calls": []
+  },
+  "expect": {
+    "kind": "final"
+  }
+}

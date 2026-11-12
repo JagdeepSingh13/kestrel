@@ -17,6 +17,8 @@ class Limits(_Strict):
     max_steps: int = Field(default=15, ge=1, le=100)
     max_tokens_total: int | None = Field(default=None, ge=1)
     max_wall_seconds: float | None = Field(default=None, gt=0)
+    max_repairs: int = Field(default=2, ge=0, le=10)
+    """Unusable tool calls allowed in a row, each answered with a note; then stuck."""
 
 
 class ContextSettings(_Strict):

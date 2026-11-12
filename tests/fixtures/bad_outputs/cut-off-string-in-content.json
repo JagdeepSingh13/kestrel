@@ -1,0 +1,53 @@
+{
+  "id": "cut-off-string-in-content",
+  "why": "the reply hit the token limit inside a file's text",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "write_file",
+      "description": "write_file tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "overwrite": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": [
+        "content"
+      ]
+    }
+  ],
+  "response": {
+    "content": null,
+    "raw_text": "",
+    "finish_reason": "length",
+    "tool_calls": [
+      {
+        "name": "write_file",
+        "arguments_text": "{\"path\": \"a.txt\", \"content\": \"line one and long text cut of"
+      }
+    ]
+  },
+  "expect": {
+    "kind": "reject",
+    "error_contains": "cut off"
+  }
+}

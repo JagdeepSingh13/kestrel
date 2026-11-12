@@ -1,0 +1,64 @@
+{
+  "id": "qwen3-double-escaped-newlines",
+  "why": "M3 demo: qwen3:8b wrote literal backslash-n into report.md",
+  "source": {
+    "model": "qwen3:8b",
+    "provider": "ollama",
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "write_file",
+      "description": "write_file tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "overwrite": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": [
+        "content"
+      ]
+    }
+  ],
+  "response": {
+    "content": null,
+    "raw_text": "",
+    "finish_reason": "tool_calls",
+    "tool_calls": [
+      {
+        "name": "write_file",
+        "arguments_text": "{\"path\": \"report.md\", \"content\": \"# Line Count Summary\\\\n- **demo/interact.py**: 19 lines\\\\n- **demo/paths.py**: 81 lines\\\\n- **demo/redact.py**: 60 lines\\\\n- **Total**: 160 lines\"}"
+      }
+    ]
+  },
+  "expect": {
+    "kind": "calls",
+    "calls": [
+      {
+        "name": "write_file",
+        "arguments": {
+          "path": "report.md",
+          "content": "# Line Count Summary\n- **demo/interact.py**: 19 lines\n- **demo/paths.py**: 81 lines\n- **demo/redact.py**: 60 lines\n- **Total**: 160 lines"
+        }
+      }
+    ],
+    "repairs": [
+      "unescape_text"
+    ]
+  }
+}

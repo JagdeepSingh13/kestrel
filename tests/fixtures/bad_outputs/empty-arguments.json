@@ -1,0 +1,52 @@
+{
+  "id": "empty-arguments",
+  "why": "no arguments for a tool whose arguments are all optional",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "list_dir",
+      "description": "list_dir tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "default": "."
+          },
+          "depth": {
+            "type": "integer",
+            "default": 1
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "text_args": []
+    }
+  ],
+  "response": {
+    "content": null,
+    "raw_text": "",
+    "finish_reason": "tool_calls",
+    "tool_calls": [
+      {
+        "name": "list_dir",
+        "arguments_text": ""
+      }
+    ]
+  },
+  "expect": {
+    "kind": "calls",
+    "calls": [
+      {
+        "name": "list_dir",
+        "arguments": {}
+      }
+    ],
+    "repairs": []
+  }
+}

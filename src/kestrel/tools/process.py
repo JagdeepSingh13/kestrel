@@ -60,6 +60,7 @@ async def run_shell(
 @tool(
     permission="confirm",
     side_effects=True,
+    text_args=["code"],
     timeout=MAX_SECONDS + 10,
     max_output_chars=MAX_OUTPUT_BYTES + 500,  # room for our own "cut" note
 )

@@ -86,6 +86,9 @@ class ToolSpec(_Model):
     confirm_if_true: str | None = None
     """Name of a boolean argument that, when true, makes an allowed call need confirmation
     (e.g. `write_file`'s `overwrite`, spec gap 5)."""
+    text_args: list[str] = Field(default_factory=list[str])
+    """String arguments that hold free text (a file's content, code). Only these may have
+    double-escaped new lines repaired (M4)."""
 
 
 class Usage(_Model):
@@ -167,6 +170,9 @@ class EventType(StrEnum):
     tool_result = "tool_result"
     context_trim = "context_trim"
     loop_warning = "loop_warning"
+    stuck = "stuck"
+    """The run cannot make progress (signal: repairs_exhausted, repeat, stall, ...).
+    M4 stops; M4.5 steps up to a bigger model."""
     error = "error"
     final = "final"
     run_end = "run_end"

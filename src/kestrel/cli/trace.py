@@ -84,6 +84,11 @@ def describe(event: Event, *, full: bool = False) -> str:
             return f"{d.get('name')} {json.dumps(d.get('arguments'), ensure_ascii=False)}"
         case EventType.tool_result:
             return f"{text(d.get('content'))}  ({d.get('ms')} ms)"
+        case EventType.repair:
+            change = f"{text(d.get('before'))} to {text(d.get('after'))}"
+            return f"{d.get('kind')} on {d.get('call')}: {change}"
+        case EventType.stuck:
+            return f"{d.get('signal')}: {text(d.get('detail'))}"
         case EventType.final:
             return text(d.get("answer"))
         case EventType.error:

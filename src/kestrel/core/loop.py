@@ -31,6 +31,9 @@ from kestrel.core.types import (
     ToolResult,
     ToolSpec,
 )
+from kestrel.reliability.repair import Fix, repair
+
+ONE_CALL_NOTE = "(Only this call ran: one tool per step. Call others again if still needed.)"
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are a helpful agent. Use the available tools when they help you complete the "
@@ -47,6 +50,9 @@ class Budgets:
     max_tokens_total: int | None = None
     """Prompt plus completion tokens over the whole run, as reported by the backend."""
     max_wall_seconds: float | None = None
+    max_repairs: int = 2
+    """Unusable tool calls allowed in a row (each gets a note and a retry); one more and
+    the run is stuck."""
 
 
 @dataclass
@@ -81,6 +87,8 @@ async def run_agent(
     totals = _Totals()
     answer: str | None = None
     reason = StopReason.max_steps
+    repairs_used = 0
+    """Unusable calls in a row; past `budgets.max_repairs` the run is stuck."""
 
     bus.emit(
         EventType.run_start,
@@ -111,24 +119,53 @@ async def run_agent(
                 totals.completion_tokens += response.usage.completion_tokens or 0
 
             message = response.message
-            context.add(message.model_copy(update={"reasoning": None}))  # never resent
-            if not message.tool_calls:
+            repaired = repair(  # model_response above keeps the verbatim reply
+                message, specs, step=step, truncated=response.finish_reason == "length"
+            )
+            for fix in repaired.fixes:
+                bus.emit(EventType.repair, step, _fix_data(fix))
+
+            if repaired.problem is not None and repaired.broken is not None:
+                # Show the model its unusable call and what was wrong, then let it retry.
+                totals.tool_calls += 1
+                broken = repaired.broken
+                context.add(_stored(message, broken, repaired.content))
+                bus.emit(EventType.tool_call, step, _call_data(broken))
+                note = ToolResult(call_id=broken.id, content=repaired.problem, is_error=True)
+                bus.emit(EventType.tool_result, step, _result_data(broken, note, 0))
+                extra = f"\n{ONE_CALL_NOTE}" if repaired.dropped else ""
+                context.add(_tool_message(broken, note.content + extra))
+                repairs_used += 1
+                if repairs_used > budgets.max_repairs:
+                    bus.emit(
+                        EventType.stuck,
+                        step,
+                        {"signal": "repairs_exhausted", "detail": repaired.problem},
+                    )
+                    reason = StopReason.loop
+                    break
+                continue
+            repairs_used = 0
+
+            if not repaired.calls:
+                context.add(message.model_copy(update={"reasoning": None}))  # never resent
                 answer = message.content or ""
                 bus.emit(EventType.final, step, {"answer": answer})
                 reason = StopReason.final
                 break
 
-            for call in message.tool_calls:
-                totals.tool_calls += 1
-                result = await _run_tool(toolbox, call, bus, step, clock, gate, specs)
-                content = (
-                    result.content
-                    if result.is_error  # Kestrel's own message, not outside data
-                    else wrap_untrusted(_source(call), result.content)
-                )
-                context.add(
-                    Message(role=Role.tool, tool_call_id=call.id, name=call.name, content=content)
-                )
+            call = repaired.calls[0]  # one call per step (repair step 6)
+            context.add(_stored(message, call, repaired.content))
+            totals.tool_calls += 1
+            result = await _run_tool(toolbox, call, bus, step, clock, gate, specs)
+            content = (
+                result.content
+                if result.is_error  # Kestrel's own message, not outside data
+                else wrap_untrusted(_source(call), result.content)
+            )
+            if repaired.dropped:
+                content += f"\n{ONE_CALL_NOTE}"
+            context.add(_tool_message(call, content))
 
             used = totals.prompt_tokens + totals.completion_tokens
             if budgets.max_tokens_total is not None and used >= budgets.max_tokens_total:
@@ -233,7 +270,7 @@ async def _run_tool(
     """Check permission, then execute one call. A refused or crashing call becomes an
     `ERROR:` result the model can read, never a crashed run."""
     bus.emit(EventType.tool_call, step, _call_data(call))
-    if call.arguments_error is not None:  # M4 piece 2 repairs these before they get here
+    if call.arguments_error is not None:  # guard: repair() never lets one through
         result = ToolResult(
             call_id=call.id,
             content=(
@@ -276,6 +313,20 @@ async def _run_tool(
         )
     bus.emit(EventType.tool_result, step, _result_data(call, result, clock() - started))
     return result
+
+
+def _stored(message: Message, call: ToolCall, content: str | None) -> Message:
+    """The reply as the conversation keeps it: its text (without a call written in it),
+    the one call that is handled, no reasoning (never resent)."""
+    return message.model_copy(update={"content": content, "tool_calls": [call], "reasoning": None})
+
+
+def _tool_message(call: ToolCall, content: str) -> Message:
+    return Message(role=Role.tool, tool_call_id=call.id, name=call.name, content=content)
+
+
+def _fix_data(fix: Fix) -> JSONObject:
+    return {"kind": fix.kind, "call": fix.call, "before": fix.before, "after": fix.after}
 
 
 def _result_data(call: ToolCall, result: ToolResult, seconds: float) -> JSONObject:

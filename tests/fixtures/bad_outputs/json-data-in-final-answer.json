@@ -1,0 +1,45 @@
+{
+  "id": "json-data-in-final-answer",
+  "why": "JSON in an answer that is not a call",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "read_file tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "start_line": {
+            "type": "integer",
+            "default": 1
+          },
+          "max_lines": {
+            "type": "integer",
+            "default": 400
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": []
+    }
+  ],
+  "response": {
+    "content": "Here is the data:\n```json\n{\"north\": 3760, \"south\": 2720}\n```",
+    "raw_text": "Here is the data:\n```json\n{\"north\": 3760, \"south\": 2720}\n```",
+    "finish_reason": "stop",
+    "tool_calls": []
+  },
+  "expect": {
+    "kind": "final"
+  }
+}

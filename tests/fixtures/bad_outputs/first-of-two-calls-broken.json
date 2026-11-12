@@ -1,0 +1,68 @@
+{
+  "id": "first-of-two-calls-broken",
+  "why": "the first call is broken; the second is dropped either way",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "add",
+      "description": "add tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "a": {
+            "type": "integer"
+          },
+          "b": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "a",
+          "b"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": []
+    },
+    {
+      "name": "echo",
+      "description": "echo tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": []
+    }
+  ],
+  "response": {
+    "content": null,
+    "raw_text": "",
+    "finish_reason": "tool_calls",
+    "tool_calls": [
+      {
+        "name": "add",
+        "arguments_text": "{\"a\": \"many\", \"b\": 1}"
+      },
+      {
+        "name": "echo",
+        "arguments_text": "{\"text\": \"hi\"}"
+      }
+    ]
+  },
+  "expect": {
+    "kind": "reject",
+    "error_contains": "a: expected integer"
+  }
+}

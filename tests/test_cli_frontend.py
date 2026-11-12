@@ -8,7 +8,7 @@ from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 
 from kestrel.cli import frontend
-from kestrel.cli.frontend import CliFrontend, describe_args, summarize_result
+from kestrel.cli.frontend import CliFrontend, describe_args, describe_fix, summarize_result
 from kestrel.cli.prompt import choose
 from kestrel.core.types import ToolCall, ToolSpec
 
@@ -20,6 +20,13 @@ def test_call_line_shows_the_one_argument_that_matters() -> None:
     assert describe_args({}) == ""
     assert describe_args({"a": 1}) == '{"a": 1}'
     assert describe_args({"command": "x" * 100}).endswith("…")
+
+
+def test_repairs_are_described_in_plain_words() -> None:
+    assert describe_fix({"kind": "tool_name", "before": "read-file"}) == "tool name read-file"
+    assert describe_fix({"kind": "one_call", "before": ["add", "echo"]}) == (
+        "ran only the first of 2 calls"
+    )
 
 
 def test_result_preview_is_a_few_lines_and_a_count() -> None:

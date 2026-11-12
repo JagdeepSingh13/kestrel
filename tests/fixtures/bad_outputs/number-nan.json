@@ -1,0 +1,49 @@
+{
+  "id": "number-nan",
+  "why": "nan is not a number a tool can use",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "python_exec",
+      "description": "python_exec tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "seconds": {
+            "type": "integer",
+            "default": 60
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": [
+        "code"
+      ]
+    }
+  ],
+  "response": {
+    "content": null,
+    "raw_text": "",
+    "finish_reason": "tool_calls",
+    "tool_calls": [
+      {
+        "name": "python_exec",
+        "arguments_text": "{\"code\": \"print(1)\", \"seconds\": \"nan\"}"
+      }
+    ]
+  },
+  "expect": {
+    "kind": "reject",
+    "error_contains": "seconds"
+  }
+}

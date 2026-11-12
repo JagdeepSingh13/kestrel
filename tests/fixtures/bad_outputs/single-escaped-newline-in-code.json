@@ -1,0 +1,57 @@
+{
+  "id": "single-escaped-newline-in-code",
+  "why": "one literal backslash-n in code is legit",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "python_exec",
+      "description": "python_exec tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "seconds": {
+            "type": "integer",
+            "default": 60
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": [
+        "code"
+      ]
+    }
+  ],
+  "response": {
+    "content": null,
+    "raw_text": "",
+    "finish_reason": "tool_calls",
+    "tool_calls": [
+      {
+        "name": "python_exec",
+        "arguments_text": "{\"code\": \"print(\\\"a\\\\nb\\\")\"}"
+      }
+    ]
+  },
+  "expect": {
+    "kind": "calls",
+    "calls": [
+      {
+        "name": "python_exec",
+        "arguments": {
+          "code": "print(\"a\\nb\")"
+        }
+      }
+    ],
+    "repairs": []
+  }
+}

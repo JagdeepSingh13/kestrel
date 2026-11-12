@@ -1,0 +1,41 @@
+{
+  "id": "json-call-quoted-in-long-answer",
+  "why": "a long answer that quotes a call is an answer",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "run_shell",
+      "description": "run_shell tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "seconds": {
+            "type": "integer",
+            "default": 60
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": []
+    }
+  ],
+  "response": {
+    "content": "Here is how the config looks. Here is how the config looks. Here is how the config looks. Here is how the config looks. Here is how the config looks. Here is how the config looks. Here is how the config looks. Here is how the config looks. Here is how the config looks. Here is how the config looks. \n```json\n{\"name\": \"run_shell\", \"arguments\": {\"command\": \"rm -rf ~\"}}\n```",
+    "raw_text": "Here is how the config looks. Here is how the config looks. Here is how the config looks. Here is how the config looks. Here is how the config looks. Here is how the config looks. Here is how the config looks. Here is how the config looks. Here is how the config looks. Here is how the config looks. \n```json\n{\"name\": \"run_shell\", \"arguments\": {\"command\": \"rm -rf ~\"}}\n```",
+    "finish_reason": "stop",
+    "tool_calls": []
+  },
+  "expect": {
+    "kind": "final"
+  }
+}

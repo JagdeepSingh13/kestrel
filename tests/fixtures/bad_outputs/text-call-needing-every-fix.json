@@ -1,0 +1,58 @@
+{
+  "id": "text-call-needing-every-fix",
+  "why": "fenced call with single quotes, trailing comma and a dashed name",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "read_file tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "start_line": {
+            "type": "integer",
+            "default": 1
+          },
+          "max_lines": {
+            "type": "integer",
+            "default": 400
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": []
+    }
+  ],
+  "response": {
+    "content": "```json\n{'name': 'read-file', 'arguments': {'path': 'notes.txt',}}\n```",
+    "raw_text": "```json\n{'name': 'read-file', 'arguments': {'path': 'notes.txt',}}\n```",
+    "finish_reason": "stop",
+    "tool_calls": []
+  },
+  "expect": {
+    "kind": "calls",
+    "calls": [
+      {
+        "name": "read_file",
+        "arguments": {
+          "path": "notes.txt"
+        }
+      }
+    ],
+    "repairs": [
+      "call_from_text",
+      "json_syntax",
+      "tool_name"
+    ]
+  }
+}

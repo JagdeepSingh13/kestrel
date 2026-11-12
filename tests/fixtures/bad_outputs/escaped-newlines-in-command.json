@@ -1,0 +1,55 @@
+{
+  "id": "escaped-newlines-in-command",
+  "why": "commands are not text arguments: left alone",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "run_shell",
+      "description": "run_shell tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "seconds": {
+            "type": "integer",
+            "default": 60
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": []
+    }
+  ],
+  "response": {
+    "content": null,
+    "raw_text": "",
+    "finish_reason": "tool_calls",
+    "tool_calls": [
+      {
+        "name": "run_shell",
+        "arguments_text": "{\"command\": \"printf 'a\\\\nb\\\\nc'\"}"
+      }
+    ]
+  },
+  "expect": {
+    "kind": "calls",
+    "calls": [
+      {
+        "name": "run_shell",
+        "arguments": {
+          "command": "printf 'a\\nb\\nc'"
+        }
+      }
+    ],
+    "repairs": []
+  }
+}

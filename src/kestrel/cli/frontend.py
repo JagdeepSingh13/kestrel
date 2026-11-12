@@ -24,7 +24,15 @@ from rich.table import Table
 from rich.text import Text
 
 from kestrel.cli.output import console, err_console
-from kestrel.core.types import ConfirmAnswer, Event, EventType, JSONValue, ToolCall, ToolSpec
+from kestrel.core.types import (
+    ConfirmAnswer,
+    Event,
+    EventType,
+    JSONObject,
+    JSONValue,
+    ToolCall,
+    ToolSpec,
+)
 
 PREVIEW_LINES = 3
 CONFIRM_PREVIEW_LINES = 15
@@ -115,6 +123,14 @@ class CliFrontend:
                 summary = summarize_result(data.get("content"))
                 style = "red" if data.get("is_error") else "dim"
                 err_console.print(_under(summary, style), highlight=False)
+            case EventType.repair:
+                self._stop_spinner()
+                err_console.print(Text("  ✎ fixed: " + describe_fix(data), style="dim"))
+            case EventType.stuck:
+                self._stop_spinner()
+                err_console.print(
+                    Text("  stuck: " + _str(data.get("signal")).replace("_", " "), style="yellow")
+                )
             case EventType.context_trim:
                 err_console.print(
                     f"  [dim]context trimmed to fit: {data.get('dropped_tool_results')} old tool "
@@ -274,6 +290,23 @@ class _Elapsed:
         return Text(f"{self.frontend.label}… {seconds}s{hint}", style="dim")
 
 
+def describe_fix(data: JSONObject) -> str:
+    """`tool name read-file`, `escaped new lines in content`: one repair, in plain words."""
+    kind, before = _str(data.get("kind")), data.get("before")
+    labels = {
+        "call_from_text": "a tool call written as text",
+        "json_syntax": "broken JSON",
+        "arguments_string": "arguments sent as a string",
+        "unwrap_arguments": "arguments wrapped twice",
+        "tool_name": f"tool name {before}",
+        "coerce": f"argument type {json.dumps(before)}",
+        "unknown_argument": f"dropped unknown argument {before}",
+        "unescape_text": "escaped new lines",
+        "one_call": f"ran only the first of {len(before) if isinstance(before, list) else 2} calls",
+    }
+    return labels.get(kind, kind)
+
+
 def describe_args(arguments: JSONValue) -> str:
     """The one thing worth showing about a call: `data/sales.csv`, the command, the code."""
     if not isinstance(arguments, dict) or not arguments:
@@ -348,6 +381,7 @@ def _run_summary(event: Event) -> Text:
         "max_steps": "Stopped: hit the step limit",
         "budget": "Stopped: hit a budget limit",
         "cancelled": "Stopped",
+        "loop": "Stopped: stuck",
         "error": "Stopped by an error",
     }
     return Text.assemble(

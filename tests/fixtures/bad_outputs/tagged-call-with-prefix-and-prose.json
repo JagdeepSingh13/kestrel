@@ -1,0 +1,50 @@
+{
+  "id": "tagged-call-with-prefix-and-prose",
+  "why": "functions. prefix inside tags, short prose after",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "list_dir",
+      "description": "list_dir tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "default": "."
+          },
+          "depth": {
+            "type": "integer",
+            "default": 1
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "text_args": []
+    }
+  ],
+  "response": {
+    "content": "<tool_call>\n{\"name\": \"functions.list_dir\", \"arguments\": {}}\n</tool_call>\nLet me look.",
+    "raw_text": "<tool_call>\n{\"name\": \"functions.list_dir\", \"arguments\": {}}\n</tool_call>\nLet me look.",
+    "finish_reason": "stop",
+    "tool_calls": []
+  },
+  "expect": {
+    "kind": "calls",
+    "calls": [
+      {
+        "name": "list_dir",
+        "arguments": {}
+      }
+    ],
+    "repairs": [
+      "call_from_text",
+      "tool_name"
+    ]
+  }
+}

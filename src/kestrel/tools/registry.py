@@ -60,6 +60,7 @@ def tool(
     permission: Permission = "allow",
     side_effects: bool = False,
     confirm_if_true: str | None = None,
+    text_args: Sequence[str] = (),
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
     max_output_chars: int = DEFAULT_MAX_OUTPUT_CHARS,
 ) -> Callable[[Callable[..., object]], Tool]:
@@ -93,6 +94,7 @@ def tool(
             permission=permission,
             side_effects=side_effects,
             confirm_if_true=confirm_if_true,
+            text_args=list(text_args),
         )
         return Tool(spec, fn, arguments, wants_context, timeout, max_output_chars)
 

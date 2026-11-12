@@ -1,0 +1,60 @@
+{
+  "id": "name-ambiguous",
+  "why": "close to two tools: never guess",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "copy",
+      "description": "copy tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "src": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "src"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": []
+    },
+    {
+      "name": "cope",
+      "description": "cope tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "src": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "src"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": []
+    }
+  ],
+  "response": {
+    "content": null,
+    "raw_text": "",
+    "finish_reason": "tool_calls",
+    "tool_calls": [
+      {
+        "name": "copx",
+        "arguments_text": "{\"src\": \"a\"}"
+      }
+    ]
+  },
+  "expect": {
+    "kind": "reject",
+    "error_contains": "unknown tool"
+  }
+}

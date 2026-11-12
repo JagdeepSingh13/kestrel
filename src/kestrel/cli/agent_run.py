@@ -110,7 +110,12 @@ def start_run(
                 toolbox=tools,
                 bus=bus,
                 context=context,
-                budgets=Budgets(limits.max_steps, limits.max_tokens_total, limits.max_wall_seconds),
+                budgets=Budgets(
+                    limits.max_steps,
+                    limits.max_tokens_total,
+                    limits.max_wall_seconds,
+                    limits.max_repairs,
+                ),
                 gate=Permissions(frontend.confirm, agent.permissions),
                 temperature=agent.temperature,
             )

@@ -1,0 +1,79 @@
+{
+  "id": "qwen3-guessed-parallel-result",
+  "why": "M2 demo: qwen3:8b called echo with a sum it had not seen yet",
+  "source": {
+    "model": "qwen3:8b",
+    "provider": "ollama",
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "add",
+      "description": "add tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "a": {
+            "type": "integer"
+          },
+          "b": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "a",
+          "b"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": []
+    },
+    {
+      "name": "echo",
+      "description": "echo tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": []
+    }
+  ],
+  "response": {
+    "content": null,
+    "raw_text": "",
+    "finish_reason": "tool_calls",
+    "tool_calls": [
+      {
+        "name": "add",
+        "arguments_text": "{\"a\": 17, \"b\": 25}"
+      },
+      {
+        "name": "echo",
+        "arguments_text": "{\"text\": \"the sum is 42\"}"
+      }
+    ]
+  },
+  "expect": {
+    "kind": "calls",
+    "calls": [
+      {
+        "name": "add",
+        "arguments": {
+          "a": 17,
+          "b": 25
+        }
+      }
+    ],
+    "repairs": [
+      "one_call"
+    ]
+  }
+}

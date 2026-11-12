@@ -1,0 +1,51 @@
+{
+  "id": "unknown-tool",
+  "why": "a tool that does not exist",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "read_file tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "start_line": {
+            "type": "integer",
+            "default": 1
+          },
+          "max_lines": {
+            "type": "integer",
+            "default": 400
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": []
+    }
+  ],
+  "response": {
+    "content": null,
+    "raw_text": "",
+    "finish_reason": "tool_calls",
+    "tool_calls": [
+      {
+        "name": "delete_everything",
+        "arguments_text": "{}"
+      }
+    ]
+  },
+  "expect": {
+    "kind": "reject",
+    "error_contains": "unknown tool"
+  }
+}

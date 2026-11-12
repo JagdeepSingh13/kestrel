@@ -7,7 +7,7 @@ import pytest
 
 from kestrel.core.context import ContextManager
 from kestrel.core.events import EventBus
-from kestrel.core.loop import DEFAULT_SYSTEM_PROMPT, Budgets, run_agent
+from kestrel.core.loop import DEFAULT_SYSTEM_PROMPT, ONE_CALL_NOTE, Budgets, run_agent
 from kestrel.core.types import (
     BackendUnreachableError,
     Event,
@@ -145,22 +145,64 @@ async def test_max_steps_stops_the_run() -> None:
     assert rec.of(EventType.run_end)[0].data["stopped_reason"] == "max_steps"
 
 
-async def test_tool_error_is_returned_to_the_model_and_run_continues() -> None:
+async def test_a_number_sent_as_text_is_coerced_before_the_tool_runs() -> None:
     rec = Recorded()
-    fake = FakeProvider([call("add", {"a": "17", "b": 25}), text("sorry")])
+    fake = FakeProvider([call("add", {"a": "17", "b": 25}), text("42")])
     result = await rec.run(fake)
     assert result.stopped_reason is StopReason.final
-    [sent] = tool_messages(fake.calls[1].messages)
-    assert sent is not None
-    assert sent.startswith("ERROR: add needs numbers")
-    assert rec.of(EventType.tool_result)[0].data["is_error"] is True
+    assert tool_messages(fake.calls[1].messages) == ["42"]
+    [fix] = rec.of(EventType.repair)
+    assert fix.data["kind"] == "coerce"
+
+
+async def test_an_unusable_call_gets_a_note_and_a_retry() -> None:
+    rec = Recorded()
+    fake = FakeProvider(
+        [call("add", {"a": "many", "b": 25}), call("add", {"a": 1, "b": 2}), text("3")]
+    )
+    result = await rec.run(fake)
+    assert result.stopped_reason is StopReason.final
+    [note] = tool_messages(fake.calls[1].messages)
+    assert note is not None and note.startswith("ERROR: your call to add could not be used: a:")
+    assert "add expects:" in note
+
+
+async def test_unusable_calls_past_max_repairs_mean_stuck() -> None:
+    rec = Recorded()
+    bad = call("add", {"a": "many", "b": 1})
+    result = await rec.run(FakeProvider([bad, bad, bad]), budgets=Budgets(max_repairs=2))
+    assert result.stopped_reason is StopReason.loop
+    [stuck] = rec.of(EventType.stuck)
+    assert stuck.data["signal"] == "repairs_exhausted"
+
+
+async def test_only_the_first_of_several_calls_runs() -> None:
+    both = ModelResponse(
+        message=Message(
+            role=Role.assistant,
+            tool_calls=[
+                ToolCall(id="c1", name="add", arguments={"a": 17, "b": 25}),
+                ToolCall(id="c2", name="echo", arguments={"text": "the sum is 42"}),
+            ],
+        ),
+        raw_text="",
+    )
+    rec = Recorded()
+    fake = FakeProvider([both, text("42")])
+    await rec.run(fake)
+    assert [e.data["name"] for e in rec.of(EventType.tool_call)] == ["add"]
+    [sent] = [m.content or "" for m in fake.calls[1].messages if m.role is Role.tool]
+    # The result stays inside the untrusted block; Kestrel's own note follows it.
+    assert sent.endswith("</untrusted>\n" + ONE_CALL_NOTE)
+    stored = next(m for m in fake.calls[1].messages if m.role is Role.assistant)
+    assert [c.name for c in stored.tool_calls] == ["add"]  # history matches what ran
 
 
 async def test_unknown_tool_lists_the_real_ones() -> None:
     fake = FakeProvider([call("multiply", {"a": 2, "b": 3}), text("ok")])
     await Recorded().run(fake)
     assert tool_messages(fake.calls[1].messages) == [
-        "ERROR: unknown tool 'multiply'. Available tools: add, echo"
+        "ERROR: unknown tool 'multiply'. Available tools: add, echo."
     ]
 
 
@@ -277,8 +319,10 @@ def test_a_broken_call_becomes_an_error_the_model_can_fix() -> None:
     rec = Recorded()
     result = asyncio.run(rec.run(fake))
     assert result.stopped_reason is StopReason.final  # the run goes on
+    # Ends mid-object after a comma: possibly cut off, so it is not guessed at.
     first = rec.of(EventType.tool_result)[0].data
     assert first["is_error"] and "not valid JSON" in str(first["content"])
+    assert rec.of(EventType.repair) == []
     assert rec.of(EventType.tool_call)[0].data["arguments_text"] == "{'a': 17,"
 
 

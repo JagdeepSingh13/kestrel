@@ -1,0 +1,56 @@
+{
+  "id": "call-in-json-fence",
+  "why": "no native call; the call is a ```json block in the text",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "read_file tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "start_line": {
+            "type": "integer",
+            "default": 1
+          },
+          "max_lines": {
+            "type": "integer",
+            "default": 400
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": []
+    }
+  ],
+  "response": {
+    "content": "I will read it.\n```json\n{\"name\": \"read_file\", \"arguments\": {\"path\": \"a.txt\"}}\n```",
+    "raw_text": "I will read it.\n```json\n{\"name\": \"read_file\", \"arguments\": {\"path\": \"a.txt\"}}\n```",
+    "finish_reason": "stop",
+    "tool_calls": []
+  },
+  "expect": {
+    "kind": "calls",
+    "calls": [
+      {
+        "name": "read_file",
+        "arguments": {
+          "path": "a.txt"
+        }
+      }
+    ],
+    "repairs": [
+      "call_from_text"
+    ]
+  }
+}

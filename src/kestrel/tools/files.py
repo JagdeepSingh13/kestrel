@@ -83,7 +83,7 @@ def _walk(folder: Path, depth: int, indent: str, out: list[str]) -> None:
             out.append(f"{indent}{entry.name}  ({entry.stat().st_size} bytes)")
 
 
-@tool(side_effects=True, confirm_if_true="overwrite", timeout=10)
+@tool(side_effects=True, confirm_if_true="overwrite", text_args=["content"], timeout=10)
 def write_file(
     ctx: ToolContext,
     path: Annotated[str, Field(description="File path inside the workspace.")],

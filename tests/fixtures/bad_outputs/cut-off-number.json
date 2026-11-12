@@ -1,0 +1,47 @@
+{
+  "id": "cut-off-number",
+  "why": "cut off inside a number: 5 may have been 50, so never finish it",
+  "source": {
+    "model": "hand-written",
+    "provider": null,
+    "date": "2026-11-12"
+  },
+  "tools": [
+    {
+      "name": "run_shell",
+      "description": "run_shell tool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "seconds": {
+            "type": "integer",
+            "default": 60
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "additionalProperties": false
+      },
+      "text_args": []
+    }
+  ],
+  "response": {
+    "content": null,
+    "raw_text": "",
+    "finish_reason": "tool_calls",
+    "tool_calls": [
+      {
+        "name": "run_shell",
+        "arguments_text": "{\"command\": \"ls\", \"seconds\": 5"
+      }
+    ]
+  },
+  "expect": {
+    "kind": "reject",
+    "error_contains": "not valid JSON"
+  }
+}
