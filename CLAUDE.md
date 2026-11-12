@@ -102,6 +102,12 @@ GitHub Issues on `JagdeepSingh13/kestrel`, via the `gh` CLI. See `docs/agents/is
 
 Default five roles: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
 
+### Subagents (`.claude/agents/`)
+
+- `kestrel-architect`: before a milestone plan, and before any choice that changes an interface, dependency, file format or the user's experience. Its brief feeds the plan.
+- `kestrel-reviewer`: after each piece is built, before its commit. Fix what it verifies.
+- `kestrel-live-tester`: after shell, frontend, tool or loop changes, before calling them done. Drives the real shell with `scripts/drive_shell.py`.
+
 ### Domain docs
 
 Single-context: `GLOSSARY.md` + `docs/adr/` at repo root, created lazily by `/grill-with-docs`. See `docs/agents/domain.md`.
