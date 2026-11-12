@@ -39,9 +39,9 @@ The screen for one message:
 ╰──────────────────────────────────────────╯
   ⎿  allowed
   ⎿  exit code 0
-     north 3755.0
-     south 2742.5
-⏺ North made 3755.0 and south 2742.5.
+     north 3760.0
+     south 2720.0
+⏺ North made 3755.0 and south 2720.0.
   3 steps · 2 tools · 4.1K tokens · 41s · run 20261112-091502-8f3a
 
 ╭──────────────────────────────────────────╮
@@ -59,7 +59,7 @@ The conversation after it (what the next message builds on):
     Message(role=tool, content='<untrusted source="read_file:data/sales.csv">...'),
     Message(role=assistant, tool_calls=[python_exec(code="import csv...")]),
     Message(role=tool, content='<untrusted source="python_exec">exit code 0 ...'),
-    Message(role=assistant, content="North made 3755.0 and south 2742.5."),
+    Message(role=assistant, content="North made 3755.0 and south 2720.0."),
 ]
 ```
 
