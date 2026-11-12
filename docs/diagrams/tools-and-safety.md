@@ -1,4 +1,4 @@
-# Agents, tools and safety (M3)
+# Agents, tools and safety (M3, file tools M4.2)
 
 M3 gives agents real tools (files, shell, Python, asking you a question) and the safety rules around them. Agents are YAML files, not code.
 
@@ -69,4 +69,24 @@ A confirm prompt in the shell:
   ❯ 1. Yes
     2. Yes, and don't ask again for write_file this turn
     3. No
+```
+
+The file tools since M4.2 (the default agent has all of them):
+
+| Tool | Asks first | What it replies |
+|---|---|---|
+| `list_dir`, `read_file`, `search_files` | no | the tree; numbered lines and the total; `path:line: text` |
+| `write_file` | only to overwrite | `created data/x.csv (4 lines)`, `replaced ...: was 10 lines, now 12 lines`; if the file exists it points to `append_file` and `edit_file` |
+| `append_file` | no (adds only) | `appended 1 line(s) to data/sales.csv, now 2 lines. End of file:` and the last lines, numbered |
+| `edit_file` | yes, showing `-` old and `+` new lines | `edited ...: 1 line(s) at line 2 became 1 line(s)`, and the lines around the change |
+
+Appending to the owner's file:
+
+```text
+# before (file, no newline at the end)
+12 nov, iphone, 5, 1200
+# append_file(path="data/sales.csv", text="13 nov, mac, 10, 1300")
+appended 1 line(s) to data/sales.csv, now 2 lines. End of file:
+1| 12 nov, iphone, 5, 1200
+2| 13 nov, mac, 10, 1300
 ```

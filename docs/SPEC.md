@@ -2,11 +2,13 @@
 
 Local-first, model-agnostic agent harness for small models.
 
-Status: draft v0.6. Owner edits this file; Claude Code proposes changes via PR.
+Status: draft v0.7. Owner edits this file; Claude Code proposes changes via PR.
 
 v0.2 (2026-11-11): applied the milestone changes agreed in the project handoff (section 1 identity + pillars, 5.5 constrained decoding, M4/M7 changes, new M7.5/M8.5/M9.5, backlog) and logged spec gaps in section 14.
 
 v0.3 (2026-11-11): all spec gaps decided (section 14), open decisions tagged with their milestone; sections 8.3, 10, 11 updated to match.
+
+v0.7 (2026-11-12): new M4.2, fixes from the owner's own chats (window, file tools, nudge, trace summary); tool roadmap (small core, MCP, model-proposed tools) noted.
 
 v0.6 (2026-11-12): M4 planned as four pieces; web tools split into M4.1; text tool-call modes moved to the backlog.
 
@@ -294,7 +296,7 @@ Decorator builds `ToolSpec` from signature + docstring (pydantic model from type
 
 ### 8.2 Execution contract
 - Every tool returns a string (or object serialized to string) for the model.
-- Errors return `ERROR: <message>` as the result, never crash the loop.
+- Errors return `ERROR: <message>` as the result, never crash the loop. A tool signals one by raising `ToolError`, so the result is marked `is_error` (the watchdog counts it, and it is not wrapped as untrusted).
 - Timeouts per tool (default 30s, shell/python 60s).
 - Output cap (default 20k chars before context truncation).
 
@@ -303,7 +305,10 @@ Decorator builds `ToolSpec` from signature + docstring (pydantic model from type
 |---|---|---|---|
 | `read_file` | M3 | allow | jailed, size cap, text only |
 | `list_dir` | M3 | allow | jailed, depth limit |
-| `write_file` | M3 | allow (new file), confirm (overwrite) | jailed, no overwrite unless flag (gap 5) |
+| `write_file` | M3 | allow (new file), confirm (overwrite) | jailed, no overwrite unless flag (gap 5); its "exists" error points to append_file and edit_file |
+| `search_files` | M4.2 | allow | literal, case-insensitive; `path:line: text`, 50 matches, skips binary, big files, symlinks and the usual noise folders |
+| `append_file` | M4.2 | allow | adds at the end on a new line, creates the file if missing; shows the last lines |
+| `edit_file` | M4.2 | confirm | replace one exact `old_text`; falls back to whole lines with `12| ` prefixes and trailing spaces ignored, only when that matches one place; shows the lines around the change |
 | `run_shell` | M3 | confirm | cwd = workspace, timeout, output cap |
 | `python_exec` | M3 | confirm | subprocess with `-I`, timeout, temp dir in workspace |
 | `web_search` | M4 | allow | pluggable backend: SearXNG URL in config, else DuckDuckGo via small library (ask before adding dep) |
@@ -379,7 +384,17 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - `read_tool_output` (page through cut results, kept per session in memory), `fetch_url` (stdlib HTML to text, GET only, size and time caps, private and loopback addresses blocked after every redirect, result untrusted), `web_search` (SearXNG preferred; best-effort fallback decided in the M4.1 plan).
 - `ToolSpec.network`; web tools only exist for agents that list them; a built-in `researcher` agent.
 - Open for the M4.1 plan: confirm fetches to hosts not seen this run (exfiltration risk), and the search fallback.
+- **Shape (owner, 2026-11-12):** web research runs as a sub-agent with its own fresh context; it searches and reads, then hands the main agent a short summary with sources, so raw pages never fill the main agent's small window.
 - **Done when:** a research task works on a small local model, with every fetched page wrapped as untrusted.
+
+### M4.2: Fixes from the owner's chats
+Found by the owner chatting with qwen3:8b: Ollama ran it with a 4096-token window (its default under 23 GiB of VRAM) while the status line said 16K; the model could not append to a file (no tool for it, `write_file` refused) and twice ended a turn with "Let me do that for you." and no call; tool `ERROR:` results were not flagged as errors.
+- **Window:** the status line shows the window really used ("of 4K (backend loaded it small: /profile)"); the welcome banner (from the cached profile, no probe), the first-message warning, `/profile` and the trace summary give the fix (`OLLAMA_CONTEXT_LENGTH=16384 ollama serve`). Kestrel cannot raise it itself: Ollama's `/v1` never sends `num_ctx`, so a model loaded bigger would be reloaded at the default.
+- **File tools:** `search_files`, `append_file`, `edit_file` (section 8.3); `append_file` and `edit_file` results show the changed lines numbered, `write_file` reports line counts (was, now). Edits keep line endings (CRLF stays CRLF), refuse files that are not UTF-8, and deleting whole lines leaves no gap.
+- **Nudge** (`reliability/nudge.py`): a reply with no tool call whose last three sentences announce an action ("let me", "I'll", "I will", "I'm going to", "now I", "next I"; not "let me know", "I'll be happy", "I hope", not a question) gets one note per run and another try. `nudge` event.
+- **Trace summary** above the timeline: how the run ended and why, model and backend, window and fullest prompt, trims, failed calls, repairs, warnings, nudges, tokens and time. The `profile` event carries `wanted_window`.
+- Default agent: the three new tools; prompt says which file tool is for what, to act instead of announcing, to use details already given, and to make a sensible choice when a request is unclear.
+- **Status: built.**
 
 ### M4.5: Model ladder, basic (headline feature)
 - `model:` list in agent YAML (gap 14) becomes a ladder; shell `/ladder MODEL MODEL ...` and `/up`.
@@ -449,6 +464,8 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - Voice (whisper.cpp + Piper).
 
 ### Backlog (unscheduled)
+- **Tool strategy** (owner, 2026-11-12): a small, sharp built-in core (files, search, shell, Python); breadth through MCP servers (M5), switched on per agent; each agent lists only the tools its job needs. Later (with memory, M6): the model may propose saving a Python snippet that worked as a named tool; the owner reviews and approves it, and it runs under the same jail and confirm rules.
+- `/profile fix`: create a copy of the model in Ollama with `num_ctx` set, so the bigger window needs no restart (changes the user's Ollama setup, so it would ask first).
 - **Text tool-call modes** (moved from M4 by owner, 2026-11-12): `json` mode (one JSON object per reply, forced by the backend's JSON schema output where supported) and `react` mode (`Thought` / `Action` / `Action Input` / `Final Answer` text, generation stopped at `Observation:` so the model cannot invent results). For models without native tool calls (gemma3, phi4). History stays in the neutral format; a renderer turns it into each mode's text.
 - Hardware-aware runtime: knows RAM, loaded models, battery, thermals; avoids loading two 8B models on 16GB; laptop mode on battery; warns on fanless throttling.
 - Agent tests: each agent YAML ships test cases; `kestrel test agents/researcher.yaml --model qwen3:8b` gives a pass rate.
@@ -507,7 +524,7 @@ One JSON object per line:
 
 Events store full tool arguments, full results and verbatim model output; results over 64KB go to a side file referenced by path (gap 13). Every line is redacted before writing (gaps 6, 11).
 
-Event types: `run_start`, `profile` (what was known about the model, M4), `model_request` (with the exact messages sent, M4), `model_response`, `repair`, `tool_call`, `permission`, `tool_result`, `context_trim`, `loop_warning`, `stuck` (M4), `error`, `final`, `run_end`.
+Event types: `run_start`, `profile` (what was known about the model, M4), `model_request` (with the exact messages sent, M4), `model_response`, `repair`, `tool_call`, `permission`, `tool_result`, `context_trim`, `loop_warning`, `stuck` (M4), `nudge` (M4.2), `error`, `final`, `run_end`.
 
 `run_end.data` includes `stopped_reason` (`final|max_steps|budget|loop|cancelled|error`), totals for steps, tokens, repairs, wall time.
 

@@ -56,14 +56,14 @@
   "x": 540,
   "y": 0,
   "width": 380,
-  "height": 200,
+  "height": 220,
   "backgroundColor": "#b2f2bb",
   "fillStyle": "solid",
   "roundness": {
    "type": 3
   },
   "label": {
-   "text": "Tools\nlist_dir, read_file\nwrite_file (asks before overwriting)\nrun_shell, python_exec (always ask)\nask_user",
+   "text": "Tools\nlist, read, search files\nwrite, append, edit\n(overwrite and edit ask)\nrun_shell, python_exec (always ask)\nask_user",
    "fontSize": 18
   }
  },
@@ -139,7 +139,7 @@
   "x": 730.0,
   "y": 257,
   "width": 1,
-  "height": -54,
+  "height": -34,
   "start": {
    "id": "safety"
   },
@@ -151,7 +151,7 @@
  {
   "type": "text",
   "x": 742.0,
-  "y": 218.0,
+  "y": 228.0,
   "text": "guards",
   "fontSize": 18,
   "strokeColor": "#495057"

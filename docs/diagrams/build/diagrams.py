@@ -830,9 +830,9 @@ def tools_and_safety() -> Diagram:
         540,
         0,
         380,
-        200,
+        220,
         GREEN,
-        "Tools\nlist_dir, read_file\nwrite_file (asks before overwriting)\nrun_shell, python_exec (always ask)\nask_user",
+        "Tools\nlist, read, search files\nwrite, append, edit\n(overwrite and edit ask)\nrun_shell, python_exec (always ask)\nask_user",
         size=18,
     )
     d.box(
@@ -952,9 +952,9 @@ def reliability() -> Diagram:
         920,
         290,
         320,
-        180,
+        210,
         "Watchdog",
-        "same call again and again,\nback and forth, no new\nresults, errors in a row",
+        "same call again and again,\nback and forth, no new\nresults, errors in a row,\nsays it will act but doesn't",
     )
     d.card(
         "stuck",

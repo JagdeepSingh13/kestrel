@@ -280,7 +280,7 @@
   "x": 920,
   "y": 290,
   "width": 320,
-  "height": 180,
+  "height": 210,
   "backgroundColor": "#ffffff",
   "fillStyle": "solid",
   "strokeStyle": "solid",
@@ -321,7 +321,7 @@
   "type": "text",
   "x": 938,
   "y": 358,
-  "text": "same call again and again,\nback and forth, no new\nresults, errors in a row",
+  "text": "same call again and again,\nback and forth, no new\nresults, errors in a row,\nsays it will act but doesn't",
   "fontSize": 19,
   "strokeColor": "#343a40",
   "roughness": 0,
@@ -513,9 +513,9 @@
  {
   "type": "arrow",
   "x": 1080.0,
-  "y": 473,
+  "y": 503,
   "width": 1,
-  "height": 104,
+  "height": 74,
   "start": {
    "id": "watch"
   },
@@ -529,7 +529,7 @@
  {
   "type": "text",
   "x": 1092.0,
-  "y": 513.0,
+  "y": 528.0,
   "text": "stuck",
   "fontSize": 18,
   "strokeColor": "#495057",
