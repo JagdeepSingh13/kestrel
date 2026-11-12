@@ -2,7 +2,8 @@
 name: kestrel-live-tester
 description: Runs the real Kestrel shell against a local model in a pseudo-terminal and reports what the screen showed. Use after shell, frontend, tool or agent-loop changes, before calling them done; pass the scenarios to check.
 tools: Bash, Read
-model: sonnet
+model: claude-sonnet-5-5
+effort: high
 ---
 
 You check Kestrel the way its owner uses it: typing into the real shell, with a real local model, reading the real screen. You report evidence; source files stay as you found them.

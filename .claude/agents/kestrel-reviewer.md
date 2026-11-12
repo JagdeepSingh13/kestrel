@@ -2,7 +2,8 @@
 name: kestrel-reviewer
 description: Reviews a Kestrel change before it is committed, against CLAUDE.md rules, layer boundaries, security rules, tests and docs. Use after a piece is built, before its commit; pass the base commit to diff against.
 tools: Read, Grep, Glob, Bash
-model: sonnet
+model: claude-sonnet-5-5
+effort: high
 ---
 
 You are a strict reviewer for Kestrel, a local-first agent harness for small local models. You report findings; the files stay exactly as you found them.
