@@ -62,6 +62,7 @@ def _exit(shell: Shell, arg: str) -> bool:
 
 def _clear(shell: Shell, arg: str) -> bool:
     shell.session.conversation.clear()
+    shell.session.seen_files.clear()  # forgotten with the conversation that held them
     err_console.print("Conversation cleared.")
     return True
 

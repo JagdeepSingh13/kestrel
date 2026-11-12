@@ -360,3 +360,42 @@ async def test_a_reply_that_only_announces_an_action_gets_one_nudge() -> None:
     assert result.stopped_reason is StopReason.final and result.steps == 3
     assert len(recorded.of(EventType.nudge)) == 1
     assert len(recorded.of(EventType.tool_result)) == 1
+
+
+class NeedsReadToolbox(DemoToolbox):
+    def precheck(self, call: ToolCall) -> ToolResult | None:
+        return ToolResult(call_id=call.id, content="ERROR: read it first", is_error=True)
+
+
+async def test_a_call_that_cannot_work_is_refused_before_anyone_is_asked() -> None:
+    class NeverAsked:
+        async def check(self, call: ToolCall, spec: ToolSpec) -> PermissionDecision:
+            raise AssertionError("the user must not be asked about a call that cannot work")
+
+    recorded = Recorded()
+    bus = EventBus("test-run")
+    bus.subscribe(recorded.events.append)
+    fake = FakeProvider([call("add", {"a": 1, "b": 2}), text("ok")])
+    await run_agent(
+        TASK,
+        provider=fake,
+        model="m",
+        toolbox=NeedsReadToolbox(),
+        bus=bus,
+        context=ContextManager(None),
+        gate=NeverAsked(),
+    )
+    assert tool_messages(fake.calls[1].messages) == ["ERROR: read it first"]
+    assert not recorded.of(EventType.permission)
+
+
+class BrokenCheckToolbox(DemoToolbox):
+    def precheck(self, call: ToolCall) -> ToolResult | None:
+        raise RuntimeError("Symlink loop")
+
+
+async def test_a_broken_precheck_does_not_end_the_run() -> None:
+    result = await Recorded().run(
+        FakeProvider([call("add", {"a": 1, "b": 2}), text("ok")]), toolbox=BrokenCheckToolbox()
+    )
+    assert result.stopped_reason is StopReason.final

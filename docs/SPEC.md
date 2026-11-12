@@ -305,10 +305,10 @@ Decorator builds `ToolSpec` from signature + docstring (pydantic model from type
 |---|---|---|---|
 | `read_file` | M3 | allow | jailed, size cap, text only |
 | `list_dir` | M3 | allow | jailed, depth limit |
-| `write_file` | M3 | allow (new file), confirm (overwrite) | jailed, no overwrite unless flag (gap 5); its "exists" error points to append_file and edit_file |
+| `write_file` | M3 | allow (new file), confirm (overwrite) | jailed, no overwrite unless flag (gap 5); overwrite needs a fresh `read_file` first (M4.2); its "exists" error points to append_file and edit_file |
 | `search_files` | M4.2 | allow | literal, case-insensitive; `path:line: text`, 50 matches, skips binary, big files, symlinks and the usual noise folders |
 | `append_file` | M4.2 | allow | adds at the end on a new line, creates the file if missing; shows the last lines |
-| `edit_file` | M4.2 | confirm | replace one exact `old_text`; falls back to whole lines with `12| ` prefixes and trailing spaces ignored, only when that matches one place; shows the lines around the change |
+| `edit_file` | M4.2 | confirm | needs a fresh `read_file` of the file first (checked before asking); replace one exact `old_text`; falls back to whole lines with `12| ` prefixes and trailing spaces ignored, only when that matches one place; shows the lines around the change |
 | `run_shell` | M3 | confirm | cwd = workspace, timeout, output cap |
 | `python_exec` | M3 | confirm | subprocess with `-I`, timeout, temp dir in workspace |
 | `web_search` | M4 | allow | pluggable backend: SearXNG URL in config, else DuckDuckGo via small library (ask before adding dep) |
@@ -393,6 +393,8 @@ Found by the owner chatting with qwen3:8b: Ollama ran it with a 4096-token windo
 - **File tools:** `search_files`, `append_file`, `edit_file` (section 8.3); `append_file` and `edit_file` results show the changed lines numbered, `write_file` reports line counts (was, now). Edits keep line endings (CRLF stays CRLF), refuse files that are not UTF-8, and deleting whole lines leaves no gap.
 - **Nudge** (`reliability/nudge.py`): a reply with no tool call whose last three sentences announce an action ("let me", "I'll", "I will", "I'm going to", "now I", "next I"; not "let me know", "I'll be happy", "I hope", not a question) gets one note per run and another try. `nudge` event.
 - **Trace summary** above the timeline: how the run ended and why, model and backend, window and fullest prompt, trims, failed calls, repairs, warnings, nudges, tokens and time. The `profile` event carries `wanted_window`.
+- **Read before changing** (after the owner's chat, where qwen3 edited `sales.csv` from memory and the owner approved an edit that could not match): `edit_file`, and `write_file` with `overwrite=true`, need the file read in this conversation (any read, even part of it) and unchanged since (modification time and size). A read whose result was later trimmed from the prompt still counts; a wrong `old_text` then fails as before. `Toolbox.precheck(call)` runs before the permission gate, so a call that cannot work is answered with an error and the user is never asked. The memory of read files lives for the shell conversation, is cleared by `/clear`, and rolls back with a dropped turn.
+- **Today's date** is added to the system prompt each turn ("Today is Thursday, 2026-11-12 ..."): the model wrote 2023 for dates given without a year.
 - Default agent: the three new tools; prompt says which file tool is for what, to act instead of announcing, to use details already given, and to make a sensible choice when a request is unclear.
 - **Status: built.**
 

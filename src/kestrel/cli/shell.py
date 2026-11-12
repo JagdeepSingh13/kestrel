@@ -25,6 +25,7 @@ from kestrel.core.config import ConfigError, KestrelConfig, ProviderConfig
 from kestrel.core.context import ContextManager
 from kestrel.core.types import Message, Provider, ProviderError, StopReason
 from kestrel.safety.paths import Workspace
+from kestrel.tools.registry import FileStamp
 
 type ReadLine = Callable[[str], str]
 """Show a prompt, return the typed line. Raises EOFError (Ctrl-D) or KeyboardInterrupt."""
@@ -47,6 +48,8 @@ class Session:
     laptop, thinking can take a minute per step (owner decision, M4)."""
     conversation: ContextManager = field(default_factory=lambda: ContextManager(None))
     """Every turn so far, tool calls and results included. Trimmed when sent, never here."""
+    seen_files: dict[Path, FileStamp] = field(default_factory=dict[Path, FileStamp])
+    """Files the model has read in this conversation (an edit needs a fresh read)."""
 
     @property
     def history(self) -> list[Message]:
@@ -163,6 +166,7 @@ class Shell:
             show_thinking=self.session.show_thinking,
             think=None if self.session.think else False,
             conversation=self.session.conversation,
+            seen_files=self.session.seen_files,
             box=self.box,
         )
         if result is None or result.stopped_reason is StopReason.error:

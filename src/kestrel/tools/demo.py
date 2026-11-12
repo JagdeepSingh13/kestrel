@@ -32,6 +32,10 @@ class DemoToolbox:
         """Both demo tools."""
         return [ADD, ECHO]
 
+    def precheck(self, call: ToolCall) -> ToolResult | None:
+        """Nothing to check before running."""
+        return None
+
     async def execute(self, call: ToolCall) -> ToolResult:
         """Run `add` or `echo`."""
         args = call.arguments

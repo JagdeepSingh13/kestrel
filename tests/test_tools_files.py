@@ -1,5 +1,7 @@
 """File tools, called the way the model calls them: through the registry."""
 
+import asyncio
+import os
 from pathlib import Path
 
 import pytest
@@ -147,3 +149,36 @@ async def test_edit_file_deletes_whole_lines_without_leaving_a_gap(ws: Path) -> 
     gone: JSONObject = {"path": "src/app.py", "old_text": "b = 2\n", "new_text": ""}
     await call(ws, "edit_file", gone)
     assert (ws / "src" / "app.py").read_text(encoding="utf-8") == "a = 1\nc = 3\n"
+
+
+def test_changing_a_file_needs_a_fresh_read_first(ws: Path) -> None:
+    registry = ToolRegistry([read_file, write_file, edit_file], ToolContext(Workspace(ws), {}))
+    edit = ToolCall(
+        id="e", name="edit_file", arguments={"path": "src/app.py", "old_text": "a", "new_text": "b"}
+    )
+    overwrite = ToolCall(
+        id="w",
+        name="write_file",
+        arguments={"path": "src/app.py", "content": "x", "overwrite": True},
+    )
+    new_file = ToolCall(id="n", name="write_file", arguments={"path": "new.txt", "content": "x"})
+    first = registry.precheck(edit)
+    assert (
+        first is not None
+        and first.is_error
+        and "read src/app.py with read_file first" in first.content
+    )
+    assert registry.precheck(overwrite) is not None
+    assert registry.precheck(new_file) is None  # nothing to read yet
+
+    asyncio.run(
+        registry.execute(ToolCall(id="r", name="read_file", arguments={"path": "src/app.py"}))
+    )
+    assert registry.precheck(edit) is None
+
+    app = ws / "src" / "app.py"
+    stat = app.stat()
+    app.write_text("changed elsewhere\n", encoding="utf-8")
+    os.utime(app, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000))
+    stale = registry.precheck(edit)
+    assert stale is not None and "changed since you last read it" in stale.content

@@ -5,6 +5,8 @@ import asyncio
 import contextlib
 from collections.abc import Callable, Mapping
 from contextlib import AbstractAsyncContextManager
+from datetime import date
+from pathlib import Path
 
 from rich.markup import escape
 
@@ -21,7 +23,7 @@ from kestrel.safety.paths import Workspace
 from kestrel.safety.permissions import Permissions
 from kestrel.safety.redact import Redactor
 from kestrel.tools.builtin import BUILTIN_TOOLS
-from kestrel.tools.registry import ToolContext, ToolRegistry
+from kestrel.tools.registry import FileStamp, ToolContext, ToolRegistry
 
 type OpenProvider = Callable[[str, ProviderConfig], AbstractAsyncContextManager[Provider]]
 
@@ -50,6 +52,7 @@ def start_run(
     conversation: ContextManager | None = None,
     box: BottomBox | None = None,
     think: bool | None = False,
+    seen_files: dict[Path, FileStamp] | None = None,
 ) -> RunResult | None:
     """Run `task` with `agent` to the end. Returns None if it could not start or the user
     pressed Ctrl-C.
@@ -57,6 +60,7 @@ def start_run(
     `conversation` carries earlier turns (the shell); the run adds to it. A turn that is
     stopped or fails is taken back out, so the next message starts from the last good one.
     `think=False` (the default) asks the model not to think first; None leaves it be.
+    `seen_files` remembers which files the model has read, across a shell conversation.
     """
     if provider_config.is_remote and not agent.allow_cloud:
         err_console.print(
@@ -92,14 +96,22 @@ def start_run(
     bus.subscribe(frontend.on_event)  # ...and to the screen
     tools = ToolRegistry(
         [BUILTIN_TOOLS[name] for name in agent.tools],
-        ToolContext(workspace=workspace, env=env, ask=frontend.ask),
+        ToolContext(
+            workspace=workspace,
+            env=env,
+            ask=frontend.ask,
+            seen=seen_files if seen_files is not None else {},
+        ),
     )
     context = conversation or ContextManager(None)
-    context.system_prompt = f"{agent.system or DEFAULT_SYSTEM_PROMPT}\n\n{UNTRUSTED_RULE}"
+    context.system_prompt = (
+        f"{agent.system or DEFAULT_SYSTEM_PROMPT}\n\n{today_note(date.today())}\n\n{UNTRUSTED_RULE}"
+    )
     context.window = window
     context.max_tool_result_tokens = agent.context.max_tool_result_tokens
     context.tools = tools.specs()  # the agent may have changed since the last turn
     kept = len(context.history)
+    seen_before = dict(tools.context.seen)
     limits = agent.limits
 
     async def go() -> RunResult:
@@ -157,6 +169,8 @@ def start_run(
         unanswered = context.history[-1:] and context.history[-1].role is Role.user
         if result is None or result.stopped_reason is StopReason.error or unanswered:
             del context.history[kept:]  # never leave the conversation ending on a question
+            tools.context.seen.clear()  # reads in the dropped turn are gone from the model's view
+            tools.context.seen.update(seen_before)
         frontend.stop()
         writer.close()
     return result
@@ -166,6 +180,14 @@ _probed: set[tuple[str, str]] = set()
 """(backend, model) pairs asked this session: once per session keeps profiles fresh
 (a re-pulled model, a restarted backend) without asking on every turn."""
 _warned_windows: set[tuple[str, int]] = set()
+
+
+def today_note(today: date) -> str:
+    """Small models think it is still their training year; tell them the date."""
+    return (
+        f"Today is {today:%A}, {today.isoformat()}. Your training data is older than this: "
+        "when a year or date is needed and the user gave none, use today's, and say so."
+    )
 
 
 def load_profile(name: str, config: ProviderConfig, model: str, cache: ProfileCache) -> Profile:

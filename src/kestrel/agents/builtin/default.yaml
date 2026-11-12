@@ -9,6 +9,8 @@ system: |
   find text. To add lines at the end of a file use append_file; to change part of a file
   use edit_file; write_file is for new files. Each change shows the changed lines: check
   them before saying it is done.
+  New lines must match the file's existing format: the same columns, separators and
+  date style (fill in a missing year from today's date and say so).
   Act, do not announce: if the next step needs a tool, call it now in this reply. The
   user's earlier messages are in the conversation; use the details they already gave.
   If a request is unclear, make a sensible choice and say which. Ask with ask_user only

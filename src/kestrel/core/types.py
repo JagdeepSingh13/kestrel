@@ -237,6 +237,11 @@ class Toolbox(Protocol):
         """Descriptions of every available tool, sent to the model."""
         ...
 
+    def precheck(self, call: ToolCall) -> ToolResult | None:
+        """An error result when the call cannot work, known without running it (an edit
+        to a file not read yet); None to go on. Checked before the user is asked."""
+        ...
+
     async def execute(self, call: ToolCall) -> ToolResult:
         """Run one call. Unknown tools, bad arguments and crashes return `is_error=True`."""
         ...

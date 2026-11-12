@@ -60,6 +60,8 @@ Every reply goes through repair before anything runs:
 
 ### Action: the tools
 - Built in: a small core, each tool for one clear job: list, read and search files; write a new file, add to the end of one, or change part of one; run a command or Python; ask you a question. Small models pick the right tool far more often when the obvious action has its own tool.
+- **Read before changing.** Editing or overwriting a file only works after the model has read its current text in this conversation. Otherwise it is told to read it first, before you are asked anything, so you never approve an edit that cannot work.
+- **It knows today's date.** Small models assume it is still the year they were trained in; each message tells them the real date.
 - **Changes show what changed.** Appending to or editing a file replies with the changed lines, numbered, and writing one reports its line count, so the model can check its own work without another step. Line endings and the file's encoding are kept as they were.
 - More tools come from MCP servers (later), switched on per agent, so each agent sees only the tools its job needs.
 - A tool is a plain Python function; Kestrel describes it to the model from its name, docstring and argument types.

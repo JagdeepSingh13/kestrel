@@ -334,6 +334,13 @@ async def _run_tool(
         )
         bus.emit(EventType.tool_result, step, _result_data(call, result, 0))
         return result
+    try:
+        early = toolbox.precheck(call)
+    except Exception:  # a broken check must not end the run; execute reports the problem
+        early = None
+    if early is not None:  # cannot work: tell the model, never ask the user about it
+        bus.emit(EventType.tool_result, step, _result_data(call, early, 0))
+        return early
     spec = next((s for s in specs if s.name == call.name), None)
     if gate is not None and spec is not None:  # unknown tools are reported by the toolbox
         decision = await gate.check(call, spec)

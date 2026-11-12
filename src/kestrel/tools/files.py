@@ -10,9 +10,9 @@ import re
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
-from kestrel.tools.registry import ToolContext, ToolError, tool
+from kestrel.tools.registry import FileStamp, ToolContext, ToolError, tool
 
 MAX_READ_BYTES = 1_000_000
 MAX_LIST_ENTRIES = 300
@@ -43,6 +43,7 @@ def read_file(
     lines = _lines(raw.decode("utf-8", errors="replace"))
     end = min(len(lines), start_line - 1 + max_lines)
     shown = lines[start_line - 1 : end]
+    _remember(ctx, file)
     header = f"{ctx.workspace.relative(file)}: {len(lines)} lines total"
     if not lines:
         return f"{header} (empty file)"
@@ -88,7 +89,40 @@ def _walk(folder: Path, depth: int, indent: str, out: list[str]) -> None:
             out.append(f"{indent}{entry.name}  ({entry.stat().st_size} bytes)")
 
 
-@tool(side_effects=True, confirm_if_true="overwrite", text_args=["content"], timeout=10)
+def _read_first(ctx: ToolContext, args: BaseModel) -> str | None:
+    """Changing an existing file needs a read of its current text in this conversation,
+    so the model works from what is there, not from memory. Checked before asking you."""
+    path = getattr(args, "path", "")
+    if getattr(args, "overwrite", True) is False:
+        return None  # write_file without overwrite never replaces anything
+    file = ctx.workspace.resolve(path)
+    if not file.is_file():
+        return None  # the tool itself reports a missing file
+    seen = ctx.seen.get(file)
+    if seen is None:
+        return f"read {path} with read_file first; then change it using its current text."
+    if seen != _stamp(file):
+        return f"{path} changed since you last read it. read_file it again first."
+    return None
+
+
+def _remember(ctx: ToolContext, file: Path) -> None:
+    """The model now knows this file's current text."""
+    ctx.seen[file] = _stamp(file)
+
+
+def _stamp(file: Path) -> FileStamp:
+    info = file.stat()
+    return info.st_mtime_ns, info.st_size
+
+
+@tool(
+    side_effects=True,
+    confirm_if_true="overwrite",
+    text_args=["content"],
+    timeout=10,
+    precheck=_read_first,
+)
 def write_file(
     ctx: ToolContext,
     path: Annotated[str, Field(description="File path inside the workspace.")],
@@ -111,6 +145,7 @@ def write_file(
     before = _line_count(file) if existed else 0
     file.parent.mkdir(parents=True, exist_ok=True)
     file.write_text(content, encoding="utf-8")
+    _remember(ctx, file)
     name = ctx.workspace.relative(file)
     lines = len(_lines(content))
     if existed:
@@ -134,12 +169,15 @@ def append_file(
     old = _read_text(file) if file.exists() else ""
     if old is None:
         raise ToolError(f"{path} is not a text file")
+    fresh = file.exists() and ctx.seen.get(file) == _stamp(file)
     eol = "\r\n" if "\r\n" in old else "\n"  # match the file's line endings
     joiner = eol if old and not old.endswith("\n") else ""
     tail = eol.join(text.splitlines()) + eol
     file.parent.mkdir(parents=True, exist_ok=True)
     with file.open("a", encoding="utf-8", newline="") as handle:  # no newline translation
         handle.write(joiner + tail)
+    if fresh or not old:
+        _remember(ctx, file)  # still known: it only grew by what the model just wrote
     lines = _lines(old + joiner + tail)
     added = len(text.splitlines())
     first = len(lines) - added + 1
@@ -148,7 +186,13 @@ def append_file(
     return f"appended {added} line(s) to {name}, now {len(lines)} lines. End of file:\n{shown}"
 
 
-@tool(side_effects=True, permission="confirm", text_args=["old_text", "new_text"], timeout=10)
+@tool(
+    side_effects=True,
+    permission="confirm",
+    text_args=["old_text", "new_text"],
+    timeout=10,
+    precheck=_read_first,
+)
 def edit_file(
     ctx: ToolContext,
     path: Annotated[str, Field(description="File path inside the workspace.")],
@@ -210,6 +254,7 @@ def edit_file(
             f"old_text was not found in {path}. read_file it and copy the text exactly."
         )
     file.write_bytes(new.encode("utf-8"))  # bytes: line endings stay exactly as they were
+    _remember(ctx, file)
     added = len(_lines(new_text))
     now = _lines(new)
     last = first + max(added, 1) - 1

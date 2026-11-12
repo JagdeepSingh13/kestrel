@@ -76,9 +76,9 @@ The file tools since M4.2 (the default agent has all of them):
 | Tool | Asks first | What it replies |
 |---|---|---|
 | `list_dir`, `read_file`, `search_files` | no | the tree; numbered lines and the total; `path:line: text` |
-| `write_file` | only to overwrite | `created data/x.csv (4 lines)`, `replaced ...: was 10 lines, now 12 lines`; if the file exists it points to `append_file` and `edit_file` |
+| `write_file` | only to overwrite (after a fresh `read_file`) | `created data/x.csv (4 lines)`, `replaced ...: was 10 lines, now 12 lines`; if the file exists it points to `append_file` and `edit_file` |
 | `append_file` | no (adds only) | `appended 1 line(s) to data/sales.csv, now 2 lines. End of file:` and the last lines, numbered |
-| `edit_file` | yes, showing `-` old and `+` new lines | `edited ...: 1 line(s) at line 2 became 1 line(s)`, and the lines around the change |
+| `edit_file` | yes, showing `-` old and `+` new lines; only after a fresh `read_file` (else the model is told to read first, and you are not asked) | `edited ...: 1 line(s) at line 2 became 1 line(s)`, and the lines around the change |
 
 Appending to the owner's file:
 

@@ -13,7 +13,8 @@ failure into an `ERROR: ...` result instead of an exception (CLAUDE.md rule 8).
 import asyncio
 import inspect
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, ValidationError, create_model
@@ -27,6 +28,10 @@ DEFAULT_MAX_OUTPUT_CHARS = 20_000
 type Permission = Literal["allow", "confirm", "deny"]
 
 
+type FileStamp = tuple[int, int]
+"""A file's modification time (ns) and size: if either moved, it changed."""
+
+
 @dataclass(frozen=True)
 class ToolContext:
     """What a tool may use besides its arguments. Never shown to the model."""
@@ -35,6 +40,13 @@ class ToolContext:
     env: Mapping[str, str]
     ask: Callable[[str], Awaitable[str]] | None = None
     """Ask the user a question (set by the frontend; used by `ask_user`)."""
+    seen: dict[Path, FileStamp] = field(default_factory=dict[Path, FileStamp])
+    """Files the model has read or written, with their modification time and size then. Kept for
+    a whole shell conversation, so an edit can require a fresh read."""
+
+
+type Precheck = Callable[[ToolContext, BaseModel], str | None]
+"""Says why a call cannot work (e.g. a file not read yet), before the user is asked."""
 
 
 @dataclass(frozen=True)
@@ -47,6 +59,7 @@ class Tool:
     """Pydantic model built from the function's parameters; checks the model's arguments."""
     wants_context: bool
     timeout: float
+    precheck: Precheck | None
     max_output_chars: int
 
     @property
@@ -69,6 +82,7 @@ def tool(
     text_args: Sequence[str] = (),
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
     max_output_chars: int = DEFAULT_MAX_OUTPUT_CHARS,
+    precheck: Precheck | None = None,
 ) -> Callable[[Callable[..., object]], Tool]:
     """Turn a function into a `Tool`. A first parameter named `ctx` receives the
     `ToolContext` and is left out of what the model sees."""
@@ -102,7 +116,7 @@ def tool(
             confirm_if_true=confirm_if_true,
             text_args=list(text_args),
         )
-        return Tool(spec, fn, arguments, wants_context, timeout, max_output_chars)
+        return Tool(spec, fn, arguments, wants_context, timeout, precheck, max_output_chars)
 
     return wrap
 
@@ -122,6 +136,19 @@ class ToolRegistry:
     def get(self, name: str) -> Tool | None:
         """Look up a tool by name (permission checks need its spec)."""
         return self._tools.get(name)
+
+    def precheck(self, call: ToolCall) -> ToolResult | None:
+        """An error result when the call cannot work, found without running it; None
+        otherwise (bad arguments are left for `execute` to report)."""
+        found = self._tools.get(call.name)
+        if found is None or found.precheck is None:
+            return None
+        try:
+            args = found.arguments.model_validate(call.arguments)
+            problem = found.precheck(self.context, args)
+        except (ValidationError, PathNotAllowedError, OSError, RuntimeError):
+            return None  # odd path or race: let execute report it
+        return None if problem is None else _error(call, problem)
 
     async def execute(self, call: ToolCall) -> ToolResult:
         """Check the arguments, run the tool with its limits, and report the outcome."""
