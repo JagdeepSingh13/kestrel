@@ -242,8 +242,8 @@ def harness() -> Diagram:
         390,
         340,
         150,
-        "Safety gate",
-        "only the workspace folder,\nasks before risky actions,\nchecks the arguments",
+        "Repair + safety",
+        "fixes broken calls, checks\narguments, asks before\nrisky ones; one folder",
     )
     d.circle("model", 520, 465, 150, "Model", "thinks, then decides:\nanswer, or ask for a tool")
     d.card(
@@ -253,7 +253,7 @@ def harness() -> Diagram:
         300,
         150,
         "Control",
-        "step, token and time\nbudgets; every run ends\nwith a clear reason",
+        "step, token and time\nbudgets; a watchdog\nstops loops",
     )
     d.card(
         "next",
@@ -261,8 +261,8 @@ def harness() -> Diagram:
         690,
         300,
         150,
-        "Repair + step up",
-        "fix broken tool calls, stop\nloops; hand a stuck step\nto a bigger model",
+        "Step up",
+        "hand a stuck step to a\nbigger model, then step\nback down",
         planned=True,
     )
     d.card(
@@ -375,8 +375,7 @@ def improve_grid() -> Diagram:
         ys[2],
         w,
         h,
-        "inside one run: repair\nbroken calls, step up to a\nbigger model when stuck",
-        planned=True,
+        "inside one run: repair\nbroken calls (built); step\nup when stuck (next)",
     )
     d.cell(xs[2], ys[0], w, h, "edit the agent file's\ninstructions and tools")
     d.cell(
@@ -902,7 +901,7 @@ def core_types() -> Diagram:
 def reliability() -> Diagram:
     """M4: where repair, profile and the watchdog sit around the agent loop."""
     d = Diagram("reliability", clean=True)
-    d.text(0, -70, "M4: making small models' tool calls reliable", size=34, color="#1e1e1e")
+    d.text(0, -70, "Making small models' tool calls reliable", size=34, color="#1e1e1e")
     d.card(
         "provider",
         0,
@@ -911,7 +910,6 @@ def reliability() -> Diagram:
         180,
         "Provider",
         "talks to the backend; a broken\ntool call comes back as raw\ntext instead of ending\nthe run",
-        planned=True,
     )
     d.card(
         "repair",
@@ -921,7 +919,6 @@ def reliability() -> Diagram:
         180,
         "Repair",
         "finds the calls in the reply,\nfixes JSON, names and\nescaped text; one call per\nstep; asks again twice",
-        planned=True,
     )
     d.card(
         "loop",
@@ -940,7 +937,6 @@ def reliability() -> Diagram:
         180,
         "Profile",
         "what this model can do:\nnative tools, JSON schema,\nreal window, thinking off;\n/profile shows it",
-        planned=True,
     )
     d.card(
         "log",
@@ -950,7 +946,6 @@ def reliability() -> Diagram:
         180,
         "Run log",
         "the exact prompt of every\nstep and every repair;\n/report-failure turns a\nbad step into a test",
-        planned=True,
     )
     d.card(
         "watch",
@@ -960,7 +955,6 @@ def reliability() -> Diagram:
         180,
         "Watchdog",
         "same call again and again,\nback and forth, no new\nresults, errors in a row",
-        planned=True,
     )
     d.card(
         "stuck",
@@ -969,7 +963,7 @@ def reliability() -> Diagram:
         320,
         150,
         "When stuck",
-        "M4: warn, then stop with\nthe reason\nM4.5: step up a model",
+        "warn first, then stop with\nthe reason; next: step up\nto a bigger model",
         planned=True,
     )
     d.arrow("provider", "repair", "reply")
@@ -978,7 +972,7 @@ def reliability() -> Diagram:
     d.arrow("repair", "log", "every fix", dashed=True)
     d.arrow("loop", "watch", "each step")
     d.arrow("watch", "stuck", "stuck")
-    d.text(0, 770, "solid border: built today      dashed border: M4", size=18)
+    d.text(0, 770, "M4.5 will plug a bigger model into \"When stuck\".", size=18)
     return d
 
 

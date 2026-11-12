@@ -1,4 +1,4 @@
-# Reliability layer (M4, plan)
+# Reliability layer (M4)
 
 Small models break tool calls in predictable ways. M4 catches those breaks, fixes what can be fixed safely, gives the model two more tries when it cannot, and raises a clear "stuck" signal when nothing works. M4.5 (the model ladder) uses that signal to step up to a bigger model.
 
@@ -7,9 +7,10 @@ Small models break tool calls in predictable ways. M4 catches those breaks, fixe
 ![Where repair, profile and the watchdog sit](img/reliability.svg)
 
 - `providers/` stops raising on a broken `arguments` string: the call comes back with `arguments_text` (the raw text) and `arguments_error`. Providers still know nothing about tools.
-- `providers/profiles.py` asks the backend what the model can do (Ollama `/api/show` and `/api/ps`, llama.cpp `/props`; one tiny call elsewhere) and caches it in `~/.cache/kestrel/profiles.json`.
+- `providers/profiles.py` asks a local backend what the model can do (Ollama `/api/show`, `/api/ps`, `/api/tags`; llama.cpp `/props`; nothing elsewhere, and never a remote backend) and caches it in `~/.cache/kestrel/profiles.json`. `cli/agent_run.py` applies it before each run (refuse a model without tools, lower the window, set the token ratio, thinking off) and saves the measured token ratio after it.
 - `reliability/repair.py` is a pure function: model reply plus tool specs in, checked calls (or a corrective note) out. The loop calls it between the model and the tools.
-- `reliability/watchdog.py` watches the calls and results step by step and emits `loop_warning` and `stuck`.
+- `reliability/watchdog.py` watches the calls and results step by step and emits `loop_warning` and `stuck`. `run_agent(on_stuck=...)` is where M4.5 plugs in a bigger model; without it, stuck stops the run.
+- Every model request logs the exact messages sent; `/trace ID --prompt N` shows them, and `/report-failure` saves a step as a case for `tests/fixtures/bad_outputs/` (48 cases so far, one test runs them all).
 
 ## How a reply is handled
 
