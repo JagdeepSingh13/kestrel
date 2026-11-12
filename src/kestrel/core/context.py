@@ -168,6 +168,10 @@ class ContextManager:
         )
 
 
+NOTE_PREFIX = "(Kestrel:"
+"""Start of a note Kestrel adds as a user message (e.g. a nudge)."""
+
+
 def _latest_step_start(messages: list[Message]) -> int:
     """Index where the latest step begins: the last assistant message, else the last one."""
     for i in range(len(messages) - 1, -1, -1):
@@ -177,8 +181,10 @@ def _latest_step_start(messages: list[Message]) -> int:
 
 
 def _latest_user(messages: list[Message]) -> int | None:
+    """The latest message the user wrote; Kestrel's own notes to the model do not count."""
     for i in range(len(messages) - 1, -1, -1):
-        if messages[i].role is Role.user:
+        m = messages[i]
+        if m.role is Role.user and not (m.content or "").startswith(NOTE_PREFIX):
             return i
     return None
 

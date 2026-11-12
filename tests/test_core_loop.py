@@ -345,3 +345,18 @@ def test_each_request_logs_the_exact_messages_and_the_run_logs_tool_specs() -> N
         "add",
         "echo",
     }
+
+
+async def test_a_reply_that_only_announces_an_action_gets_one_nudge() -> None:
+    recorded = Recorded()
+    fake = FakeProvider(
+        [
+            text("Let me add those numbers for you."),
+            call("add", {"a": 17, "b": 25}),
+            text("I'll echo it now."),  # second promise: no more nudges, it is the answer
+        ]
+    )
+    result = await recorded.run(fake)
+    assert result.stopped_reason is StopReason.final and result.steps == 3
+    assert len(recorded.of(EventType.nudge)) == 1
+    assert len(recorded.of(EventType.tool_result)) == 1

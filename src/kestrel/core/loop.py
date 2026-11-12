@@ -31,6 +31,8 @@ from kestrel.core.types import (
     ToolResult,
     ToolSpec,
 )
+from kestrel.reliability.nudge import NOTE as NUDGE_NOTE
+from kestrel.reliability.nudge import promises_action
 from kestrel.reliability.repair import Fix, repair
 from kestrel.reliability.watchdog import Signal, Watchdog, WatchLimits
 
@@ -100,6 +102,8 @@ async def run_agent(
     repairs_used = 0
     """Unusable calls in a row; past `budgets.max_repairs` the run is stuck."""
     watchdog = Watchdog(budgets.watch)
+    nudged = False
+    """One nudge per run for a reply that announced an action but called no tool."""
 
     async def stop_for(signal: Signal, step: int) -> bool:
         """Log a stuck signal; True when the run should stop."""
@@ -168,6 +172,12 @@ async def run_agent(
                 continue
             repairs_used = 0
 
+            if not repaired.calls and specs and not nudged and promises_action(message.content):
+                nudged = True
+                context.add(message.model_copy(update={"reasoning": None}))
+                context.add(Message(role=Role.user, content=NUDGE_NOTE))
+                bus.emit(EventType.nudge, step, {"said": (message.content or "")[-200:]})
+                continue
             if not repaired.calls:
                 context.add(message.model_copy(update={"reasoning": None}))  # never resent
                 answer = message.content or ""

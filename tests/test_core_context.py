@@ -116,6 +116,20 @@ def test_in_a_conversation_old_questions_go_but_the_newest_stays() -> None:
     assert texts[-2:] == ["answer 3", "newest question"]
 
 
+def test_a_kestrel_note_never_unpins_the_users_message() -> None:
+    from kestrel.reliability.nudge import NOTE
+
+    ctx = ContextManager(None, window=60, response_reserve=0)
+    for i in range(3):
+        ctx.add(user(f"old {i} " + "o" * 60))
+        ctx.add(assistant(f"answer {i}"))
+    ctx.add(user("append the row " + "r" * 60))
+    ctx.add(assistant("Let me do that."))
+    ctx.add(user(NOTE))
+    texts = " ".join(t or "" for t in contents(ctx.build().messages))
+    assert "append the row" in texts and "old 0" not in texts
+
+
 def test_reply_reserve_counts_against_the_window() -> None:
     ctx = ContextManager(SYSTEM, window=1000, response_reserve=990)
     build_long_run(ctx)

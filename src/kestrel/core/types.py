@@ -175,6 +175,8 @@ class EventType(StrEnum):
     tool_result = "tool_result"
     context_trim = "context_trim"
     loop_warning = "loop_warning"
+    nudge = "nudge"
+    """A reply announced an action but called no tool; the model was asked again (M4.2)."""
     stuck = "stuck"
     """The run cannot make progress (signal: repairs_exhausted, repeat, stall, ...).
     M4 stops; M4.5 steps up to a bigger model."""

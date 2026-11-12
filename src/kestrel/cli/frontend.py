@@ -116,6 +116,14 @@ class CliFrontend:
             case EventType.loop_warning:
                 self._stop_spinner()
                 err_console.print(Text("  ! warned: " + _str(data.get("detail")), style="yellow"))
+            case EventType.nudge:
+                self._stop_spinner()
+                err_console.print(
+                    Text(
+                        "  ↻ it said it would act but called no tool; asked it to go on",
+                        style="dim",
+                    )
+                )
             case EventType.stuck:
                 self._stop_spinner()
                 err_console.print(
@@ -304,6 +312,11 @@ def confirm_preview(call: ToolCall) -> RenderableType:
         return Syntax(_clip(code), "python", theme="ansi_dark", background_color="default")
     if isinstance(command, str):
         return Syntax(_clip(command), "bash", theme="ansi_dark", background_color="default")
+    old, new = args.get("old_text"), args.get("new_text")
+    if isinstance(path, str) and isinstance(old, str) and isinstance(new, str):
+        removed = Text("\n".join(f"- {line}" for line in _clip(old).splitlines()), style="red")
+        added = Text("\n".join(f"+ {line}" for line in _clip(new).splitlines()), style="green")
+        return Group(Text(f"edit {path}", style="bold"), removed, added)
     if isinstance(path, str) and isinstance(args.get("content"), str):
         content = str(args["content"])
         verb = "replace" if args.get("overwrite") else "create"
