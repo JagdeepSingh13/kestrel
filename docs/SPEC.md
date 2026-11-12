@@ -361,6 +361,7 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - New look, no new dependency (prompt_toolkit + rich): welcome panel; bordered input box with a status line under it (model, agent, context used); `/` shows matching commands with their help under the box; tool calls as one line `⏺ tool(arg)` with a short result under `⎿`; spinner with elapsed time; Esc stops a turn; permission prompt as an arrow-key menu (Yes / Yes for the rest of this turn / No). Falls back to plain prompts when not attached to a terminal.
 - `kestrel run "task"` keeps working with the same output.
 - **Plan (2026-11-12), two pieces:** (1) conversation turns in the shell, (2) the new look. Diagram: `docs/diagrams/shell.md`.
+- **Status: done (v0.0.4).** Live on qwen3:8b: plain questions answered without tools, tool use when needed, confirm menu, Esc rolls a turn back. Also: with no model configured, the shell uses the first model the backend lists. The context manager now pins the latest user message instead of the first (same thing for one-shot runs).
 
 ### M4: Reliability layer + web tools
 - Capability probe + profile cache.

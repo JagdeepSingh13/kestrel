@@ -6,7 +6,7 @@
 
 A model can only think and decide. Kestrel is everything around it: what goes in, what it may do, what gets checked, and what gets recorded. It is built for 3B to 14B models on an ordinary 16GB laptop, works with any OpenAI-compatible backend (Ollama, LM Studio, llama.cpp, mlx-lm, vLLM), and defines agents as small YAML files instead of code.
 
-> **Status: early development (v0.0.3).** Working today: the `kestrel` shell, agents with real tools (files, shell, Python) confined to one folder, confirmation before risky actions, and a full log of every run. Next: repairing small models' broken tool calls, then stepping up to a bigger model when the small one is stuck. See the [roadmap](#roadmap).
+> **Status: early development (v0.0.4).** Working today: the `kestrel` shell, where every message goes to an agent with real tools (files, shell, Python) confined to one folder, confirmation before risky actions, and a full log of every run. Next: repairing small models' broken tool calls, then stepping up to a bigger model when the small one is stuck. See the [roadmap](#roadmap).
 
 ![An agent is a model, a harness and context](docs/diagrams/img/three-parts.svg)
 
@@ -99,19 +99,21 @@ OLLAMA_CONTEXT_LENGTH=16384 ollama serve   # or set Context length in the Ollama
 uv run kestrel
 ```
 
-Then, inside the shell:
+Then, inside the shell, just type:
 
 ```
-qwen3:8b> hello
-qwen3:8b> /run list the files in the workspace and say what each one is
-qwen3:8b> /trace
+> hello
+> list the files in the workspace and say what each one is
+> /trace
 ```
 
 Add `/no_think` to a message to skip the model's thinking; much faster on a laptop.
 
 ## Using the shell
 
-Plain text chats with the model; lines starting with `/` control the session. Tab completes commands and model names, the up arrow recalls earlier lines, Ctrl-C stops a reply, Ctrl-D leaves.
+![What happens to each line you type](docs/diagrams/img/shell.svg)
+
+Every message goes to the current agent, which decides itself whether it needs a tool. The conversation carries over, tool results included, so "now chart it" knows what "it" is. Each tool call shows as one line with a short result; risky ones stop and ask with a small menu (Yes, Yes for the rest of this turn, No). Esc stops a turn, and a stopped or failed turn is not kept. Under the input box: the model, the agent, and how full the context window is. Typing `/` lists the commands, the up arrow recalls earlier lines, Ctrl-D leaves.
 
 | Command | Does |
 |---|---|
@@ -119,9 +121,8 @@ Plain text chats with the model; lines starting with `/` control the session. Ta
 | `/model [name]` | list models, or switch (keeps the conversation) |
 | `/provider [name]` | list backends, or switch |
 | `/think [on\|off]` | show or hide the model's thinking |
-| `/run TASK` | run the agent on a task, shown live |
 | `/trace [id] [--full]` | a run step by step (`/trace list` for recent runs) |
-| `/agents`, `/agent NAME` | list agents, or switch the one `/run` uses |
+| `/agents`, `/agent NAME` | list agents, or switch (keeps the conversation) |
 | `/tools` | the agent's tools and permissions |
 | `/workspace` | the only folder agents may use |
 | `/clear` | forget the conversation |
@@ -150,6 +151,7 @@ From a normal terminal, `kestrel run "task" --agent NAME`, `kestrel trace last`,
 | M1.5 | Interactive shell | done |
 | M2 | Agent loop, run log, `/trace` | done |
 | M3 | Agent files, file/shell/Python tools, safety gate | done |
+| M3.5 | Shell as an agent conversation, Claude Code style look | done |
 | M4 | Repair broken tool calls, exact model input in the log, web tools | next |
 | M4.5 | Step up only when stuck: model ladder (local models) | |
 | M5 | Sessions, MCP tools | |

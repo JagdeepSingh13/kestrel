@@ -1,198 +1,529 @@
 [
  {
-  "type": "rectangle",
-  "id": "line",
+  "type": "text",
   "x": 0,
-  "y": 0,
-  "width": 400,
-  "height": 90,
-  "backgroundColor": "#ffec99",
-  "fillStyle": "solid",
-  "roundness": {
-   "type": 3
-  },
-  "label": {
-   "text": "You type a line\n(Tab completes, up arrow recalls)",
-   "fontSize": 18
-  }
+  "y": -70,
+  "text": "What happens to each line you type",
+  "fontSize": 34,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
  },
  {
-  "type": "diamond",
-  "id": "q",
-  "x": 60,
-  "y": 150,
-  "width": 280,
+  "type": "rectangle",
+  "id": "type",
+  "x": 0,
+  "y": 0,
+  "width": 380,
   "height": 150,
-  "backgroundColor": "#d0bfff",
+  "backgroundColor": "#ffffff",
   "fillStyle": "solid",
-  "roundness": {
-   "type": 3
-  },
-  "label": {
-   "text": "Starts\nwith / ?",
-   "fontSize": 20
-  }
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 14,
+  "text": "You type",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 56,
+  "width": 344,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    344,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 68,
+  "text": "a message or a /command;\n/ lists matching commands,\nup arrow recalls old lines",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
  },
  {
   "type": "rectangle",
   "id": "cmd",
-  "x": 500,
-  "y": 120,
-  "width": 420,
-  "height": 210,
-  "backgroundColor": "#ffd8a8",
-  "fillStyle": "solid",
-  "roundness": {
-   "type": 3
-  },
-  "label": {
-   "text": "Run the command\n/run  /trace  /agent  /agents\n/tools  /workspace  /model\n/provider  /think  /doctor\n/clear  /help  /exit",
-   "fontSize": 18
-  }
- },
- {
-  "type": "rectangle",
-  "id": "send",
-  "x": 0,
-  "y": 370,
+  "x": 560,
+  "y": 0,
   "width": 400,
-  "height": 100,
-  "backgroundColor": "#a5d8ff",
+  "height": 150,
+  "backgroundColor": "#ffffff",
   "fillStyle": "solid",
-  "roundness": {
-   "type": 3
-  },
-  "label": {
-   "text": "Send it to the model with\nthe conversation so far",
-   "fontSize": 18
-  }
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 578,
+  "y": 14,
+  "text": "Command",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 578,
+  "y": 56,
+  "width": 364,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    364,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 578,
+  "y": 68,
+  "text": "/agent  /model  /trace  /tools\n/clear  /think  /doctor  /help\nruns at once, no model call",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
  },
  {
   "type": "rectangle",
-  "id": "reply",
+  "id": "turn",
+  "x": 0,
+  "y": 250,
+  "width": 380,
+  "height": 180,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 264,
+  "text": "Agent turn",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 306,
+  "width": 344,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    344,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 318,
+  "text": "the agent gets the whole\nconversation and its tools;\nthe model decides whether\nit needs a tool",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "tools",
+  "x": 560,
+  "y": 250,
+  "width": 400,
+  "height": 180,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 578,
+  "y": 264,
+  "text": "Tools",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 578,
+  "y": 306,
+  "width": 364,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    364,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 578,
+  "y": 318,
+  "text": "one line per call, short\nresult under it; risky ones\nask first with a menu:\nYes, Yes this turn, No",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "answer",
   "x": 0,
   "y": 530,
-  "width": 400,
-  "height": 100,
-  "backgroundColor": "#a5d8ff",
+  "width": 380,
+  "height": 150,
+  "backgroundColor": "#ffffff",
   "fillStyle": "solid",
-  "roundness": {
-   "type": 3
-  },
-  "label": {
-   "text": "The reply streams in;\nCtrl-C stops it and drops that turn",
-   "fontSize": 18
-  }
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 544,
+  "text": "Answer",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 586,
+  "width": 344,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    344,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 598,
+  "text": "streams in as formatted text;\nEsc stops the turn at any\nmoment",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
  },
  {
   "type": "rectangle",
-  "id": "keep",
+  "id": "kept",
   "x": 0,
-  "y": 690,
-  "width": 400,
-  "height": 100,
-  "backgroundColor": "#b2f2bb",
+  "y": 780,
+  "width": 380,
+  "height": 180,
+  "backgroundColor": "#ffffff",
   "fillStyle": "solid",
-  "roundness": {
-   "type": 3
-  },
-  "label": {
-   "text": "Both are added to the conversation;\nold turns are left out when it\noutgrows the model's window",
-   "fontSize": 18
-  }
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 794,
+  "text": "Kept",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 836,
+  "width": 344,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    344,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 848,
+  "text": "the turn and its tool results\njoin the conversation; a\nstopped or failed turn is\nrolled back",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "log",
+  "x": 560,
+  "y": 780,
+  "width": 400,
+  "height": 180,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 578,
+  "y": 794,
+  "text": "Run log",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 578,
+  "y": 836,
+  "width": 364,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    364,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 578,
+  "y": 848,
+  "text": "each message is one run\nwith its own log file;\n/trace shows it step by step",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
  },
  {
   "type": "arrow",
-  "x": 200.0,
-  "y": 93,
-  "width": 1,
-  "height": 54,
-  "start": {
-   "id": "line"
-  },
-  "end": {
-   "id": "q"
-  },
-  "strokeStyle": "solid"
- },
- {
-  "type": "arrow",
-  "x": 343,
-  "y": 225.0,
-  "width": 154,
+  "x": 383,
+  "y": 75.0,
+  "width": 174,
   "height": 1,
   "start": {
-   "id": "q"
+   "id": "type"
   },
   "end": {
    "id": "cmd"
   },
-  "strokeStyle": "solid"
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
  },
  {
   "type": "text",
   "x": 405.0,
-  "y": 193.0,
-  "text": "yes",
+  "y": 43.0,
+  "text": "starts with /",
   "fontSize": 18,
-  "strokeColor": "#495057"
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
  },
  {
   "type": "arrow",
-  "x": 200.0,
-  "y": 303,
+  "x": 190.0,
+  "y": 153,
   "width": 1,
-  "height": 64,
+  "height": 94,
   "start": {
-   "id": "q"
+   "id": "type"
   },
   "end": {
-   "id": "send"
+   "id": "turn"
   },
-  "strokeStyle": "solid"
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
  },
  {
   "type": "text",
-  "x": 212.0,
-  "y": 323.0,
-  "text": "no",
+  "x": 202.0,
+  "y": 188.0,
+  "text": "anything else",
   "fontSize": 18,
-  "strokeColor": "#495057"
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
  },
  {
   "type": "arrow",
-  "x": 200.0,
-  "y": 473,
-  "width": 1,
-  "height": 54,
+  "x": 383,
+  "y": 340.0,
+  "width": 174,
+  "height": 1,
   "start": {
-   "id": "send"
+   "id": "turn"
   },
   "end": {
-   "id": "reply"
+   "id": "tools"
   },
-  "strokeStyle": "solid"
- },
- {
-  "type": "arrow",
-  "x": 200.0,
-  "y": 633,
-  "width": 1,
-  "height": 54,
-  "start": {
-   "id": "reply"
-  },
-  "end": {
-   "id": "keep"
-  },
-  "strokeStyle": "solid"
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
  },
  {
   "type": "text",
-  "x": 500,
-  "y": 700,
-  "text": "Then back to the prompt.\nCtrl-D or /exit leaves.",
+  "x": 425.0,
+  "y": 308.0,
+  "text": "if needed",
   "fontSize": 18,
-  "strokeColor": "#495057"
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 190.0,
+  "y": 433,
+  "width": 1,
+  "height": 94,
+  "start": {
+   "id": "turn"
+  },
+  "end": {
+   "id": "answer"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 190.0,
+  "y": 683,
+  "width": 1,
+  "height": 94,
+  "start": {
+   "id": "answer"
+  },
+  "end": {
+   "id": "kept"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 383,
+  "y": 870.0,
+  "width": 174,
+  "height": 1,
+  "start": {
+   "id": "kept"
+  },
+  "end": {
+   "id": "log"
+  },
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 440.0,
+  "y": 838.0,
+  "text": "logged",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 0,
+  "y": 1000,
+  "text": "Under the input box: model, agent, and how full the context window is.",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
  }
 ]

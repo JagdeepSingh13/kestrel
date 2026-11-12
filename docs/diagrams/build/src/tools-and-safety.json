@@ -46,7 +46,7 @@
    "type": 3
   },
   "label": {
-   "text": "/run uses the agent's model,\ninstructions, tools and limits",
+   "text": "each message uses the agent's\ninstructions, tools and limits",
    "fontSize": 18
   }
  },

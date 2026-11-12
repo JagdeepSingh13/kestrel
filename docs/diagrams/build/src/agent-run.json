@@ -12,7 +12,7 @@
    "type": 3
   },
   "label": {
-   "text": "Your task\n/run count the lines in every .py file",
+   "text": "Your message\ncount the lines in every .py file",
    "fontSize": 18
   }
  },

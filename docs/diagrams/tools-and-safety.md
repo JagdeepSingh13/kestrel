@@ -54,9 +54,19 @@ import os
 A confirm prompt in the shell:
 
 ```
-qwen3:8b> /run count lines in all .py files and write a summary to report.md
-tool list_dir {"path": "."}
-tool read_file {"path": "src/app.py"}
-...
-write_file wants to create report.md (412 characters). Allow? [y]es / [n]o / [a]lways this run: y
+> count lines in all .py files and write a summary to report.md
+
+⏺ list_dir(.)
+  ⎿  ./ ...
+⏺ read_file(src/app.py)
+  ⎿  src/app.py: 81 lines total ...
+⏺ write_file(report.md)
+╭─ write_file wants to run ─────────╮
+│ create report.md (412 characters) │
+│ # Line count ...                  │
+╰───────────────────────────────────╯
+  Allow it?
+  ❯ 1. Yes
+    2. Yes, and don't ask again for write_file this turn
+    3. No
 ```

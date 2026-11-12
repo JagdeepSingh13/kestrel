@@ -421,7 +421,7 @@ def trace_levels() -> Diagram:
     for i in range(3):
         d.arrow(f"s{i}", f"s{i + 1}")
     d.text(60, 360, "step: one thing that happened, in order (exact model input: planned)", size=18)
-    d.card("run2", 30, 430, 980, 110, "Run 2", "another /run in the same conversation")
+    d.card("run2", 30, 430, 980, 110, "Run 2", "another message in the same conversation")
     return d
 
 
@@ -430,7 +430,7 @@ def improve_loop() -> Diagram:
     d = Diagram("improve-loop", clean=True)
     d.text(0, -70, "How an agent gets better on your laptop", size=34, color="#1e1e1e")
     cw, ch = 330, 150
-    d.card("run", 0, 0, cw, ch, "1. Run", "/run a task in the\nworkspace")
+    d.card("run", 0, 0, cw, ch, "1. Run", "give the agent a task\nin the workspace")
     d.card(
         "feedback",
         400,
@@ -494,7 +494,7 @@ def overview() -> Diagram:
         420,
         110,
         BLUE,
-        "Where you type\nthe Kestrel shell: chat with a model,\n/run an agent, /trace a run",
+        "Where you type\nthe Kestrel shell: talk to an agent\nthat uses tools; /trace a run",
     )
     d.box(
         "log",
@@ -620,58 +620,84 @@ def providers() -> Diagram:
 
 
 def shell() -> Diagram:
-    """How the shell handles each line you type."""
-    d = Diagram("shell")
-    d.box(
-        "line", 0, 0, 400, 90, YELLOW, "You type a line\n(Tab completes, up arrow recalls)", size=18
-    )
-    d.box("q", 60, 150, 280, 150, VIOLET, "Starts\nwith / ?", shape="diamond")
-    d.box(
-        "cmd",
-        500,
-        120,
-        420,
-        210,
-        ORANGE,
-        "Run the command\n/run  /trace  /agent  /agents\n/tools  /workspace  /model\n/provider  /think  /doctor\n/clear  /help  /exit",
-        size=18,
-    )
-    d.box(
-        "send",
+    """How the shell handles each line you type (M3.5: every message is an agent turn)."""
+    d = Diagram("shell", clean=True)
+    d.text(0, -70, "What happens to each line you type", size=34, color="#1e1e1e")
+    d.card(
+        "type",
         0,
-        370,
-        400,
-        100,
-        BLUE,
-        "Send it to the model with\nthe conversation so far",
-        size=18,
+        0,
+        380,
+        150,
+        "You type",
+        "a message or a /command;\n/ lists matching commands,\nup arrow recalls old lines",
     )
-    d.box(
-        "reply",
+    d.card(
+        "cmd",
+        560,
+        0,
+        400,
+        150,
+        "Command",
+        "/agent  /model  /trace  /tools\n/clear  /think  /doctor  /help\nruns at once, no model call",
+    )
+    d.card(
+        "turn",
+        0,
+        250,
+        380,
+        180,
+        "Agent turn",
+        "the agent gets the whole\nconversation and its tools;\nthe model decides whether\nit needs a tool",
+    )
+    d.card(
+        "tools",
+        560,
+        250,
+        400,
+        180,
+        "Tools",
+        "one line per call, short\nresult under it; risky ones\nask first with a menu:\nYes, Yes this turn, No",
+    )
+    d.card(
+        "answer",
         0,
         530,
-        400,
-        100,
-        BLUE,
-        "The reply streams in;\nCtrl-C stops it and drops that turn",
-        size=18,
+        380,
+        150,
+        "Answer",
+        "streams in as formatted text;\nEsc stops the turn at any\nmoment",
     )
-    d.box(
-        "keep",
+    d.card(
+        "kept",
         0,
-        690,
+        780,
+        380,
+        180,
+        "Kept",
+        "the turn and its tool results\njoin the conversation; a\nstopped or failed turn is\nrolled back",
+    )
+    d.card(
+        "log",
+        560,
+        780,
         400,
-        100,
-        GREEN,
-        "Both are added to the conversation;\nold turns are left out when it\noutgrows the model's window",
+        180,
+        "Run log",
+        "each message is one run\nwith its own log file;\n/trace shows it step by step",
+    )
+    d.arrow("type", "cmd", "starts with /")
+    d.arrow("type", "turn", "anything else")
+    d.arrow("turn", "tools", "if needed")
+    d.arrow("turn", "answer")
+    d.arrow("answer", "kept")
+    d.arrow("kept", "log", "logged", dashed=True)
+    d.text(
+        0,
+        1000,
+        "Under the input box: model, agent, and how full the context window is.",
         size=18,
     )
-    d.arrow("line", "q")
-    d.arrow("q", "cmd", "yes")
-    d.arrow("q", "send", "no")
-    d.arrow("send", "reply")
-    d.arrow("reply", "keep")
-    d.text(500, 700, "Then back to the prompt.\nCtrl-D or /exit leaves.", 18)
     return d
 
 
@@ -679,7 +705,7 @@ def agent_run() -> Diagram:
     """One agent run: the loop, the window, and the checks before every tool."""
     d = Diagram("agent-run")
     d.box(
-        "task", 0, 0, 420, 90, YELLOW, "Your task\n/run count the lines in every .py file", size=18
+        "task", 0, 0, 420, 90, YELLOW, "Your message\ncount the lines in every .py file", size=18
     )
     d.box(
         "ctx",
@@ -799,7 +825,7 @@ def tools_and_safety() -> Diagram:
         420,
         110,
         BLUE,
-        "/run uses the agent's model,\ninstructions, tools and limits",
+        "each message uses the agent's\ninstructions, tools and limits",
         size=18,
     )
     d.box(

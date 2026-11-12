@@ -12,7 +12,7 @@
    "type": 3
   },
   "label": {
-   "text": "Where you type\nthe Kestrel shell: chat with a model,\n/run an agent, /trace a run",
+   "text": "Where you type\nthe Kestrel shell: talk to an agent\nthat uses tools; /trace a run",
    "fontSize": 20
   }
  },
