@@ -262,7 +262,6 @@ async def _ask_model(
         {
             "message_count": len(prompt.messages),
             "est_tokens": prompt.est_tokens,
-            "raw_est_tokens": prompt.raw_est_tokens,
             # Exactly what the model is shown this step, after trimming (big ones go to a
             # side file). With `tool_specs` in run_start, a step can be replayed or reported.
             "messages": [_message_data(m) for m in prompt.messages],

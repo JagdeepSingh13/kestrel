@@ -20,13 +20,11 @@ from kestrel.core.config import (
     ConfigError,
     KestrelConfig,
     ProviderConfig,
-    default_data_dir,
     load_config,
 )
 from kestrel.core.events import find_run, runs_dir
 from kestrel.core.types import Message, ModelResponse, ProviderError, Role, StopReason
 from kestrel.providers.discovery import Status, discover
-from kestrel.safety.redact import Redactor
 
 app = typer.Typer(name=__app_name__, help="Local-first agent harness for small local models.")
 
@@ -206,27 +204,6 @@ def trace(
         print_run_list(directory, err_console)
         raise typer.Exit(2)
     print_trace(path, console, full=full)
-
-
-@app.command("report-failure")
-def report_failure(
-    run: Annotated[str, typer.Argument(help="Run id, a unique prefix, or 'last'.")] = "last",
-    step: Annotated[int | None, typer.Option("--step", help="Step to report.")] = None,
-) -> None:
-    """Save one step of a run as a failure test case (local only, secrets removed)."""
-    from kestrel.cli.report import ReportError, build_case, write_case
-
-    path = find_run(runs_dir(os.environ), run)
-    if path is None:
-        err_console.print(f"[red]No single run matches {escape(run)!r}.[/red]")
-        raise typer.Exit(2)
-    try:
-        case = build_case(path, step, Redactor(os.environ).json)
-    except ReportError as exc:
-        err_console.print(f"[red]{escape(str(exc))}[/red]")
-        raise typer.Exit(1) from None
-    saved = write_case(case, default_data_dir(os.environ) / "reports")
-    console.print(str(saved), soft_wrap=True, highlight=False)  # one line, easy to copy
 
 
 def _start_shell(model: str | None, provider: str | None) -> None:

@@ -12,7 +12,7 @@ import pytest
 from kestrel.agents.schema import AgentConfig
 from kestrel.cli import agent_run
 from kestrel.core.config import ProviderConfig
-from kestrel.core.types import Message, Provider, Role, Usage
+from kestrel.core.types import Message, Provider, Role
 from kestrel.providers.fake import FakeProvider
 from kestrel.providers.profiles import Profile, ProfileCache, backend_kind, probe
 from kestrel.providers.wire import to_request_body
@@ -76,16 +76,6 @@ def test_backend_kind_from_name_then_port() -> None:
     assert backend_kind("mine", "http://localhost:1234/v1") == "lmstudio"
     assert backend_kind("mlx-server", "http://localhost:8081/v1") == "mlx"
     assert backend_kind("cloud", "https://api.example.com/v1") == "other"
-
-
-def test_token_ratio_is_measured_and_kept_in_range() -> None:
-    profile = Profile(backend=OLLAMA, model="m")
-    assert profile.estimate_ratio == 1.1  # safety margin before any measurement
-    for _ in range(3):
-        profile = profile.with_sample(reported=1200, estimated=1000)
-    assert profile.samples == 3 and profile.estimate_ratio == pytest.approx(1.2)
-    wild = Profile(backend=OLLAMA, model="m").with_sample(reported=9000, estimated=1000)
-    assert wild.token_ratio == 1.5  # clamped
 
 
 def test_cache_keeps_one_profile_per_backend_and_model(tmp_path: Path) -> None:
@@ -152,18 +142,17 @@ def test_a_model_without_tool_support_is_refused_clearly(
     assert "cannot use tools" in capsys.readouterr().err
 
 
-def test_the_real_window_and_measured_ratio_are_used_and_saved(
+def test_the_real_window_is_used_and_thinking_is_off(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     small = Profile(backend=OLLAMA, model="qwen3:8b", native_tools=True, window=4096)
-    reply = FakeProvider.text("done").model_copy(update={"usage": Usage(prompt_tokens=500)})
-    fake = FakeProvider([reply])
-    result, cache_file = run_with(small, fake, tmp_path, monkeypatch)
+    fake = FakeProvider([FakeProvider.text("done")])
+    result, _ = run_with(small, fake, tmp_path, monkeypatch)
     assert result is not None
     assert "loaded with a 4096-token window" in capsys.readouterr().err
     assert fake.calls[0].think is False  # thinking off by default
-    saved = ProfileCache(cache_file).get(OLLAMA, "qwen3:8b")
-    assert saved is not None and saved.samples == 1 and saved.window == 4096
+    events = (tmp_path / "runs").glob("*.jsonl")
+    assert any('"window":4096' in log.read_text() for log in events)
 
 
 def test_a_remote_backend_is_never_asked() -> None:
@@ -195,13 +184,6 @@ def test_an_unloaded_ollama_model_is_loaded_to_learn_its_window() -> None:
         probe("ollama", OLLAMA, "qwen3:8b", transport=httpx.MockTransport(handle))
     )
     assert state["loaded"] and profile.window == 16_384
-
-
-def test_low_counts_never_loosen_the_estimate() -> None:
-    cached = Profile(backend=OLLAMA, model="m")
-    for _ in range(5):  # Ollama leaves reused (cached) prompt tokens out of its count
-        cached = cached.with_sample(reported=300, estimated=1000)
-    assert cached.estimate_ratio == 1.0
 
 
 def test_a_cache_that_cannot_be_written_is_ignored(tmp_path: Path) -> None:

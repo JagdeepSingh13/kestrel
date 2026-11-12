@@ -285,10 +285,9 @@ def test_agent_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
 def test_status_line_shows_model_agent_and_context_use() -> None:
     fake = FakeProvider([FakeProvider.text("x" * 3500)])
     shell, _ = make_shell(["hi"], fake)
-    assert shell.prompt() == "m · agent default · context 0% of 16K · /help"
+    assert "context 0%" in shell.prompt()
     shell.run()
-    # System prompt, tools and the reply, plus a 10% margin until the model is measured.
-    assert "context 8% of 16K" in shell.prompt()
+    assert "context 7% of 16K" in shell.prompt()  # system prompt, tools and the reply
 
 
 def test_report_failure_saves_the_broken_step_and_trace_shows_its_prompt(
@@ -331,10 +330,3 @@ def test_thinking_is_off_unless_turned_on(capsys: pytest.CaptureFixture[str]) ->
     shell.run()
     assert [c.think for c in fake.calls] == [False, None]  # off, then left to the model
     assert "Thinking: on" in capsys.readouterr().err
-
-
-def test_profile_shows_what_the_backend_said(capsys: pytest.CaptureFixture[str]) -> None:
-    shell, _ = make_shell(["/profile"], FakeProvider())
-    shell.run()
-    err = capsys.readouterr().err
-    assert "m on other" in err and "window       unknown" in err

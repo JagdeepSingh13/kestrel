@@ -2,21 +2,14 @@
 
 - `SlashCompleter`: the `/commands` (with their help) and model names offered as you type.
 - `input_history`: lines typed in the shell, saved between sessions.
-- `choose`: a one-off arrow-key menu (`kestrel run` in a terminal; the shell's own box
-  in `cli.tui` draws its menu itself).
 """
 
 import os
 from collections.abc import Callable, Iterable, Sequence
 
-from prompt_toolkit.application import Application
 from prompt_toolkit.completion import CompleteEvent, Completer, Completion
 from prompt_toolkit.document import Document
-from prompt_toolkit.formatted_text import StyleAndTextTuples
 from prompt_toolkit.history import FileHistory, History
-from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
-from prompt_toolkit.layout import Layout, Window
-from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.styles import Style
 
 from kestrel.cli.commands import COMMANDS
@@ -76,51 +69,3 @@ def input_history() -> InputHistory:
     data_dir = default_data_dir(os.environ)
     data_dir.mkdir(parents=True, exist_ok=True)
     return FileHistory(str(data_dir / HISTORY_FILE))
-
-
-async def choose[T](question: str, options: Sequence[tuple[T, str]]) -> T:
-    """Arrow-key menu: Up/Down and Enter, a number key, or Esc for the last option."""
-    selected = 0
-    keys = KeyBindings()
-
-    @keys.add("up")
-    def _(event: KeyPressEvent) -> None:
-        nonlocal selected
-        selected = (selected - 1) % len(options)
-
-    @keys.add("down")
-    def _(event: KeyPressEvent) -> None:
-        nonlocal selected
-        selected = (selected + 1) % len(options)
-
-    @keys.add("enter")
-    def _(event: KeyPressEvent) -> None:
-        event.app.exit(result=selected)
-
-    @keys.add("escape")
-    @keys.add("c-c")
-    def _(event: KeyPressEvent) -> None:
-        event.app.exit(result=len(options) - 1)
-
-    for n in range(len(options)):
-
-        @keys.add(str(n + 1))
-        def _(event: KeyPressEvent, n: int = n) -> None:
-            event.app.exit(result=n)
-
-    def menu() -> StyleAndTextTuples:
-        out: StyleAndTextTuples = [("bold", f"  {question}\n")]
-        for i, (_, label) in enumerate(options):
-            if i == selected:
-                out.append(("class:menu.selected", f"  {POINTER} {i + 1}. {label}\n"))
-            else:
-                out.append(("", f"    {i + 1}. {label}\n"))
-        return out
-
-    app: Application[int] = Application(
-        layout=Layout(Window(FormattedTextControl(menu), dont_extend_height=True)),
-        key_bindings=keys,
-        style=STYLE,
-        erase_when_done=True,
-    )
-    return options[await app.run_async()][0]

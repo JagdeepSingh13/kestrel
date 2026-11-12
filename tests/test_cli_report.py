@@ -5,9 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from typer.testing import CliRunner
 
-from kestrel.cli import app as cli
 from kestrel.cli.report import ReportError, build_case, pick_step
 from kestrel.core.events import EventBus, JsonlWriter, read_events
 from kestrel.core.types import EventType, JSONObject, JSONValue
@@ -54,15 +52,3 @@ def test_secrets_are_removed_from_the_case(tmp_path: Path) -> None:
     log = write_run(tmp_path, (1, EventType.model_response, reply([call])))
     case = build_case(log, 1, Redactor({"SERVICE_TOKEN": "MY-SECRET-VALUE"}).json)
     assert "MY-SECRET-VALUE" not in json.dumps(case)
-
-
-def test_terminal_command_writes_the_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("KESTREL_DATA_DIR", str(tmp_path))
-    write_run(tmp_path, (1, EventType.model_response, reply()))
-    runner = CliRunner()
-    done = runner.invoke(cli.app, ["report-failure", "last", "--step", "1"])
-    assert done.exit_code == 0, done.output
-    saved = Path(done.stdout.strip())
-    assert json.loads(saved.read_text(encoding="utf-8"))["source"]["step"] == 1
-    assert runner.invoke(cli.app, ["report-failure", "nope"]).exit_code == 2
-    assert runner.invoke(cli.app, ["report-failure", "last", "--step", "7"]).exit_code == 1

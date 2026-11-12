@@ -113,19 +113,12 @@ def describe_profile(profile: Profile, wanted_window: int) -> list[str]:
             )
         )
     )
-    ratio = f"{profile.token_ratio:.2f} real tokens per estimated token"
-    measured = (
-        f"{ratio}, from {profile.samples} steps"
-        if profile.samples
-        else "not measured yet (10% safety margin)"
-    )
     return [
         f"{profile.model} on {profile.kind} ({profile.backend})",
         f"  tools        {known(profile.native_tools, 'yes', 'no, so no agent with tools')}",
         f"  thinking     {known(profile.thinking, 'can think (/think on to allow)', 'no')}",
         f"  window       {window}",
         f"  model max    {profile.max_window or 'unknown'}",
-        f"  token count  {measured}",
         f"  checked      {profile.probed_at or 'never'}",
     ]
 

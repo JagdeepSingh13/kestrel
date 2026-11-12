@@ -9,7 +9,7 @@
 - In a terminal, `Tui` (`cli/tui.py`) runs the shell: one prompt_toolkit app for the whole session holds the input box at the bottom, a spinner line above it and the permission menu. A worker thread takes typed lines from a queue and runs `Shell.handle`. All printing goes through `patch_stdout`, which draws it above the box, so the box never moves. Lines typed during a turn wait in the queue; Esc or leaving the shell drops them. Answers typed for `ask_user` stay out of the saved input history.
 - Without a terminal (tests), `Shell.run` reads lines from a `read_line` function instead; tests pass scripted lines and a `FakeProvider`. `tests/test_cli_tui.py` drives the real box with piped key presses.
 - `Shell.send` calls `start_run` (`cli/agent_run.py`) with `Session.conversation`, a `ContextManager` that lives as long as the shell. The run adds to it; a stopped or failed turn is cut back out.
-- `CliFrontend` (`cli/frontend.py`) draws the run. With the box (`BottomBox`), its spinner, menu and `ask_user` questions go through the box, Esc cancels the turn from the box's thread, and the answer is printed once it is complete. `kestrel run` has no box: there `watch_stop_keys` (`cli/keys.py`) handles Esc, and the answer streams live.
+- `CliFrontend` (`cli/frontend.py`) draws the run. With the box (`BottomBox`), its spinner, menu and `ask_user` questions go through the box, Esc cancels the turn from the box's thread, and the answer is printed once it is complete. `kestrel run` has no box: plain streamed text, typed y/n/a answers, Ctrl-C to stop.
 - No terminal attached (pipes, tests): plain typed y/n/a answers and plain answer text.
 
 ## How one message is handled

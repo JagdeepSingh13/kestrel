@@ -43,11 +43,14 @@ def test_dot_dot_escapes_are_refused(ws: Workspace, path: str) -> None:
         ws.resolve(path)
 
 
-def test_absolute_path_outside_is_refused(ws: Workspace) -> None:
+def test_absolute_paths_are_rooted_at_the_workspace(ws: Workspace) -> None:
+    # The workspace is the model's whole world: "/data" is <workspace>/data, never /data.
+    assert ws.resolve("/data/sales.csv") == ws.root / "data" / "sales.csv"
+    assert ws.resolve(os.path.abspath(os.sep)) == ws.root  # the filesystem root, any OS
+    outside = ws.root.parent / "secret.txt"
+    assert ws.resolve(str(outside)).is_relative_to(ws.root)  # never the real file
     with pytest.raises(PathNotAllowedError):
-        ws.resolve(str(ws.root.parent / "secret.txt"))
-    with pytest.raises(PathNotAllowedError):
-        ws.resolve(os.path.abspath(os.sep))  # the filesystem root, any OS
+        ws.resolve("/../secret.txt")
 
 
 def test_symlinked_file_pointing_outside_is_refused(ws: Workspace) -> None:

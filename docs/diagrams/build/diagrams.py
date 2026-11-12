@@ -972,7 +972,7 @@ def reliability() -> Diagram:
     d.arrow("repair", "log", "every fix", dashed=True)
     d.arrow("loop", "watch", "each step")
     d.arrow("watch", "stuck", "stuck")
-    d.text(0, 770, "M4.5 will plug a bigger model into \"When stuck\".", size=18)
+    d.text(0, 770, 'M4.5 will plug a bigger model into "When stuck".', size=18)
     return d
 
 

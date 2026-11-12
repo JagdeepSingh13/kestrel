@@ -63,7 +63,7 @@ def describe(event: Event, *, full: bool = False) -> str:
         case EventType.profile:
             return (
                 f"{d.get('model')} on {d.get('kind')}: tools {d.get('native_tools')}, "
-                f"window {d.get('window')}, token ratio {d.get('token_ratio')}"
+                f"window {d.get('window')}"
             )
         case EventType.model_request:
             count = d.get("message_count", d.get("messages"))  # older logs: a plain count

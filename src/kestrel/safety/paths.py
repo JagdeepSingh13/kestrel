@@ -30,23 +30,30 @@ class Workspace:
         self.root = resolved
 
     def resolve(self, path: str) -> Path:
-        """The real location of `path` (relative to the workspace, or absolute).
+        """The real location of `path`, inside the workspace.
 
-        Raises `PathNotAllowedError` if it is empty, contains a null byte, or ends up
-        outside the workspace after following `..` and symlinks.
+        The workspace is the model's whole world: `/` is the workspace itself, so `/data`
+        means `<workspace>/data` (small models assume this). An absolute path that already
+        points inside the workspace is kept. Raises `PathNotAllowedError` if the path is
+        empty, contains a null byte, or ends up outside after following `..` and symlinks.
         """
         if not path:
             raise PathNotAllowedError("empty path")
         if "\x00" in path:
             raise PathNotAllowedError("path contains a null byte")
         candidate = Path(path)
+        if candidate.is_absolute() and not candidate.resolve().is_relative_to(self.root):
+            candidate = Path(*candidate.parts[1:])  # drop "/" (or "C:\\"): workspace-rooted
         if not candidate.is_absolute():
             candidate = self.root / candidate
         # resolve() follows every symlink that exists along the way and collapses `..`;
         # parts that do not exist yet (a new file) are kept as written.
         real = candidate.resolve()
         if not real.is_relative_to(self.root):
-            raise PathNotAllowedError(f"{path!r} is outside the workspace ({self.root})")
+            raise PathNotAllowedError(
+                f"{path!r} is outside the workspace. Paths are relative to the workspace "
+                "folder, for example 'data/sales.csv'."
+            )
         return real
 
     @classmethod

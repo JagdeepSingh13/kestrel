@@ -1,19 +1,18 @@
-"""CliFrontend: shows a run live in the terminal (implements `core.types.Frontend`).
+"""CliFrontend: shows a run in the terminal (implements `core.types.Frontend`).
 
-Claude Code style: the answer after a `⏺`, each tool call as one line `⏺ tool(arg)` with a
-short result under `⎿`, a spinner with elapsed time while waiting. The answer text goes to
-stdout; everything else to stderr, so `kestrel run ... > file` still captures only the answer.
+Each tool call is one line `⏺ tool(arg)` with a short result under `⎿`. In the shell
+(`box` set) the spinner, the permission menu and questions go through the bottom input
+box, and the answer is printed as markdown once complete. Without it (`kestrel run`) the
+output is plain: the answer streams as text, questions are typed answers. The answer goes
+to stdout, everything else to stderr, so `kestrel run ... > file` captures just the answer.
 """
 
 import json
-import sys
 import time
 from collections.abc import Callable, Sequence
-from contextlib import AbstractContextManager, nullcontext
 from typing import Protocol
 
 from rich.console import Console, Group, RenderableType
-from rich.live import Live
 from rich.markdown import Markdown
 from rich.markup import escape
 from rich.panel import Panel
@@ -37,9 +36,6 @@ from kestrel.core.types import (
 PREVIEW_LINES = 3
 CONFIRM_PREVIEW_LINES = 15
 ARG_CHARS = 60
-
-type PauseKeys = Callable[[], AbstractContextManager[None]]
-"""Stops the Esc watcher while the user answers a question (see `cli.keys`)."""
 
 
 class BottomBox(Protocol):
@@ -70,20 +66,12 @@ class CliFrontend:
         self,
         *,
         show_thinking: bool = False,
-        interactive: bool | None = None,
         box: BottomBox | None = None,
     ) -> None:
-        """`show_thinking` prints the model's reasoning, dimmed. `interactive` (default: a
-        terminal is attached) uses arrow-key menus; otherwise plain typed answers. `box`:
-        the shell's bottom input box, if it is running."""
+        """`show_thinking` prints the model's reasoning, dimmed. `box`: the shell's bottom
+        input box, if it is running."""
         self.show_thinking = show_thinking
         self.box = box
-        self.interactive = (
-            sys.stdin.isatty() and err_console.is_terminal if interactive is None else interactive
-        )
-        self.pause_keys: PauseKeys = nullcontext
-        self.stop_hint = False
-        """Show "esc to stop" in the spinner (set when the Esc watcher runs)."""
         self._spinner: Status | None = None
         self.label = ""
         """What the spinner says (Working, Thinking, Running TOOL)."""
@@ -92,7 +80,6 @@ class CliFrontend:
         self._printed_thinking = False
         self._answer = ""
         self._thinking = ""
-        self._live: Live | None = None
 
     def on_event(self, event: Event) -> None:
         """Render one event."""
@@ -105,8 +92,8 @@ class CliFrontend:
             case EventType.model_delta:
                 self._delta(_str(data.get("text")), _str(data.get("reasoning")))
             case EventType.model_response:
-                self.stop()  # also ends the live answer
-                if self._printed_text and not console.is_terminal:
+                self.stop()  # with the box, this prints the finished answer
+                if self._printed_text and self.box is None:
                     console.print()
                 elif self._printed_thinking:
                     err_console.print()
@@ -166,10 +153,7 @@ class CliFrontend:
             ("always", f"Yes, and don't ask again for {call.name} this turn"),
             ("no", "No"),
         ]
-        if self.box is not None:  # the shell's bottom box draws the menu
-            answers: dict[str, ConfirmAnswer] = {value: value for value, _ in options}
-            picked = answers[await self.box.choose("Allow it?", options)]
-        elif not self.interactive:
+        if self.box is None:  # `kestrel run`: a typed answer
             answer = Prompt.ask(
                 r"Allow? \[y]es / \[n]o / \[a]lways this run",  # \[ : not a style tag
                 choices=["y", "n", "a"],
@@ -179,11 +163,8 @@ class CliFrontend:
             )
             typed: dict[str, ConfirmAnswer] = {"y": "yes", "a": "always"}
             return typed.get(answer, "no")
-        else:
-            from kestrel.cli.prompt import choose  # prompt_toolkit only when interactive
-
-            with self.pause_keys():
-                picked = await choose("Allow it?", options)
+        answers: dict[str, ConfirmAnswer] = {value: value for value, _ in options}
+        picked = answers[await self.box.choose("Allow it?", options)]  # the shell's menu
         err_console.print(
             _under(
                 {"yes": "allowed", "always": "allowed for this turn", "no": "refused"}[picked],
@@ -196,24 +177,15 @@ class CliFrontend:
         """Ask the user something on the agent's behalf (`ask_user`)."""
         self.stop()
         err_console.print(Text.assemble(("⏺ ", "yellow"), question), highlight=False)
-        if self.box is not None:
-            answer = await self.box.ask(question)
-            err_console.print(_under(answer, ""), highlight=False)
-            return answer
-        if not self.interactive:
+        if self.box is None:
             return Prompt.ask("  ", console=err_console)
-        from prompt_toolkit import PromptSession
-
-        with self.pause_keys():
-            session: PromptSession[str] = PromptSession()
-            return await session.prompt_async("  ⎿ ")
+        answer = await self.box.ask(question)
+        err_console.print(_under(answer, ""), highlight=False)
+        return answer
 
     def stop(self) -> None:
-        """Stop the spinner and the live answer, if running."""
+        """Stop the spinner; in the shell, print the finished answer."""
         self._stop_spinner()
-        if self._live is not None:
-            self._live.stop()
-            self._live = None
         if self.box is not None:  # with a bottom box the answer is printed once, when done
             if self._thinking:
                 err_console.print(Text("∴ " + self._thinking.strip(), style="dim italic"))
@@ -260,16 +232,7 @@ class CliFrontend:
             if not self._printed_text and self._printed_thinking:
                 err_console.print("\n")
             self._printed_text = True
-            if not console.is_terminal:  # redirected: just the plain answer
-                _raw(console, text)
-                return
-            self._answer += text
-            if self._live is None:
-                self._live = Live(
-                    console=console, refresh_per_second=8, vertical_overflow="visible"
-                )
-                self._live.start()
-            self._live.update(_bulleted(Markdown(self._answer)))
+            _raw(console, text)  # plain text as it arrives
 
 
 def _bulleted(body: RenderableType) -> Table:
@@ -289,8 +252,7 @@ class _Elapsed:
 
     def __rich__(self) -> Text:
         seconds = int(time.monotonic() - self.frontend.since)
-        hint = " · esc to stop" if self.frontend.stop_hint else ""
-        return Text(f"{self.frontend.label}… {seconds}s{hint}", style="dim")
+        return Text(f"{self.frontend.label}… {seconds}s", style="dim")
 
 
 def describe_fix(data: JSONObject) -> str:

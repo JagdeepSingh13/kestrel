@@ -17,14 +17,6 @@ class Limits(_Strict):
     max_steps: int = Field(default=15, ge=1, le=100)
     max_tokens_total: int | None = Field(default=None, ge=1)
     max_wall_seconds: float | None = Field(default=None, gt=0)
-    max_repairs: int = Field(default=2, ge=0, le=10)
-    """Unusable tool calls allowed in a row, each answered with a note; then stuck."""
-    max_repeats: int = Field(default=4, ge=3, le=20)
-    """Identical tool calls in a row before the run is stuck (warned one before)."""
-    max_stall_steps: int = Field(default=5, ge=4, le=50)
-    """Steps without a new tool result before the run is stuck (warned two before)."""
-    max_tool_errors: int = Field(default=3, ge=1, le=20)
-    """Failed tool calls in a row before the run is stuck."""
 
 
 class ContextSettings(_Strict):

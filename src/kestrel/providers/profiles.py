@@ -8,8 +8,7 @@ Read from backend metadata, so no test prompt is needed:
 - llama.cpp: `/props` (`n_ctx`, the loaded window). Tools always work there.
 - Other backends: nothing to ask; unknown fields stay None and nothing is assumed.
 
-Measured over time: the ratio between the backend's real prompt token count and
-Kestrel's estimate, so trimming fits the real window. Profiles are cached in
+Profiles are cached in
 `<cache dir>/profiles.json`, keyed by backend URL, model and digest.
 """
 
@@ -51,14 +50,6 @@ DEFAULT_MAX_TOKENS: dict[BackendKind, int] = {"mlx": 4096}
 METADATA_TIMEOUT = 3.0
 LOAD_TIMEOUT = 120.0
 """Loading a model into memory can take a while on a laptop; it is needed for the run."""
-RATIO_MIN, RATIO_MAX = 1.0, 1.5
-"""The estimate only ever gets stricter: a backend's count can be low (Ollama leaves out
-prompt tokens it reused from its cache), and an overfilled window is cut silently."""
-RATIO_SMOOTHING = 0.3
-"""Weight of the newest sample in the running ratio."""
-SAFETY_RATIO = 1.1
-"""Used until a model has `CALIBRATED_SAMPLES` measurements: assume 10% more tokens."""
-CALIBRATED_SAMPLES = 3
 
 
 class Profile(BaseModel):
@@ -77,8 +68,6 @@ class Profile(BaseModel):
     """The most the model itself supports."""
     window: int | None = None
     """The window the backend actually runs it with, when it says."""
-    token_ratio: float = 1.0
-    samples: int = 0
     probed_at: str = ""
 
     @property
@@ -90,25 +79,6 @@ class Profile(BaseModel):
     def think_style(self) -> ThinkStyle:
         """How this backend is told not to think."""
         return THINK_STYLES[self.kind]
-
-    @property
-    def estimate_ratio(self) -> float:
-        """Multiplier for Kestrel's token estimate (a safety margin until calibrated)."""
-        if self.samples < CALIBRATED_SAMPLES:
-            return max(self.token_ratio, SAFETY_RATIO)
-        return self.token_ratio
-
-    def with_sample(self, reported: int, estimated: int) -> "Profile":
-        """Fold one measurement (backend prompt tokens vs Kestrel's raw estimate) in."""
-        if reported <= 0 or estimated <= 0:
-            return self
-        sample = min(RATIO_MAX, max(RATIO_MIN, reported / estimated))
-        ratio = (
-            sample
-            if self.samples == 0
-            else ((1 - RATIO_SMOOTHING) * self.token_ratio + RATIO_SMOOTHING * sample)
-        )
-        return self.model_copy(update={"token_ratio": round(ratio, 3), "samples": self.samples + 1})
 
 
 NAME_KINDS: tuple[tuple[str, BackendKind], ...] = (
@@ -226,12 +196,8 @@ async def probe(
         probed_at=datetime.now(UTC).isoformat(timespec="seconds"),
         **fields,  # type: ignore[arg-type]
     )
-    if known is not None and known.digest == profile.digest:
-        profile = profile.model_copy(
-            update={"token_ratio": known.token_ratio, "samples": known.samples}
-        )
-        if profile.window is None:  # not loaded right now: keep what was seen before
-            profile = profile.model_copy(update={"window": known.window})
+    if known is not None and known.digest == profile.digest and profile.window is None:
+        profile = profile.model_copy(update={"window": known.window})
     return profile
 
 

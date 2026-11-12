@@ -52,7 +52,7 @@ Every reply goes through repair before anything runs:
 - Mistakes are not crashes. A wrong tool name, bad arguments, or a tool that breaks comes back to the model as `ERROR: ...`, so it can try again.
 
 ### Safety gate: what the model may do
-- **One folder.** Agents can only touch `workspace/` inside the Kestrel folder. Paths like `../x`, `/etc/passwd`, or a shortcut (symlink) pointing outside are refused, whatever the model asks.
+- **One folder.** Agents can only touch `workspace/` inside the Kestrel folder. To the model it is the whole disk: `/data` means the `data` folder in the workspace. Paths like `../x` or a shortcut (symlink) pointing outside are refused, whatever the model asks.
 - **Ask before risky things.** Running a command, running Python, or overwriting a file asks you first: yes, no, or always (for the rest of this run).
 - **Agents can't loosen it on their own.** An agent file may make a tool stricter; making one looser (say, running commands without asking) needs `--trust-agent`.
 - **Arguments are checked** against the tool's description before anything runs.
@@ -69,7 +69,7 @@ Everything a tool returns is wrapped in `<untrusted source="...">` and the model
 Kestrel never runs a model itself. A backend (Ollama, LM Studio, llama.cpp, mlx-lm, vLLM) loads it and listens on a local port. They all speak the same "OpenAI-compatible" HTTP format, so one small client covers them all.
 - Replies stream in, so words appear as soon as the model writes them. The model's thinking is kept apart from its answer.
 - Any backend not on this machine is labelled `REMOTE`: your prompt leaves your computer.
-- **Model profile.** Kestrel asks the backend what the model can do (tool support, thinking, the window it is really loaded with), without sending a prompt, and remembers it. If Ollama loaded the model with a smaller window than the agent wants, Kestrel uses the real one and tells you how to raise it. It also measures how far its token estimate is from the backend's real count, per model, so trimming fits. `/profile` shows it all.
+- **Model profile.** Kestrel asks the backend what the model can do (tool support, thinking, the window it is really loaded with), without sending a prompt, and remembers it. If Ollama loaded the model with a smaller window than the agent wants, Kestrel uses the real one and tells you how to raise it. `/profile` shows it all.
 - **Thinking is off by default.** Models like qwen3 can spend a minute thinking before every step; `/think on` allows it when a task needs it.
 - `/doctor` checks every known port at once and lists the backends that are running and their models.
 
@@ -136,7 +136,7 @@ Every message goes to the current agent, which decides itself whether it needs a
 | `/model [name]` | list models, or switch (keeps the conversation) |
 | `/provider [name]` | list backends, or switch |
 | `/think [on\|off\|show\|hide]` | let the model think first (off by default), and show or hide it |
-| `/profile [probe]` | what Kestrel knows about the model: tools, window, token count |
+| `/profile [probe]` | what Kestrel knows about the model: tools, thinking, real window |
 | `/trace [id] [--full]` | a run step by step (`/trace list` for recent runs, `--prompt N` for exactly what the model saw) |
 | `/report-failure [id]` | save a bad step as a test case, secrets removed (`--step N`) |
 | `/agents`, `/agent NAME` | list agents, or switch (keeps the conversation) |

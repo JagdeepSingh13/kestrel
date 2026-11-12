@@ -10,15 +10,13 @@ from rich.markup import escape
 
 from kestrel.agents.schema import AgentConfig
 from kestrel.cli.frontend import BottomBox, CliFrontend
-from kestrel.cli.keys import watch_stop_keys
 from kestrel.cli.output import err_console
 from kestrel.core.config import ProviderConfig
 from kestrel.core.context import UNTRUSTED_RULE, ContextManager
 from kestrel.core.events import EventBus, JsonlWriter, new_run_id, runs_dir
 from kestrel.core.loop import DEFAULT_SYSTEM_PROMPT, Budgets, run_agent
-from kestrel.core.types import Event, EventType, Provider, Role, RunResult, StopReason
+from kestrel.core.types import EventType, Provider, Role, RunResult, StopReason
 from kestrel.providers.profiles import Profile, ProfileCache, cache_path, probe
-from kestrel.reliability.watchdog import WatchLimits
 from kestrel.safety.paths import Workspace
 from kestrel.safety.permissions import Permissions
 from kestrel.safety.redact import Redactor
@@ -101,13 +99,10 @@ def start_run(
     context = conversation or ContextManager(None)
     context.system_prompt = f"{agent.system or DEFAULT_SYSTEM_PROMPT}\n\n{UNTRUSTED_RULE}"
     context.window = window
-    context.token_ratio = profile.estimate_ratio
     context.max_tool_result_tokens = agent.context.max_tool_result_tokens
     context.tools = tools.specs()  # the agent may have changed since the last turn
     kept = len(context.history)
     limits = agent.limits
-    measured: list[tuple[int, int]] = []
-    bus.subscribe(lambda event: _measure(event, measured))
 
     async def go() -> RunResult:
         task = asyncio.current_task()
@@ -117,23 +112,19 @@ def start_run(
             if not task.done():
                 task.cancel()
 
-        if box is not None:  # the box owns the keyboard; its Esc stops us (from its thread)
-            loop = asyncio.get_running_loop()
-
-            def stop_from_box() -> None:
-                with contextlib.suppress(RuntimeError):  # the turn's loop already closed
-                    loop.call_soon_threadsafe(stop)
-
-            box.set_cancel(stop_from_box)
-            try:
-                return await work()
-            finally:
-                box.set_cancel(None)
-        with watch_stop_keys(stop) as pause:
-            if pause is not None:
-                frontend.pause_keys = pause
-                frontend.stop_hint = True
+        if box is None:  # `kestrel run`: Ctrl-C stops it
             return await work()
+        loop = asyncio.get_running_loop()  # the box's Esc stops the turn (from its thread)
+
+        def stop_from_box() -> None:
+            with contextlib.suppress(RuntimeError):  # the turn's loop already closed
+                loop.call_soon_threadsafe(stop)
+
+        box.set_cancel(stop_from_box)
+        try:
+            return await work()
+        finally:
+            box.set_cancel(None)
 
     async def work() -> RunResult:
         bus.emit(EventType.profile, 0, profile.model_dump(mode="json"))
@@ -149,12 +140,6 @@ def start_run(
                     limits.max_steps,
                     limits.max_tokens_total,
                     limits.max_wall_seconds,
-                    max_repairs=limits.max_repairs,
-                    watch=WatchLimits(
-                        max_repeats=limits.max_repeats,
-                        max_stall_steps=limits.max_stall_steps,
-                        max_tool_errors=limits.max_tool_errors,
-                    ),
                 ),
                 gate=Permissions(frontend.confirm, agent.permissions),
                 temperature=agent.temperature,
@@ -172,7 +157,6 @@ def start_run(
             del context.history[kept:]  # never leave the conversation ending on a question
         frontend.stop()
         writer.close()
-    save_profile(profile, measured, provider_name, provider_config, cache)
     return result
 
 
@@ -197,33 +181,3 @@ def load_profile(name: str, config: ProviderConfig, model: str, cache: ProfileCa
     _probed.add((config.base_url, model))
     cache.save(fresh)
     return fresh
-
-
-def save_profile(
-    profile: Profile,
-    measured: list[tuple[int, int]],
-    name: str,
-    config: ProviderConfig,
-    cache: ProfileCache,
-) -> None:
-    """Fold this run's token measurements in; learn the loaded window if still unknown
-    (the model is loaded now, so the backend can say)."""
-    for reported, estimated in measured:
-        profile = profile.with_sample(reported, estimated)
-    if profile.window is None:
-        with contextlib.suppress(KeyboardInterrupt):
-            profile = asyncio.run(probe_profile(name, config.base_url, profile.model, profile))
-    cache.save(profile)
-
-
-def _measure(event: Event, measured: list[tuple[int, int]]) -> None:
-    """Pair each step's raw estimate with the backend's prompt token count."""
-    if event.type is EventType.model_request:
-        raw = event.data.get("raw_est_tokens")
-        if isinstance(raw, int):
-            measured.append((0, raw))
-    elif event.type is EventType.model_response and measured:
-        usage = event.data.get("usage")
-        reported = usage.get("prompt_tokens") if isinstance(usage, dict) else None
-        if isinstance(reported, int):
-            measured[-1] = (reported, measured[-1][1])

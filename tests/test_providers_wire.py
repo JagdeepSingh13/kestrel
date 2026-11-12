@@ -194,20 +194,6 @@ def test_broken_call_goes_back_to_the_model_as_it_wrote_it() -> None:
     assert sent == {"invalid_arguments": "{'a': 1,}"}
 
 
-@pytest.mark.parametrize(
-    ("raw", "error"),
-    [("[1]", "a list, not an object"), ("null", "null, not an object"), ('"x"', "a string")],
-)
-def test_non_object_arguments_are_explained_in_plain_words(raw: str, error: str) -> None:
-    body: JSONValue = {
-        "choices": [
-            {"message": {"tool_calls": [{"id": "c", "function": {"name": "f", "arguments": raw}}]}}
-        ]
-    }
-    (call,) = from_response_body(body).message.tool_calls
-    assert call.arguments_error is not None and error in call.arguments_error
-
-
 def test_missing_arguments_mean_no_arguments() -> None:
     body: JSONValue = {"choices": [{"message": {"tool_calls": [{"function": {"name": "f"}}]}}]}
     (call,) = from_response_body(body).message.tool_calls
