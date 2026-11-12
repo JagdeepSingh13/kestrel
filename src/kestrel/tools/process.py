@@ -23,7 +23,7 @@ from typing import Annotated
 from pydantic import Field
 
 from kestrel.safety.redact import SECRET_NAME_PARTS
-from kestrel.tools.registry import ToolContext, tool
+from kestrel.tools.registry import ToolContext, ToolError, tool
 
 MAX_OUTPUT_BYTES = 20_000
 DEFAULT_SECONDS = 60
@@ -117,7 +117,7 @@ async def _run(command: str | None, argv: list[str] | None, ctx: ToolContext, se
     except TimeoutError:
         _kill(proc)
         await proc.wait()
-        return f"ERROR: stopped after {seconds}s (time limit)"
+        raise ToolError(f"stopped after {seconds}s (time limit)") from None
     text = output[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")
     if len(output) > MAX_OUTPUT_BYTES:
         text += f"\n[... output cut at {MAX_OUTPUT_BYTES} bytes; the process was stopped]"

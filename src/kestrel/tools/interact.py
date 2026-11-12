@@ -4,7 +4,7 @@ from typing import Annotated
 
 from pydantic import Field
 
-from kestrel.tools.registry import ToolContext, tool
+from kestrel.tools.registry import ToolContext, ToolError, tool
 
 
 @tool(timeout=3600)
@@ -14,6 +14,6 @@ async def ask_user(
 ) -> str:
     """Ask the user a question when you are missing information. Returns their answer."""
     if ctx.ask is None:
-        return "ERROR: no user is available to answer questions in this run"
+        raise ToolError("no user is available to answer questions in this run")
     answer = await ctx.ask(question)
     return answer.strip() or "(the user gave no answer)"

@@ -55,6 +55,12 @@ class Tool:
         return self.spec.name
 
 
+class ToolError(Exception):
+    """Raised by a tool for a failure the model should see and fix (bad path, no match).
+    The result is marked as an error, so the watchdog counts it and it is not wrapped as
+    outside data."""
+
+
 def tool(
     *,
     permission: Permission = "allow",
@@ -135,7 +141,7 @@ class ToolRegistry:
                 output = await _call(found.fn, kwargs)
         except TimeoutError:
             return _error(call, f"{call.name} took longer than {found.timeout:g}s and was stopped")
-        except PathNotAllowedError as exc:
+        except (PathNotAllowedError, ToolError) as exc:
             return _error(call, str(exc))
         except Exception as exc:  # a broken tool must not take the run down
             return _error(call, f"{call.name} failed: {type(exc).__name__}: {exc}")
