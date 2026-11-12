@@ -102,13 +102,23 @@ def ask(
     show_thinking: Annotated[
         bool, typer.Option("--show-thinking", help="Print the model's reasoning, dimmed.")
     ] = False,
+    think: Annotated[
+        bool, typer.Option("--think", help="Let the model think first (slower).")
+    ] = False,
 ) -> None:
     """Send one message to a model and stream the answer. No agent, no tools."""
     provider_name, provider_config, model_name = _resolve_or_exit(provider, model)
     messages = [Message(role=Role.user, content=prompt)]
     try:
         response = asyncio.run(
-            _ask(provider_name, provider_config, messages, model_name, show_thinking)
+            _ask(
+                provider_name,
+                provider_config,
+                messages,
+                model_name,
+                show_thinking,
+                None if think else False,
+            )
         )
     except ProviderError as exc:
         err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
@@ -127,10 +137,11 @@ async def _ask(
     messages: Sequence[Message],
     model: str,
     show_thinking: bool,
+    think: bool | None,
 ) -> ModelResponse:
     async with output.open_provider(name, config) as provider:
         return await output.stream_answer(
-            provider, messages, model=model, show_thinking=show_thinking
+            provider, messages, model=model, show_thinking=show_thinking, think=think
         )
 
 
@@ -145,6 +156,9 @@ def run(
     ] = False,
     show_thinking: Annotated[
         bool, typer.Option("--show-thinking", help="Print the model's reasoning, dimmed.")
+    ] = False,
+    think: Annotated[
+        bool, typer.Option("--think", help="Let the model think first (slower).")
     ] = False,
 ) -> None:
     """Run an agent on a task, with its tools, inside the workspace folder."""
@@ -167,6 +181,7 @@ def run(
         model=model_name,
         env=os.environ,
         show_thinking=show_thinking,
+        think=None if think else False,
     )
     if result is None:
         raise typer.Exit(130)

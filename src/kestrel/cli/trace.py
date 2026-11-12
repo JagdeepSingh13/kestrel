@@ -60,6 +60,11 @@ def describe(event: Event, *, full: bool = False) -> str:
             listed = d.get("tools")
             tools = ", ".join(str(t) for t in listed) if isinstance(listed, list) else ""
             return f"{text(d.get('task'))}  (model {d.get('model')}, tools: {tools or 'none'})"
+        case EventType.profile:
+            return (
+                f"{d.get('model')} on {d.get('kind')}: tools {d.get('native_tools')}, "
+                f"window {d.get('window')}, token ratio {d.get('token_ratio')}"
+            )
         case EventType.model_request:
             count = d.get("message_count", d.get("messages"))  # older logs: a plain count
             return f"{count} messages, ~{d.get('est_tokens')} tokens (/trace ID --prompt N)"

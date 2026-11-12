@@ -134,8 +134,10 @@ class Provider(Protocol):
         temperature: float = 0.2,
         max_tokens: int | None = None,
         json_schema: JSONObject | None = None,
+        think: bool | None = None,
     ) -> ModelResponse:
-        """Send messages and wait for the whole reply."""
+        """Send messages and wait for the whole reply. `think=False` asks the model not
+        to think first (backends that cannot be told simply think); None leaves it be."""
         ...
 
     def stream(
@@ -147,6 +149,7 @@ class Provider(Protocol):
         temperature: float = 0.2,
         max_tokens: int | None = None,
         json_schema: JSONObject | None = None,
+        think: bool | None = None,
     ) -> AsyncIterator[StreamChunk]:
         """Send messages and yield the reply piece by piece; the last chunk has `done`."""
         ...
@@ -160,6 +163,8 @@ class EventType(StrEnum):
     """Kinds of things that happen during a run (spec section 11)."""
 
     run_start = "run_start"
+    profile = "profile"
+    """What Kestrel knew about the model when the run started (M4)."""
     model_request = "model_request"
     model_delta = "model_delta"
     """A streamed piece of the reply. Live only: shown on screen, never written to the log."""

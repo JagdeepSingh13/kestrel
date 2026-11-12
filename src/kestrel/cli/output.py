@@ -12,6 +12,7 @@ from kestrel.core.config import ProviderConfig
 from kestrel.core.types import BadBackendResponseError, Message, ModelResponse, Provider, Usage
 from kestrel.providers.discovery import BackendReport, Status
 from kestrel.providers.openai_compat import OpenAICompatProvider
+from kestrel.providers.profiles import DEFAULT_MAX_TOKENS, THINK_STYLES, Profile, backend_kind
 
 console = Console()
 """Standard output: only the model's answer goes here, so `kestrel ask ... > file` works."""
@@ -25,7 +26,14 @@ STATUS_STYLE = {Status.up: "green", Status.down: "dim", Status.error: "red"}
 async def open_provider(name: str, config: ProviderConfig) -> AsyncGenerator[Provider]:
     """Create the provider for `config` and close it afterwards. Tests replace this."""
     api_key = config.api_key(os.environ)
-    async with OpenAICompatProvider(config.base_url, name=name, api_key=api_key) as provider:
+    kind = backend_kind(name, config.base_url)
+    async with OpenAICompatProvider(
+        config.base_url,
+        name=name,
+        api_key=api_key,
+        think_style=THINK_STYLES[kind],
+        default_max_tokens=DEFAULT_MAX_TOKENS.get(kind),
+    ) as provider:
         yield provider
 
 
@@ -35,6 +43,7 @@ async def stream_answer(
     *,
     model: str,
     show_thinking: bool = False,
+    think: bool | None = None,
 ) -> ModelResponse:
     """Print the reply as it arrives and return the complete reply.
 
@@ -48,7 +57,7 @@ async def stream_answer(
     printed_text = False
     final: ModelResponse | None = None
     try:
-        async for chunk in provider.stream(messages, model=model):
+        async for chunk in provider.stream(messages, model=model, think=think):
             if chunk.reasoning:
                 if show_thinking:
                     if spinning:
@@ -84,6 +93,41 @@ async def stream_answer(
     if final is None:
         raise BadBackendResponseError("the stream ended without a final reply")
     return final
+
+
+def describe_profile(profile: Profile, wanted_window: int) -> list[str]:
+    """`/profile` lines: what the backend said about the model, in plain words."""
+
+    def known(value: bool | None, yes: str, no: str) -> str:
+        return "unknown" if value is None else yes if value else no
+
+    window = (
+        "unknown until the model is loaded"
+        if profile.window is None
+        else (
+            f"{profile.window} tokens"
+            + (
+                f" (smaller than the {wanted_window} the agent wants)"
+                if profile.window < wanted_window
+                else ""
+            )
+        )
+    )
+    ratio = f"{profile.token_ratio:.2f} real tokens per estimated token"
+    measured = (
+        f"{ratio}, from {profile.samples} steps"
+        if profile.samples
+        else "not measured yet (10% safety margin)"
+    )
+    return [
+        f"{profile.model} on {profile.kind} ({profile.backend})",
+        f"  tools        {known(profile.native_tools, 'yes', 'no, so no agent with tools')}",
+        f"  thinking     {known(profile.thinking, 'can think (/think on to allow)', 'no')}",
+        f"  window       {window}",
+        f"  model max    {profile.max_window or 'unknown'}",
+        f"  token count  {measured}",
+        f"  checked      {profile.probed_at or 'never'}",
+    ]
 
 
 def describe_usage(usage: Usage) -> str:

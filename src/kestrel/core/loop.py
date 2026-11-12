@@ -82,6 +82,7 @@ async def run_agent(
     temperature: float = 0.2,
     clock: Callable[[], float] = time.monotonic,
     on_stuck: OnStuck | None = None,
+    think: bool | None = None,
 ) -> RunResult:
     """Run one task to the end and return what happened.
 
@@ -132,7 +133,7 @@ async def run_agent(
                 break
             totals.steps = step
             response, over_budget = await _ask_model(
-                provider, model, specs, context, bus, step, temperature
+                provider, model, specs, context, bus, step, temperature, think
             )
             prompt_tokens = None
             if response.usage is not None:
@@ -239,6 +240,7 @@ async def _ask_model(
     bus: EventBus,
     step: int,
     temperature: float,
+    think: bool | None,
 ) -> tuple[ModelResponse, bool]:
     """Build the prompt, stream the reply (live pieces as `model_delta`), log the result.
     Also says whether the prompt was still over budget after trimming."""
@@ -260,6 +262,7 @@ async def _ask_model(
         {
             "message_count": len(prompt.messages),
             "est_tokens": prompt.est_tokens,
+            "raw_est_tokens": prompt.raw_est_tokens,
             # Exactly what the model is shown this step, after trimming (big ones go to a
             # side file). With `tool_specs` in run_start, a step can be replayed or reported.
             "messages": [_message_data(m) for m in prompt.messages],
@@ -267,7 +270,7 @@ async def _ask_model(
     )
     final: ModelResponse | None = None
     async for chunk in provider.stream(
-        prompt.messages, specs or None, model=model, temperature=temperature
+        prompt.messages, specs or None, model=model, temperature=temperature, think=think
     ):
         if chunk.text or chunk.reasoning:
             bus.emit(

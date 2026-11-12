@@ -41,6 +41,10 @@ class Session:
     agent: AgentConfig = field(default_factory=lambda: AgentConfig(name="default"))
     """The agent every message goes to (`/agent NAME` switches)."""
     show_thinking: bool = False
+    """Print the model's thinking, dimmed (`/think show|hide`)."""
+    think: bool = False
+    """Let the model think before answering (`/think on|off`). Off by default: on a
+    laptop, thinking can take a minute per step (owner decision, M4)."""
     conversation: ContextManager = field(default_factory=lambda: ContextManager(None))
     """Every turn so far, tool calls and results included. Trimmed when sent, never here."""
 
@@ -153,6 +157,7 @@ class Shell:
             model=model,
             env=self.env,
             show_thinking=self.session.show_thinking,
+            think=None if self.session.think else False,
             conversation=self.session.conversation,
             box=self.box,
         )

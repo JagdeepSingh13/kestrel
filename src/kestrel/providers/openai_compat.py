@@ -23,7 +23,7 @@ from kestrel.core.types import (
     ToolSpec,
 )
 from kestrel.providers.sse import StreamAssembler
-from kestrel.providers.wire import from_response_body, to_request_body
+from kestrel.providers.wire import ThinkStyle, from_response_body, to_request_body
 
 # Models can take a long time before the first token (loading into memory), so the
 # read timeout is generous; connecting should be quick on localhost.
@@ -52,12 +52,18 @@ class OpenAICompatProvider:
         backoff_seconds: float = DEFAULT_BACKOFF_SECONDS,
         transport: httpx.AsyncBaseTransport | None = None,
         sleep: Sleep = asyncio.sleep,
+        think_style: ThinkStyle = "none",
+        default_max_tokens: int | None = None,
     ) -> None:
         """Create a provider.
 
+        `think_style` says how this backend is told not to think; `default_max_tokens`
+        is sent when a call gives none (some backends cut replies short otherwise).
         `transport` and `sleep` exist for tests (fake network, no real waiting).
         """
         self.name = name
+        self.think_style: ThinkStyle = think_style
+        self.default_max_tokens = default_max_tokens
         self.base_url = base_url.rstrip("/")
         self._retries = retries
         self._backoff = backoff_seconds
@@ -84,6 +90,7 @@ class OpenAICompatProvider:
         temperature: float = 0.2,
         max_tokens: int | None = None,
         json_schema: JSONObject | None = None,
+        think: bool | None = None,
     ) -> ModelResponse:
         """Send messages and wait for the whole reply."""
         body = to_request_body(
@@ -91,8 +98,10 @@ class OpenAICompatProvider:
             tools,
             model=model,
             temperature=temperature,
-            max_tokens=max_tokens,
+            max_tokens=max_tokens if max_tokens is not None else self.default_max_tokens,
             json_schema=json_schema,
+            think=think,
+            think_style=self.think_style,
             stream=False,
         )
         response = await self._send("POST", "/chat/completions", body)
@@ -111,6 +120,7 @@ class OpenAICompatProvider:
         temperature: float = 0.2,
         max_tokens: int | None = None,
         json_schema: JSONObject | None = None,
+        think: bool | None = None,
     ) -> AsyncIterator[StreamChunk]:
         """Send messages and yield the reply as it arrives; the last chunk has `done`."""
         body = to_request_body(
@@ -118,8 +128,10 @@ class OpenAICompatProvider:
             tools,
             model=model,
             temperature=temperature,
-            max_tokens=max_tokens,
+            max_tokens=max_tokens if max_tokens is not None else self.default_max_tokens,
             json_schema=json_schema,
+            think=think,
+            think_style=self.think_style,
             stream=True,
         )
         response = await self._send("POST", "/chat/completions", body)

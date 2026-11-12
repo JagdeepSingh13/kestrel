@@ -71,7 +71,11 @@ class Prompt:
 
     messages: list[Message]
     est_tokens: int
-    """Estimated tokens of messages plus tool descriptions."""
+    """Estimated tokens of messages plus tool descriptions, scaled by the model's
+    measured ratio (`ContextManager.token_ratio`)."""
+    raw_est_tokens: int = 0
+    """The same estimate before scaling; compared with the backend's count to measure
+    the ratio."""
     dropped_tool_results: int = 0
     dropped_messages: int = 0
     over_budget: bool = False
@@ -103,6 +107,8 @@ class ContextManager:
         self.max_tool_result_tokens = max_tool_result_tokens
         self.tools = list(tools)
         self.pin_task = pin_task
+        self.token_ratio = 1.0
+        """Backend tokens per estimated token for this model (measured, M4 piece 4)."""
         self.history: list[Message] = []
 
     def add(self, message: Message) -> None:
@@ -117,7 +123,8 @@ class ContextManager:
 
     def build(self) -> Prompt:
         """The messages to send now, trimmed to fit `window - response_reserve`."""
-        budget = self.window - self.response_reserve - estimate_tool_tokens(self.tools)
+        ratio = self.token_ratio
+        budget = self.window - self.response_reserve - ratio * estimate_tool_tokens(self.tools)
         system = (
             [Message(role=Role.system, content=self.system_prompt)] if self.system_prompt else []
         )
@@ -127,8 +134,8 @@ class ContextManager:
         if self.pin_task and task is not None:
             kept.add(task)
 
-        def size() -> int:
-            return estimate_tokens([*system, *rest])
+        def size() -> float:
+            return ratio * estimate_tokens([*system, *rest])
 
         dropped_results = 0
         for i, m in enumerate(rest):
@@ -149,13 +156,14 @@ class ContextManager:
             rest = [m for group in groups for _, m in group]
 
         messages = [*system, *rest]
-        used = estimate_tokens(messages)
+        raw = estimate_tokens(messages) + estimate_tool_tokens(self.tools)
         return Prompt(
             messages=messages,
-            est_tokens=used + estimate_tool_tokens(self.tools),
+            est_tokens=math.ceil(ratio * raw),
+            raw_est_tokens=raw,
             dropped_tool_results=dropped_results,
             dropped_messages=dropped_messages,
-            over_budget=used > budget,
+            over_budget=size() > budget,
         )
 
     def _cut(self, text: str) -> str:

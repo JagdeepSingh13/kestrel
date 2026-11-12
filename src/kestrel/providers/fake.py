@@ -30,6 +30,7 @@ class FakeCall:
     temperature: float
     max_tokens: int | None
     json_schema: JSONObject | None
+    think: bool | None = None
 
 
 @dataclass
@@ -93,9 +94,10 @@ class FakeProvider:
         temperature: float = 0.2,
         max_tokens: int | None = None,
         json_schema: JSONObject | None = None,
+        think: bool | None = None,
     ) -> ModelResponse:
         """Record the call and return the next scripted reply."""
-        self._record(messages, tools, model, temperature, max_tokens, json_schema)
+        self._record(messages, tools, model, temperature, max_tokens, json_schema, think)
         return self._next()
 
     async def stream(
@@ -107,9 +109,10 @@ class FakeProvider:
         temperature: float = 0.2,
         max_tokens: int | None = None,
         json_schema: JSONObject | None = None,
+        think: bool | None = None,
     ) -> AsyncIterator[StreamChunk]:
         """Record the call and replay the next scripted reply in pieces."""
-        self._record(messages, tools, model, temperature, max_tokens, json_schema)
+        self._record(messages, tools, model, temperature, max_tokens, json_schema, think)
         response = self._next()
         if response.message.reasoning:
             yield StreamChunk(reasoning=response.message.reasoning)
@@ -129,9 +132,18 @@ class FakeProvider:
         temperature: float,
         max_tokens: int | None,
         json_schema: JSONObject | None,
+        think: bool | None = None,
     ) -> None:
         self.calls.append(
-            FakeCall(list(messages), list(tools or []), model, temperature, max_tokens, json_schema)
+            FakeCall(
+                list(messages),
+                list(tools or []),
+                model,
+                temperature,
+                max_tokens,
+                json_schema,
+                think,
+            )
         )
 
     def _next(self) -> ModelResponse:

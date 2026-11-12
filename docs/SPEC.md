@@ -178,14 +178,14 @@ Probe these defaults, report which respond and which models they list:
 | vLLM | `http://localhost:8000/v1` |
 
 ### 4.3 Model profiles + capability probe
-First time a model is used, run a quick probe (cached in `~/.cache/kestrel/profiles.json`, key = backend + model):
+Built in M4 (`providers/profiles.py`). No test prompt: backend metadata only, and only for backends on this machine (a remote backend is never asked).
 
-- `native_tools`: send a trivial tool and check for a valid `tool_calls` response.
-- `json_mode`: request JSON schema output, check parse.
-- `context_window`: from backend metadata if exposed, else config default (8192).
-- `vision`: skipped in v0.1.
-
-Profile decides the tool-call mode (section 5). User can override per agent.
+- Ollama: `/api/show` (capabilities `tools`, `thinking`; the model's maximum context), `/api/ps` (the window it is loaded with; an unloaded model is loaded first, without a prompt), `/api/tags` (digest).
+- llama.cpp: `/props` (`n_ctx`); tools always work there.
+- Others: nothing asked; unknown stays unknown.
+- Cached in `<cache dir>/profiles.json` (one per backend and model; the digest refreshes it), asked once per session.
+- Token ratio: backend prompt tokens per estimated token, smoothed, never below 1.0 (Ollama leaves cached prompt tokens out of its count), at most 1.5, with a 10% margin until 3 measurements.
+- Effect on a run: a model without tool support is refused for agents with tools; the context window is lowered to the loaded one (warned once per session, with the fix); thinking is switched off (`reasoning_effort: "none"` for Ollama and llama.cpp, `chat_template_kwargs.enable_thinking: false` for vLLM and mlx-lm) unless `/think on` or `--think`; mlx-lm gets `max_tokens` 4096.
 
 ### 4.4 FakeProvider (M1, tests)
 Returns scripted `ModelResponse`s in order. Can also script malformed outputs to test the reliability layer. All unit tests use this.
@@ -370,9 +370,10 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
   1. **Capture.** Providers never raise on a broken `arguments` string: `ToolCall` gains `arguments_text` (raw) and `arguments_error`. `model_request` events log the exact messages sent after trimming (side file when over 64KB), plus tool spec hash, mode and think setting. Failure corpus in `tests/fixtures/bad_outputs/` (one JSON file per case: source, tools, response, expected result) with one parametrized test. Shell `/report-failure [run] [--step N]` (run defaults to `last`; step defaults to the last replied step where something went wrong) writes a redacted case file to `<data dir>/reports/`; `kestrel report-failure` does the same from a terminal; `/trace ID --prompt N` shows one step's prompt. A broken call sent back in history is wrapped as `{"invalid_arguments": "<raw text>"}`, because Ollama rejects invalid JSON there (checked live 2026-11-12). Every step logs its whole prompt, so logs grow with the square of the steps (about 1MB for a 15-step run at 16K); revisit with deltas if logs pass about 10MB.
   2. **Repair** (`reliability/repair.py`, pure function called by the loop between model and tools): find calls (native field, or ```json blocks, `<tool_call>` tags, bare JSON in the text), fix JSON (trailing commas, single quotes, missing brackets, arguments sent as a JSON string), fix tool names (case, `-`/`_`, edit distance 1 to 2 only when unique), check arguments with pydantic, unescape double-escaped text only in arguments a tool marks as text (`ToolSpec.text_args`; only when there is no real new line and 2 or more literal `\n`), one call per step (later calls dropped with a short note). Unusable call: corrective note with that tool's schema; `max_repairs` (default 2) unusable calls in a row, then a `stuck` event and `stopped_reason=loop`. Every fix is a `repair` event. Never repaired (would change a correct call's meaning): a cut-off string or number (`finish_reason=length` gets its own note), JSON words inside strings, escapes inside quoted strings or Windows paths, a fuzzy tool-name guess that leaves arguments unused, a call quoted inside a long answer. Text calls need an exact tool name (up to case and `-`/`_`). Corpus: 48 cases.
   3. **Watchdog** (`reliability/watchdog.py`): `loop_warning` on 3 identical calls in a row or A,B,A,B; `stuck` on 4 identical calls, 5 steps in a row where a call repeats an earlier call and gets its earlier result (different calls with equal results are progress), 3 tool errors in a row, repairs exhausted, or a prompt that trimming could not fit with backend prompt tokens at 95% of the window (a final answer always counts). Warnings re-arm when the pattern stops; after `on_stuck` handles a signal the watchdog resets. M4 policy: warn message once, then stop with `stopped_reason=loop`. `run_agent` takes an `on_stuck` hook so M4.5 can step up instead. Thresholds under `limits`.
-  4. **Profile** (`providers/profiles.py`, `providers/ollama.py` metadata helpers): read capabilities and the real window from backend metadata (Ollama `/api/show`, `/api/ps`; llama.cpp `/props`), cache in `~/.cache/kestrel/profiles.json` keyed by backend, model and digest. Thinking control through a neutral `think` setting (`reasoning_effort: "none"` for Ollama and llama.cpp, `chat_template_kwargs.enable_thinking` for mlx-lm and vLLM). Token estimate calibrated per model from backend-reported prompt tokens. Default `max_tokens` (mlx-lm cuts replies at 512). Shell `/profile`, `/profile probe`, `/profile set`; `/think on|off` controls generation, `/think show|hide` the display.
+  4. **Profile** (`providers/profiles.py`, section 4.3): capabilities, real window and token ratio per model; a neutral `think` setting on `Provider.chat/stream`; default `max_tokens` for mlx-lm. Shell `/profile` and `/profile probe`; `/think on|off` controls whether the model thinks, `/think show|hide` the display; `kestrel run --think` and `kestrel ask --think`. (`/profile set` dropped: with text modes in the backlog there is nothing to set.)
 - **Decisions (owner, 2026-11-12):** web tools move to M4.1, before M4.5. Thinking is off by default for agent steps. One tool call per step by default. Text tool-call modes (`json`, `react`) for models without native tools are moved to the backlog. Loop stop at 4 repeats (configurable). No GBNF grammars (llama.cpp rejects a grammar sent with tools; JSON schema output covers it). No real tokenizers (would need downloads). No separate Ollama `/api/chat` provider for now.
 - **Done when:** 30+ malformed outputs in the corpus are fixed or correctly rejected; both real qwen3 failures (guessed parallel result, double-escaped `write_file` content) are handled in a live run; qwen3:4b finishes a file task natively; thinking off works live on Ollama.
+- **Status: done (v0.0.5).** Corpus: 48 cases. Live on qwen3:8b: thinking off cut a two-step task from about 20s to 5s; the M3 line-count demo took 17s (was 157s) and repair's one-call rule fired on two parallel `read_file` calls; a broken call sent back in history is accepted after wrapping (Ollama rejected it raw). Double-escaped content did not recur live; its real case is in the corpus. Measured token ratio for qwen3:8b with tools: 0.75 (the estimate is high, not low as in M2), so the ratio floor of 1.0 matters. qwen3:4b live check: see the M4 summary. Every piece was reviewed by the kestrel-reviewer agent before its commit; its findings (truncated calls being completed, escapes in one-line code, false stuck signals, remote probes, cache races) were fixed with tests.
 
 ### M4.1: Web tools
 - `read_tool_output` (page through cut results, kept per session in memory), `fetch_url` (stdlib HTML to text, GET only, size and time caps, private and loopback addresses blocked after every redirect, result untrusted), `web_search` (SearXNG preferred; best-effort fallback decided in the M4.1 plan).
@@ -486,8 +487,12 @@ limits:
   max_steps: 15
   max_tokens_total: 60000
   max_wall_seconds: 600
+  max_repairs: 2                 # unusable tool calls in a row, each answered with a note (M4)
+  max_repeats: 4                 # identical calls in a row before stuck; warned at 3 (M4)
+  max_stall_steps: 5             # repeated call, repeated result, in a row (M4)
+  max_tool_errors: 3             # failed tool calls in a row (M4)
 context:
-  window: 16384                  # override profile if needed
+  window: 16384                  # lowered to the model's loaded window when smaller (M4)
   max_tool_result_tokens: 1500
 ```
 
@@ -506,7 +511,7 @@ One JSON object per line:
 
 Events store full tool arguments, full results and verbatim model output; results over 64KB go to a side file referenced by path (gap 13). Every line is redacted before writing (gaps 6, 11).
 
-Event types: `run_start`, `model_request`, `model_response`, `repair`, `tool_call`, `permission`, `tool_result`, `context_trim`, `loop_warning`, `error`, `final`, `run_end`.
+Event types: `run_start`, `profile` (what was known about the model, M4), `model_request` (with the exact messages sent, M4), `model_response`, `repair`, `tool_call`, `permission`, `tool_result`, `context_trim`, `loop_warning`, `stuck` (M4), `error`, `final`, `run_end`.
 
 `run_end.data` includes `stopped_reason` (`final|max_steps|budget|loop|cancelled|error`), totals for steps, tokens, repairs, wall time.
 

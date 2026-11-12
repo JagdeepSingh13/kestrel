@@ -89,9 +89,14 @@ def test_huge_values_go_to_a_side_file(tmp_path: Path) -> None:
 
 def test_find_run_by_last_and_prefix(tmp_path: Path) -> None:
     for run_id in ["20261110-090000-aaaa", "20261111-090000-bbbb", "20261111-100000-cccc"]:
-        (tmp_path / f"{run_id}.jsonl").write_text(
-            json.dumps({"data": {"task": f"task {run_id[-4:]}"}}) + "\n", encoding="utf-8"
+        start = Event(
+            ts=NOW,
+            run_id=run_id,
+            step=0,
+            type=EventType.run_start,
+            data={"task": f"task {run_id[-4:]}"},
         )
+        (tmp_path / f"{run_id}.jsonl").write_text(start.model_dump_json() + "\n", encoding="utf-8")
     last = find_run(tmp_path, "last")
     assert last is not None
     assert last.stem == "20261111-100000-cccc"

@@ -171,7 +171,7 @@ class CliFrontend:
             picked = answers[await self.box.choose("Allow it?", options)]
         elif not self.interactive:
             answer = Prompt.ask(
-                "Allow? [y]es / [n]o / [a]lways this run",
+                r"Allow? \[y]es / \[n]o / \[a]lways this run",  # \[ : not a style tag
                 choices=["y", "n", "a"],
                 default="n",
                 console=err_console,

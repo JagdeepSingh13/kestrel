@@ -90,9 +90,9 @@ def test_conversation_is_remembered_across_turns() -> None:
 
 def test_reasoning_is_not_kept_in_history(capsys: pytest.CaptureFixture[str]) -> None:
     fake = FakeProvider([FakeProvider.text("Hi", reasoning="greeting")])
-    shell, _ = make_shell(["/think on", "hello"], fake)
+    shell, _ = make_shell(["/think show", "hello"], fake)
     shell.run()
-    assert "greeting" in capsys.readouterr().err  # shown with /think on
+    assert "greeting" in capsys.readouterr().err  # shown with /think show
     assert shell.session.history[-1].reasoning is None
 
 
@@ -150,6 +150,7 @@ class InterruptedProvider(FakeProvider):
         temperature: float = 0.2,
         max_tokens: int | None = None,
         json_schema: JSONObject | None = None,
+        think: bool | None = None,
     ) -> AsyncIterator[StreamChunk]:
         yield StreamChunk(text="Hel")
         raise KeyboardInterrupt
@@ -286,7 +287,8 @@ def test_status_line_shows_model_agent_and_context_use() -> None:
     shell, _ = make_shell(["hi"], fake)
     assert shell.prompt() == "m · agent default · context 0% of 16K · /help"
     shell.run()
-    assert "context 7% of 16K" in shell.prompt()  # system prompt, tools and the reply
+    # System prompt, tools and the reply, plus a 10% margin until the model is measured.
+    assert "context 8% of 16K" in shell.prompt()
 
 
 def test_report_failure_saves_the_broken_step_and_trace_shows_its_prompt(
@@ -321,3 +323,18 @@ def test_report_failure_saves_the_broken_step_and_trace_shows_its_prompt(
     assert case["expect"]["kind"].startswith("TODO")
     assert "look around" in out.out  # the prompt of step 1, as sent
     assert "Step 9 has no logged prompt" in out.err
+
+
+def test_thinking_is_off_unless_turned_on(capsys: pytest.CaptureFixture[str]) -> None:
+    fake = FakeProvider([FakeProvider.text("a"), FakeProvider.text("b")])
+    shell, _ = make_shell(["one", "/think on", "two", "/think"], fake)
+    shell.run()
+    assert [c.think for c in fake.calls] == [False, None]  # off, then left to the model
+    assert "Thinking: on" in capsys.readouterr().err
+
+
+def test_profile_shows_what_the_backend_said(capsys: pytest.CaptureFixture[str]) -> None:
+    shell, _ = make_shell(["/profile"], FakeProvider())
+    shell.run()
+    err = capsys.readouterr().err
+    assert "m on other" in err and "window       unknown" in err

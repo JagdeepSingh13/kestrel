@@ -267,6 +267,7 @@ class CancelledProvider(FakeProvider):
         temperature: float = 0.2,
         max_tokens: int | None = None,
         json_schema: JSONObject | None = None,
+        think: bool | None = None,
     ) -> AsyncIterator[StreamChunk]:
         yield StreamChunk(text="Hel")
         raise asyncio.CancelledError

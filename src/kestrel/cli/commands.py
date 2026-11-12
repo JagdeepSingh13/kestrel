@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from rich.markup import escape
 
 from kestrel.agents.loader import AgentError, list_agents, load_agent
-from kestrel.cli.output import console, err_console, print_reports
+from kestrel.cli import agent_run
+from kestrel.cli.output import console, describe_profile, err_console, print_reports
 from kestrel.cli.report import ReportError, build_case, write_case
 from kestrel.cli.shell import Shell
 from kestrel.cli.trace import print_prompt, print_run_list, print_trace
@@ -14,6 +15,7 @@ from kestrel.core.config import ConfigError, default_data_dir
 from kestrel.core.events import find_run, runs_dir
 from kestrel.core.types import ProviderError
 from kestrel.providers.discovery import discover
+from kestrel.providers.profiles import THINK_STYLES, ProfileCache, backend_kind, cache_path
 from kestrel.safety.redact import Redactor
 from kestrel.tools.builtin import BUILTIN_TOOLS
 
@@ -112,14 +114,51 @@ def _provider(shell: Shell, arg: str) -> bool:
 
 
 def _think(shell: Shell, arg: str) -> bool:
-    if arg.lower() in ("on", "off"):
-        shell.session.show_thinking = arg.lower() == "on"
-    elif arg:
-        err_console.print("Usage: /think on, /think off, or /think to toggle.")
+    session = shell.session
+    word = arg.lower()
+    if word in ("on", "off"):
+        session.think = word == "on"
+    elif word in ("show", "hide"):
+        session.show_thinking = word == "show"
+    elif word:
+        err_console.print("Usage: /think on|off (let the model think) or /think show|hide.")
         return True
-    else:
-        shell.session.show_thinking = not shell.session.show_thinking
-    err_console.print(f"Thinking: {'shown' if shell.session.show_thinking else 'hidden'}")
+    thinking = "on" if session.think else "off (faster)"
+    shown = "shown" if session.show_thinking else "hidden"
+    err_console.print(f"Thinking: {thinking}; display: {shown}")
+    config = shell.config.provider(session.provider)
+    if not session.think and THINK_STYLES[backend_kind(session.provider, config.base_url)] == (
+        "none"
+    ):
+        err_console.print(
+            "[dim]This backend has no known way to switch thinking off; "
+            "the model may still think.[/dim]"
+        )
+    return True
+
+
+def _profile(shell: Shell, arg: str) -> bool:
+    model = shell.session.model
+    if model is None:
+        err_console.print("No model chosen. /model NAME picks one.")
+        return True
+    name = shell.session.provider
+    config = shell.config.provider(name)
+    if config.is_remote:
+        err_console.print(
+            f"{escape(name)} is a remote backend: Kestrel does not ask it about models."
+        )
+        return True
+    cache = ProfileCache(cache_path(shell.env))
+    known = cache.get(config.base_url, model)
+    if arg == "probe" or known is None:
+        known = shell.run_async(agent_run.probe_profile(name, config.base_url, model, known))
+        cache.save(known)
+    elif arg:
+        err_console.print("Usage: /profile, or /profile probe to ask the backend again.")
+        return True
+    for line in describe_profile(known, shell.session.agent.context.window):
+        err_console.print(line, highlight=False)
     return True
 
 
@@ -246,7 +285,8 @@ COMMANDS: dict[str, Command] = {
     "help": Command(_help, "/help", "show this list"),
     "model": Command(_model, "/model [name]", "list models, or switch (keeps the conversation)"),
     "provider": Command(_provider, "/provider [name]", "list backends, or switch"),
-    "think": Command(_think, "/think [on|off]", "show or hide the model's thinking"),
+    "think": Command(_think, "/think [on|off|show|hide]", "let the model think; show it"),
+    "profile": Command(_profile, "/profile [probe]", "what Kestrel knows about this model"),
     "agent": Command(_agent, "/agent [name]", "show or switch the agent (keeps the conversation)"),
     "agents": Command(_agents, "/agents", "list available agents"),
     "tools": Command(_tools, "/tools", "the agent's tools and their permissions"),

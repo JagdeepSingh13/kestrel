@@ -123,6 +123,7 @@ class SlowProvider(FakeProvider):
         temperature: float = 0.2,
         max_tokens: int | None = None,
         json_schema: JSONObject | None = None,
+        think: bool | None = None,
     ) -> AsyncIterator[StreamChunk]:
         self.asked.append(messages[-1].content or "")
         self.started.set()

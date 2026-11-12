@@ -6,7 +6,7 @@
 
 A model can only think and decide. Kestrel is everything around it: what goes in, what it may do, what gets checked, and what gets recorded. It is built for 3B to 14B models on an ordinary 16GB laptop, works with any OpenAI-compatible backend (Ollama, LM Studio, llama.cpp, mlx-lm, vLLM), and defines agents as small YAML files instead of code.
 
-> **Status: early development (v0.0.4).** Working today: the `kestrel` shell, where every message goes to an agent with real tools (files, shell, Python) confined to one folder, confirmation before risky actions, and a full log of every run. Next: repairing small models' broken tool calls, then stepping up to a bigger model when the small one is stuck. See the [roadmap](#roadmap).
+> **Status: early development (v0.0.5).** Working today: the `kestrel` shell, where every message goes to an agent with real tools (files, shell, Python) confined to one folder; repair of small models' broken tool calls; a watchdog that stops runs going in circles; model profiles (real window, thinking off); confirmation before risky actions; and a full log of every run. Next: web tools, then stepping up to a bigger model when the small one is stuck. See the [roadmap](#roadmap).
 
 ![An agent is a model, a harness and context](docs/diagrams/img/three-parts.svg)
 
@@ -21,7 +21,7 @@ Small models are fast, private and free to run, but they fail in ways big models
 - **Silently cut memory.** Ollama gives models only 4K tokens on machines under 24GB of GPU memory, so the start of a long task quietly disappears.
 - **Loops.** The same failing call, again and again.
 
-Each of these has an answer in the harness, not in the model. Some are built, the rest are next.
+Each of these has an answer in the harness, not in the model, and all four are built: repair fixes the escaped text, one call per step stops the guessing, the model's profile finds the real window, and the watchdog stops loops.
 
 ## How Kestrel works
 
@@ -35,9 +35,20 @@ One run is one loop. Kestrel builds the **context**, the **model** decides what 
 - A huge tool result is cut short for the model; the full text stays in the log.
 - The model's thinking is recorded but never sent back to it, which saves space.
 
+### Repair: fixing broken tool calls
+
+![What repair does to every model reply](docs/diagrams/img/repair-steps.svg)
+
+Every reply goes through repair before anything runs:
+- **Fixed quietly** (and logged): a call written as text instead of in the tool-call field, broken JSON (trailing commas, single quotes, a missing last bracket), a near-miss tool name (`read-file`), a number or true/false sent as text, an argument the tool does not take, line breaks escaped twice in a file's text or code.
+- **One call per step.** If the model asks for several tools at once, only the first runs. It sees the real result before it decides the next call, so it cannot guess.
+- **Never guessed:** anything that would change what a correct call means. A reply cut off mid-text, words inside strings, escapes inside quoted strings, a tool name close to two tools. The model gets a short note with the error and that tool's expected arguments, and tries again (twice; then the run is stuck).
+- Every case repair handles is a test, built from real failures. `/report-failure` turns a bad step from your own runs into a new one.
+
 ### Control: when to stop
 - Budgets keep a confused model from running forever: a limit on steps (model calls), and optional limits on tokens and time.
-- Every run ends with a clear reason: answered, out of steps, over budget, cancelled (Ctrl-C), or backend error.
+- **A watchdog notices circles:** the same call three times in a row, going back and forth between two calls, or a call that keeps returning what it returned before. The model first gets a short note; if it keeps going, the run stops as stuck. Three failed tool calls in a row, or a prompt too big to fit even after trimming, also count as stuck. (Next: stuck will hand the step to a bigger model instead of stopping.)
+- Every run ends with a clear reason: answered, out of steps, over budget, stuck, cancelled (Esc), or backend error.
 - Mistakes are not crashes. A wrong tool name, bad arguments, or a tool that breaks comes back to the model as `ERROR: ...`, so it can try again.
 
 ### Safety gate: what the model may do
@@ -58,6 +69,8 @@ Everything a tool returns is wrapped in `<untrusted source="...">` and the model
 Kestrel never runs a model itself. A backend (Ollama, LM Studio, llama.cpp, mlx-lm, vLLM) loads it and listens on a local port. They all speak the same "OpenAI-compatible" HTTP format, so one small client covers them all.
 - Replies stream in, so words appear as soon as the model writes them. The model's thinking is kept apart from its answer.
 - Any backend not on this machine is labelled `REMOTE`: your prompt leaves your computer.
+- **Model profile.** Kestrel asks the backend what the model can do (tool support, thinking, the window it is really loaded with), without sending a prompt, and remembers it. If Ollama loaded the model with a smaller window than the agent wants, Kestrel uses the real one and tells you how to raise it. It also measures how far its token estimate is from the backend's real count, per model, so trimming fits. `/profile` shows it all.
+- **Thinking is off by default.** Models like qwen3 can spend a minute thinking before every step; `/think on` allows it when a task needs it.
 - `/doctor` checks every known port at once and lists the backends that are running and their models.
 
 ### Run log, inspect and replay
@@ -72,8 +85,10 @@ Kestrel never runs a model itself. A backend (Ollama, LM Studio, llama.cpp, mlx-
 
 ## What's next
 
-### Repair and step up (next)
-- **Repair:** turn small models' broken output (bad JSON, wrong tool names, double-escaped text, made-up results) into valid tool calls, and notice loops.
+### Web tools (next)
+Search and read web pages, for agents that are given these tools. Pages are untrusted data, fetched with size and time limits, never from addresses on your own machine or network.
+
+### Step up only when stuck (after web tools)
 - **Step up only when stuck (headline):** each step runs on a small, fast model. When it gets stuck (repairs fail, loops, repeated errors), Kestrel hands that one step to a bigger model, with the conversation and a note on what failed, then steps back down. `/trace` shows which model did each step and why. Cloud models only if you allow it, with secrets removed and the exact text shown first.
 
 ### Agents that get better on your laptop (planned)
@@ -107,7 +122,7 @@ Then, inside the shell, just type:
 > /trace
 ```
 
-Add `/no_think` to a message to skip the model's thinking; much faster on a laptop.
+Thinking is off by default, which is much faster on a laptop; `/think on` allows it.
 
 ## Using the shell
 
@@ -120,8 +135,10 @@ Every message goes to the current agent, which decides itself whether it needs a
 | `/help` | list commands |
 | `/model [name]` | list models, or switch (keeps the conversation) |
 | `/provider [name]` | list backends, or switch |
-| `/think [on\|off]` | show or hide the model's thinking |
-| `/trace [id] [--full]` | a run step by step (`/trace list` for recent runs) |
+| `/think [on\|off\|show\|hide]` | let the model think first (off by default), and show or hide it |
+| `/profile [probe]` | what Kestrel knows about the model: tools, window, token count |
+| `/trace [id] [--full]` | a run step by step (`/trace list` for recent runs, `--prompt N` for exactly what the model saw) |
+| `/report-failure [id]` | save a bad step as a test case, secrets removed (`--step N`) |
 | `/agents`, `/agent NAME` | list agents, or switch (keeps the conversation) |
 | `/tools` | the agent's tools and permissions |
 | `/workspace` | the only folder agents may use |
@@ -152,8 +169,8 @@ From a normal terminal, `kestrel run "task" --agent NAME`, `kestrel trace last`,
 | M2 | Agent loop, run log, `/trace` | done |
 | M3 | Agent files, file/shell/Python tools, safety gate | done |
 | M3.5 | Shell as an agent conversation, Claude Code style look | done |
-| M4 | Repair broken tool calls, watch for loops, model profiles, exact model input in the log | next |
-| M4.1 | Web search and page fetching | |
+| M4 | Repair broken tool calls, watch for loops, model profiles, exact model input in the log | done |
+| M4.1 | Web search and page fetching | next |
 | M4.5 | Step up only when stuck: model ladder (local models) | |
 | M5 | Sessions, MCP tools | |
 | M5.5 | Coder agent: repo map, small edits, run tests (tentative) | |

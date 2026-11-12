@@ -128,11 +128,15 @@ def find_run(directory: Path, run: str) -> Path | None:
 
 
 def first_task(path: Path) -> str:
-    """The task text from a log's `run_start` event, for run listings."""
+    """The task text from a log's `run_start` event (in the first few lines), for run
+    listings."""
     with path.open(encoding="utf-8") as f:
-        first = f.readline()
-    try:
-        task = json.loads(first)["data"]["task"]
-    except (json.JSONDecodeError, KeyError, TypeError):
-        return "?"
-    return task if isinstance(task, str) else "?"
+        for _, line in zip(range(5), f, strict=False):
+            try:
+                event = Event.model_validate_json(line)
+            except ValueError:
+                continue
+            if event.type is EventType.run_start:
+                task = event.data.get("task")
+                return task if isinstance(task, str) else "?"
+    return "?"

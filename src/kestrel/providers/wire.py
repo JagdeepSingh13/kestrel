@@ -5,6 +5,7 @@ Pure functions, no network. This is the only place that knows OpenAI's field nam
 
 import json
 from collections.abc import Sequence
+from typing import Literal
 
 from kestrel.core.types import (
     BadBackendResponseError,
@@ -19,6 +20,9 @@ from kestrel.core.types import (
 )
 from kestrel.providers.think import split_think
 
+type ThinkStyle = Literal["reasoning_effort", "chat_template_kwargs", "none"]
+"""How a backend is told not to think (see `providers.profiles`)."""
+
 INVALID_ARGUMENTS_KEY = "invalid_arguments"
 """Wraps a broken call's text when it is sent back to the backend in history."""
 
@@ -32,8 +36,11 @@ def to_request_body(
     max_tokens: int | None = None,
     json_schema: JSONObject | None = None,
     stream: bool = False,
+    think: bool | None = None,
+    think_style: ThinkStyle = "none",
 ) -> JSONObject:
-    """Build the JSON body for `POST /chat/completions`."""
+    """Build the JSON body for `POST /chat/completions`. `think=False` is sent the way
+    the backend understands (`think_style`); there is no standard field for it."""
     body: JSONObject = {
         "model": model,
         "messages": [_message_to_wire(m) for m in messages],
@@ -49,6 +56,11 @@ def to_request_body(
             "type": "json_schema",
             "json_schema": {"name": "response", "schema": json_schema, "strict": True},
         }
+    if think is False:
+        if think_style == "reasoning_effort":  # Ollama, llama.cpp: maps to no thinking
+            body["reasoning_effort"] = "none"
+        elif think_style == "chat_template_kwargs":  # vLLM, mlx-lm: Qwen-style templates
+            body["chat_template_kwargs"] = {"enable_thinking": False}
     if stream:
         # Ask for token counts at the end of the stream (spec gap 10).
         body["stream_options"] = {"include_usage": True}
