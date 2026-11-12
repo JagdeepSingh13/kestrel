@@ -113,7 +113,7 @@ Add `/no_think` to a message to skip the model's thinking; much faster on a lapt
 
 ![What happens to each line you type](docs/diagrams/img/shell.svg)
 
-Every message goes to the current agent, which decides itself whether it needs a tool. The conversation carries over, tool results included, so "now chart it" knows what "it" is. Each tool call shows as one line with a short result; risky ones stop and ask with a small menu (Yes, Yes for the rest of this turn, No). The input box stays fixed at the bottom; you can type the next message while a turn runs. Esc stops a turn, and a stopped or failed turn is not kept. Under the box: the model, the agent, and how full the context window is. Typing `/` lists the commands, the up arrow recalls earlier lines, Ctrl-D leaves.
+Every message goes to the current agent, which decides itself whether it needs a tool. The conversation carries over, tool results included, so "now chart it" knows what "it" is. Each tool call shows as one line with a short result; risky ones stop and ask with a small menu (Yes, Yes for the rest of this turn, No). The input box stays fixed at the bottom; you can type the next message while a turn runs. Esc stops a turn and drops messages still waiting, and a stopped or failed turn is not kept. A permission menu ignores keys pressed in its first half second, so an Enter meant for a typed-ahead message never approves anything. Under the box: the model, the agent, and how full the context window is. Typing `/` lists the commands, the up arrow recalls earlier lines, Ctrl-D leaves.
 
 | Command | Does |
 |---|---|

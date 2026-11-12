@@ -2,6 +2,7 @@
 is a run) and the terminal's `kestrel run`, so both behave the same."""
 
 import asyncio
+import contextlib
 from collections.abc import Callable, Mapping
 from contextlib import AbstractAsyncContextManager
 
@@ -15,7 +16,7 @@ from kestrel.core.config import ProviderConfig
 from kestrel.core.context import UNTRUSTED_RULE, ContextManager
 from kestrel.core.events import EventBus, JsonlWriter, new_run_id, runs_dir
 from kestrel.core.loop import DEFAULT_SYSTEM_PROMPT, Budgets, run_agent
-from kestrel.core.types import Provider, RunResult, StopReason
+from kestrel.core.types import Provider, Role, RunResult, StopReason
 from kestrel.safety.paths import Workspace
 from kestrel.safety.permissions import Permissions
 from kestrel.safety.redact import Redactor
@@ -79,13 +80,15 @@ def start_run(
         assert task is not None
 
         def stop() -> None:
-            task.cancel()
+            if not task.done():
+                task.cancel()
 
         if box is not None:  # the box owns the keyboard; its Esc stops us (from its thread)
             loop = asyncio.get_running_loop()
 
             def stop_from_box() -> None:
-                loop.call_soon_threadsafe(stop)
+                with contextlib.suppress(RuntimeError):  # the turn's loop already closed
+                    loop.call_soon_threadsafe(stop)
 
             box.set_cancel(stop_from_box)
             try:
@@ -118,8 +121,9 @@ def start_run(
     except (KeyboardInterrupt, asyncio.CancelledError):
         pass  # the frontend already showed "Stopped"; the run so far is in the log
     finally:
-        if result is None or result.stopped_reason is StopReason.error:
-            del context.history[kept:]
+        unanswered = context.history[-1:] and context.history[-1].role is Role.user
+        if result is None or result.stopped_reason is StopReason.error or unanswered:
+            del context.history[kept:]  # never leave the conversation ending on a question
         frontend.stop()
         writer.close()
     return result

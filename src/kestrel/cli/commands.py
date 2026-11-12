@@ -47,7 +47,7 @@ def _help(shell: Shell, arg: str) -> bool:
             err_console.print(f"  [bold]{usage}[/bold] {command.help}")
     err_console.print(
         "  Anything else goes to the agent, which uses its tools when needed. "
-        "Ctrl-C stops a turn, Ctrl-D quits."
+        "Esc stops a turn, Ctrl-D quits."
     )
     return True
 

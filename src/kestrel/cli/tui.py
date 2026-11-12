@@ -37,6 +37,9 @@ from kestrel.cli.shell import Shell
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 QUIT_SECONDS = 2.0
 """A second Ctrl-C within this time leaves the shell."""
+MENU_GRACE_SECONDS = 0.5
+"""Keys pressed this soon after a permission menu appears are ignored, so an Enter meant
+for a typed-ahead message can never approve a command you have not seen."""
 
 
 @dataclass
@@ -45,6 +48,7 @@ class _Menu:
     options: Sequence[tuple[str, str]]
     answer: concurrent.futures.Future[str]
     selected: int = 0
+    shown_at: float = field(default_factory=time.monotonic)
 
 
 @dataclass
@@ -57,7 +61,8 @@ class _State:
     asking: concurrent.futures.Future[str] | None = None
     cancel: Callable[[], None] | None = None
     busy: bool = False
-    queued: list[str] = field(default_factory=list[str])
+    closing: bool = False
+    """Set when leaving: lines still in the queue are skipped."""
     status: str = ""
     hint: str = ""
     last_ctrl_c: float = 0.0
@@ -126,6 +131,8 @@ class Tui:
         with patch_stdout(raw=True):
             worker.start()
             self.app.run()
+            self.state.closing = True
+            self._drop_queued()
             self.lines.put(None)
             if self.state.cancel is not None:
                 self.state.cancel()
@@ -134,8 +141,8 @@ class Tui:
 
     def _work(self) -> None:
         while (line := self.lines.get()) is not None:
-            if self.state.queued:
-                self.state.queued.pop(0)
+            if self.state.closing:
+                continue  # leaving: skip whatever was still queued
             self.state.busy = True
             self.app.invalidate()
             gap = "" if line.startswith("/") else "\n"
@@ -153,18 +160,27 @@ class Tui:
                 return
             self.app.invalidate()
 
+    def _drop_queued(self) -> None:
+        """Forget lines typed ahead but not started yet."""
+        while True:
+            try:
+                self.lines.get_nowait()
+            except queue.Empty:
+                return
+
     def _leave(self) -> None:
         if self.app.is_running and not self.app.future.done():  # type: ignore[union-attr]
             self.app.exit()
 
     def _submit(self, buffer: Buffer) -> bool:
         text = buffer.text.strip()
-        if self.state.asking is not None:
-            self.state.asking.set_result(text)
+        asking = self.state.asking
+        if asking is not None:
+            buffer.reset()  # an answer to the agent stays out of the saved input history
+            if not asking.done():
+                asking.set_result(text)
             return False
         if text:
-            if self.state.busy or not self.lines.empty():
-                self.state.queued.append(text)
             self.lines.put(text)
         return False  # clear the box; the line is already in the history
 
@@ -200,6 +216,7 @@ class Tui:
             if state.menu is not None:
                 self._pick(len(state.menu.options) - 1)  # the last option is always "No"
             elif state.cancel is not None:
+                self._drop_queued()  # stopping means stopping: typed-ahead lines go too
                 state.cancel()
             else:
                 self.buffer.reset()
@@ -234,7 +251,7 @@ class Tui:
                 Window(height=Dimension(weight=1)),  # takes the free space: box sits at the bottom
                 ConditionalContainer(
                     Window(FormattedTextControl(self._activity), height=1),
-                    filter=Condition(lambda: state.activity is not None or bool(state.queued)),
+                    filter=Condition(lambda: state.activity is not None or not self.lines.empty()),
                 ),
                 ConditionalContainer(
                     Window(FormattedTextControl(self._menu), dont_extend_height=True),
@@ -262,6 +279,8 @@ class Tui:
         menu = self.state.menu
         if menu is None or menu.answer.done():
             return
+        if time.monotonic() - menu.shown_at < MENU_GRACE_SECONDS:
+            return  # too soon to be an answer to this menu
         if index is None:
             index = menu.selected
         if 0 <= index < len(menu.options):
@@ -278,8 +297,9 @@ class Tui:
                 ("class:spinner", f"{frame} "),
                 ("class:status", f"{state.activity}… {seconds}s{stop}"),
             ]
-        if state.queued:
-            out.append(("class:status", f"   {len(state.queued)} queued"))
+        waiting = self.lines.qsize()
+        if waiting:
+            out.append(("class:status", f"   {waiting} queued"))
         return out
 
     def _menu(self) -> StyleAndTextTuples:
