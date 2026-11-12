@@ -43,8 +43,8 @@ def test_run_answers_and_writes_a_log(monkeypatch: pytest.MonkeyPatch, tmp_path:
     result = runner.invoke(cli.app, ["run", "add 17 and 25 verysecretvalue", "-m", "m"])
     assert result.exit_code == 0, result.output
     assert result.stdout == "It is 42.\n"
-    assert "tool list_dir" in result.stderr
-    assert "/trace" in result.stderr
+    assert "⏺ list_dir" in result.stderr
+    assert " · run " in result.stderr  # the run id, for /trace
     [log] = runs.glob("*.jsonl")
     assert [e.type for e in read_events(log)][-2:] == [EventType.final, EventType.run_end]
     assert "verysecretvalue" not in log.read_text(encoding="utf-8")
@@ -57,7 +57,7 @@ def test_run_that_hits_max_steps_exits_1(monkeypatch: pytest.MonkeyPatch, tmp_pa
     agent.write_text("name: short\ntools: [list_dir]\nlimits:\n  max_steps: 2\n", encoding="utf-8")
     result = runner.invoke(cli.app, ["run", "loop", "-m", "m", "--agent", str(agent)])
     assert result.exit_code == 1
-    assert "max_steps after 2 steps" in result.stderr
+    assert "hit the step limit · 2 steps" in result.stderr
 
 
 def test_trace_shows_the_last_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

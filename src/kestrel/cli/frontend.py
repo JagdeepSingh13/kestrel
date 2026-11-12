@@ -1,120 +1,302 @@
 """CliFrontend: shows a run live in the terminal (implements `core.types.Frontend`).
 
-The answer text streams to stdout; tool calls, results and progress go to stderr.
+Claude Code style: the answer after a `⏺`, each tool call as one line `⏺ tool(arg)` with a
+short result under `⎿`, a spinner with elapsed time while waiting. The answer text goes to
+stdout; everything else to stderr, so `kestrel run ... > file` still captures only the answer.
 """
 
 import json
+import sys
+import time
+from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
 
-from rich.console import Console
+from rich.console import Console, Group, RenderableType
+from rich.live import Live
+from rich.markdown import Markdown
 from rich.markup import escape
+from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.status import Status
+from rich.syntax import Syntax
+from rich.table import Table
+from rich.text import Text
 
 from kestrel.cli.output import console, err_console
 from kestrel.core.types import ConfirmAnswer, Event, EventType, JSONValue, ToolCall, ToolSpec
 
-PREVIEW_CHARS = 300
-CONFIRM_PREVIEW_CHARS = 600
+PREVIEW_LINES = 3
+CONFIRM_PREVIEW_LINES = 15
+ARG_CHARS = 60
+
+type PauseKeys = Callable[[], AbstractContextManager[None]]
+"""Stops the Esc watcher while the user answers a question (see `cli.keys`)."""
 
 
 class CliFrontend:
     """Prints events as they happen."""
 
-    def __init__(self, *, show_thinking: bool = False) -> None:
-        """`show_thinking` prints the model's reasoning, dimmed."""
+    def __init__(self, *, show_thinking: bool = False, interactive: bool | None = None) -> None:
+        """`show_thinking` prints the model's reasoning, dimmed. `interactive` (default: a
+        terminal is attached) uses arrow-key menus; otherwise plain typed answers."""
         self.show_thinking = show_thinking
+        self.interactive = (
+            sys.stdin.isatty() and err_console.is_terminal if interactive is None else interactive
+        )
+        self.pause_keys: PauseKeys = nullcontext
+        self.stop_hint = False
+        """Show "esc to stop" in the spinner (set when the Esc watcher runs)."""
         self._spinner: Status | None = None
+        self.label = ""
+        """What the spinner says (Working, Thinking, Running TOOL)."""
+        self.since = 0.0
         self._printed_text = False
         self._printed_thinking = False
+        self._answer = ""
+        self._live: Live | None = None
 
     def on_event(self, event: Event) -> None:
         """Render one event."""
-        data, step = event.data, event.step
+        data = event.data
         match event.type:
             case EventType.model_request:
                 self._printed_text = self._printed_thinking = False
-                self._spin(f"Step {step}: waiting for the model...")
+                self._answer = ""
+                self._spin("Working")
             case EventType.model_delta:
-                self._delta(step, _str(data.get("text")), _str(data.get("reasoning")))
+                self._delta(_str(data.get("text")), _str(data.get("reasoning")))
             case EventType.model_response:
-                self.stop()
-                if self._printed_text or self._printed_thinking:
-                    (console if self._printed_text else err_console).print()
+                self.stop()  # also ends the live answer
+                if self._printed_text and not console.is_terminal:
+                    console.print()
+                elif self._printed_thinking:
+                    err_console.print()
             case EventType.tool_call:
-                args = json.dumps(data.get("arguments"), ensure_ascii=False)
+                self.stop()
+                name, args = _str(data.get("name")), data.get("arguments")
                 err_console.print(
-                    f"[cyan]tool[/cyan] {escape(_str(data.get('name')))} {escape(args)}"
+                    Text.assemble("⏺ ", (name, "bold"), f"({describe_args(args)})"),
+                    highlight=False,
                 )
+                self._spin(f"Running {name}")
             case EventType.tool_result:
+                self.stop()
+                summary = summarize_result(data.get("content"))
                 style = "red" if data.get("is_error") else "dim"
-                err_console.print(f"  [{style}]{escape(_preview(data.get('content')))}[/{style}]")
+                err_console.print(_under(summary, style), highlight=False)
             case EventType.context_trim:
                 err_console.print(
-                    f"[dim]Context trimmed to fit: {data.get('dropped_tool_results')} old tool "
-                    f"results emptied, {data.get('dropped_messages')} old messages dropped.[/dim]"
+                    f"  [dim]context trimmed to fit: {data.get('dropped_tool_results')} old tool "
+                    f"results emptied, {data.get('dropped_messages')} old messages dropped[/dim]"
                 )
             case EventType.error:
                 self.stop()
-                err_console.print(f"[red]Error:[/red] {escape(_str(data.get('message')))}")
+                err_console.print(f"[red]⏺ Error:[/red] {escape(_str(data.get('message')))}")
             case EventType.run_end:
                 self.stop()
-                err_console.print(
-                    f"[dim]{data.get('stopped_reason')} after {data.get('steps')} steps, "
-                    f"{data.get('tool_calls')} tool calls, {data.get('prompt_tokens')} tokens in, "
-                    f"{data.get('completion_tokens')} out, {data.get('wall_seconds')}s[/dim]"
-                )
+                err_console.print(_run_summary(event), highlight=False)
+                err_console.print()
             case _:
                 pass
 
     async def confirm(self, call: ToolCall, spec: ToolSpec) -> ConfirmAnswer:
-        """Ask before a risky tool runs: [y]es, [n]o, or [a]lways for this run."""
+        """Ask before a risky tool runs: yes, yes for the rest of this run, or no."""
         self.stop()
-        args = json.dumps(call.arguments, ensure_ascii=False)
-        if len(args) > CONFIRM_PREVIEW_CHARS:
-            args = args[:CONFIRM_PREVIEW_CHARS] + "..."
         err_console.print(
-            f"[bold yellow]{escape(call.name)}[/bold yellow] wants to run: {escape(args)}"
+            Panel(
+                confirm_preview(call),
+                title=f"[bold]{escape(call.name)}[/bold] wants to run",
+                title_align="left",
+                border_style="yellow",
+                expand=False,
+            )
         )
-        answer = Prompt.ask(
-            "Allow? [y]es / [n]o / [a]lways this run",
-            choices=["y", "n", "a"],
-            default="n",
-            console=err_console,
-            show_choices=False,
+        if not self.interactive:
+            answer = Prompt.ask(
+                "Allow? [y]es / [n]o / [a]lways this run",
+                choices=["y", "n", "a"],
+                default="n",
+                console=err_console,
+                show_choices=False,
+            )
+            answers: dict[str, ConfirmAnswer] = {"y": "yes", "a": "always"}
+            return answers.get(answer, "no")
+
+        from kestrel.cli.prompt import choose  # prompt_toolkit only when interactive
+
+        options: list[tuple[ConfirmAnswer, str]] = [
+            ("yes", "Yes"),
+            ("always", f"Yes, and don't ask again for {call.name} this turn"),
+            ("no", "No"),
+        ]
+        with self.pause_keys():
+            picked = await choose("Allow it?", options)
+        err_console.print(
+            _under(
+                {"yes": "allowed", "always": "allowed for this turn", "no": "refused"}[picked],
+                "dim",
+            )
         )
-        answers: dict[str, ConfirmAnswer] = {"y": "yes", "a": "always"}
-        return answers.get(answer, "no")
+        return picked
 
     async def ask(self, question: str) -> str:
-        """Ask the user something on the agent's behalf (M3)."""
+        """Ask the user something on the agent's behalf (`ask_user`)."""
         self.stop()
-        return Prompt.ask(question, console=err_console)
+        err_console.print(Text.assemble(("⏺ ", "yellow"), question), highlight=False)
+        if not self.interactive:
+            return Prompt.ask("  ", console=err_console)
+        from prompt_toolkit import PromptSession
+
+        with self.pause_keys():
+            session: PromptSession[str] = PromptSession()
+            return await session.prompt_async("  ⎿ ")
 
     def stop(self) -> None:
-        """Stop the spinner, if one is running."""
+        """Stop the spinner and the live answer, if running."""
+        self._stop_spinner()
+        if self._live is not None:
+            self._live.stop()
+            self._live = None
+
+    def _stop_spinner(self) -> None:
         if self._spinner is not None:
             self._spinner.stop()
             self._spinner = None
 
-    def _spin(self, message: str) -> None:
+    def _spin(self, label: str) -> None:
         self.stop()
-        self._spinner = err_console.status(message)
+        self.label = label
+        self.since = time.monotonic()
+        self._spinner = err_console.status(_Elapsed(self), spinner="dots")
         self._spinner.start()
 
-    def _delta(self, step: int, text: str, reasoning: str) -> None:
+    def _delta(self, text: str, reasoning: str) -> None:
         if reasoning:
             if self.show_thinking:
-                self.stop()
-                _raw(err_console, reasoning, style="dim")
+                self._stop_spinner()
+                if not self._printed_thinking:
+                    err_console.print("∴ ", end="", style="dim")
+                _raw(err_console, reasoning, style="dim italic")
                 self._printed_thinking = True
-            elif self._spinner is not None:
-                self._spinner.update(f"Step {step}: thinking...")
+            else:
+                self.label = "Thinking"
         if text:
-            self.stop()
-            if self._printed_thinking and not self._printed_text:
-                err_console.print()
-            _raw(console, text)
+            self._stop_spinner()
+            if not self._printed_text and self._printed_thinking:
+                err_console.print("\n")
             self._printed_text = True
+            if not console.is_terminal:  # redirected: just the plain answer
+                _raw(console, text)
+                return
+            self._answer += text
+            if self._live is None:
+                self._live = Live(
+                    console=console, refresh_per_second=8, vertical_overflow="visible"
+                )
+                self._live.start()
+            self._live.update(_bulleted(Markdown(self._answer)))
+
+
+def _bulleted(body: RenderableType) -> Table:
+    """`⏺ ` in front of the answer, with its lines indented under the text."""
+    grid = Table.grid(padding=(0, 1))
+    grid.add_column(width=1)
+    grid.add_column()
+    grid.add_row("⏺", body)
+    return grid
+
+
+class _Elapsed:
+    """Spinner text that recomputes the elapsed seconds on every refresh."""
+
+    def __init__(self, frontend: CliFrontend) -> None:
+        self.frontend = frontend
+
+    def __rich__(self) -> Text:
+        seconds = int(time.monotonic() - self.frontend.since)
+        hint = " · esc to stop" if self.frontend.stop_hint else ""
+        return Text(f"{self.frontend.label}… {seconds}s{hint}", style="dim")
+
+
+def describe_args(arguments: JSONValue) -> str:
+    """The one thing worth showing about a call: `data/sales.csv`, the command, the code."""
+    if not isinstance(arguments, dict) or not arguments:
+        return ""
+    for key in ("path", "command", "code", "question"):
+        value = arguments.get(key)
+        if isinstance(value, str):
+            first = value.strip().splitlines()[0] if value.strip() else ""
+            more = "…" if len(first) > ARG_CHARS or first != value.strip() else ""
+            return first[:ARG_CHARS] + more
+    text = json.dumps(arguments, ensure_ascii=False)
+    return text if len(text) <= ARG_CHARS else text[:ARG_CHARS] + "…"
+
+
+def summarize_result(content: JSONValue) -> str:
+    """First few lines of a tool result, and how many more there are."""
+    text = content if isinstance(content, str) else json.dumps(content)
+    lines = text.strip().splitlines() or ["(no output)"]
+    shown = "\n".join(line[:120] for line in lines[:PREVIEW_LINES])
+    if len(lines) > PREVIEW_LINES:
+        shown += f"\n… +{len(lines) - PREVIEW_LINES} lines"
+    return shown
+
+
+def confirm_preview(call: ToolCall) -> RenderableType:
+    """Exactly what will run: the command, the code, or the file about to be written."""
+    args = call.arguments
+    code, command, path = args.get("code"), args.get("command"), args.get("path")
+    if isinstance(code, str):
+        return Syntax(_clip(code), "python", theme="ansi_dark", background_color="default")
+    if isinstance(command, str):
+        return Syntax(_clip(command), "bash", theme="ansi_dark", background_color="default")
+    if isinstance(path, str) and isinstance(args.get("content"), str):
+        content = str(args["content"])
+        verb = "replace" if args.get("overwrite") else "create"
+        head = Text(f"{verb} {path} ({len(content)} characters)", style="bold")
+        return Group(head, Text(_clip(content), style="dim"))
+    return Text(json.dumps(args, ensure_ascii=False, indent=2))
+
+
+def _clip(text: str) -> str:
+    lines = text.splitlines()
+    if len(lines) <= CONFIRM_PREVIEW_LINES:
+        return text
+    rest = len(lines) - CONFIRM_PREVIEW_LINES
+    return "\n".join([*lines[:CONFIRM_PREVIEW_LINES], f"… +{rest} more lines"])
+
+
+def _under(text: str, style: str) -> Text:
+    """`  ⎿  text`, with following lines indented to match."""
+    first, *rest = text.splitlines() or [""]
+    body = Text.assemble(("  ⎿  ", "dim"), (first, style))
+    for line in rest:
+        body.append("\n     " + line, style=style)
+    return body
+
+
+def _run_summary(event: Event) -> Text:
+    data = event.data
+    reason = _str(data.get("stopped_reason"))
+    tokens = _int(data.get("prompt_tokens")) + _int(data.get("completion_tokens"))
+    parts = [
+        f"{data.get('steps')} steps",
+        f"{data.get('tool_calls')} tools",
+        f"{tokens / 1000:.1f}K tokens" if tokens >= 1000 else f"{tokens} tokens",
+        f"{round(_float(data.get('wall_seconds')))}s",
+        f"run {event.run_id}",
+    ]
+    if reason == "final":
+        return Text("  " + " · ".join(parts), style="dim")
+    labels = {
+        "max_steps": "Stopped: hit the step limit",
+        "budget": "Stopped: hit a budget limit",
+        "cancelled": "Stopped",
+        "error": "Stopped by an error",
+    }
+    return Text.assemble(
+        ("  " + labels.get(reason, reason), "yellow"), (" · " + " · ".join(parts), "dim")
+    )
 
 
 def _raw(out: Console, text: str, style: str | None = None) -> None:
@@ -125,6 +307,9 @@ def _str(value: JSONValue) -> str:
     return value if isinstance(value, str) else ""
 
 
-def _preview(value: JSONValue) -> str:
-    text = value if isinstance(value, str) else json.dumps(value)
-    return text if len(text) <= PREVIEW_CHARS else text[:PREVIEW_CHARS] + "..."
+def _int(value: JSONValue) -> int:
+    return value if isinstance(value, int) else 0
+
+
+def _float(value: JSONValue) -> float:
+    return float(value) if isinstance(value, int | float) else 0.0

@@ -9,6 +9,7 @@ from rich.markup import escape
 
 from kestrel.agents.schema import AgentConfig
 from kestrel.cli.frontend import CliFrontend
+from kestrel.cli.keys import watch_stop_keys
 from kestrel.cli.output import err_console
 from kestrel.core.config import ProviderConfig
 from kestrel.core.context import UNTRUSTED_RULE, ContextManager
@@ -73,6 +74,19 @@ def start_run(
     limits = agent.limits
 
     async def go() -> RunResult:
+        task = asyncio.current_task()
+        assert task is not None
+
+        def stop() -> None:
+            task.cancel()
+
+        with watch_stop_keys(stop) as pause:
+            if pause is not None:
+                frontend.pause_keys = pause
+                frontend.stop_hint = True
+            return await work()
+
+    async def work() -> RunResult:
         async with open_provider(provider_name, provider_config) as provider:
             return await run_agent(
                 task,
@@ -89,12 +103,11 @@ def start_run(
     result: RunResult | None = None
     try:
         result = asyncio.run(go())
-    except KeyboardInterrupt:
-        err_console.print("[dim]Stopped. The run so far is in the log.[/dim]")
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        pass  # the frontend already showed "Stopped"; the run so far is in the log
     finally:
         if result is None or result.stopped_reason is StopReason.error:
             del context.history[kept:]
         frontend.stop()
         writer.close()
-        err_console.print(f"[dim]Run id {run_id}. See it with /trace[/dim]")
     return result

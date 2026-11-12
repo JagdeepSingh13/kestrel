@@ -9,8 +9,12 @@ import asyncio
 from collections.abc import Callable, Coroutine, Mapping
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
+from pathlib import Path
 
+from rich.box import ROUNDED
 from rich.markup import escape
+from rich.panel import Panel
+from rich.text import Text
 
 from kestrel.__about__ import __version__
 from kestrel.agents.schema import AgentConfig
@@ -18,7 +22,7 @@ from kestrel.cli.agent_run import start_run
 from kestrel.cli.output import err_console
 from kestrel.core.config import ConfigError, KestrelConfig, ProviderConfig
 from kestrel.core.context import ContextManager
-from kestrel.core.types import Message, Provider, StopReason
+from kestrel.core.types import Message, Provider, ProviderError, StopReason
 from kestrel.safety.paths import Workspace
 
 type ReadLine = Callable[[str], str]
@@ -78,6 +82,8 @@ class Shell:
         read_line = self.read_line
         if read_line is None:
             raise RuntimeError("Shell.read_line must be set before run()")
+        if self.session.model is None:
+            self._pick_first_model()
         self._banner()
         while True:
             try:
@@ -96,8 +102,14 @@ class Shell:
         err_console.print("[dim]Bye.[/dim]")
 
     def prompt(self) -> str:
-        """The prompt text, showing the current model."""
-        return f"{self.session.model or 'no model'}> "
+        """The status line under the input box: model, agent, how full the context is."""
+        session = self.session
+        window = session.agent.context.window
+        used = session.conversation.build().est_tokens if session.history else 0
+        return (
+            f"{session.model or 'no model'} · agent {session.agent.name} · "
+            f"context {min(100, round(100 * used / window))}% of {window // 1024}K · /help"
+        )
 
     def send(self, text: str) -> None:
         """Give one message to the agent, with the conversation so far and its tools."""
@@ -138,16 +150,45 @@ class Shell:
         name = self.session.provider
         return self.open_provider(name, self.config.provider(name))
 
+    def _pick_first_model(self) -> None:
+        """No model configured: use the first one the backend lists, if it is running."""
+
+        async def list_models() -> list[str]:
+            async with self.provider() as provider:
+                return await provider.list_models()
+
+        try:
+            self.model_names = self.run_async(list_models())
+        except ProviderError:
+            return  # the banner says "none"; /doctor explains
+        if self.model_names:
+            self.session.model = self.model_names[0]
+
     def _banner(self) -> None:
         provider = self.config.provider(self.session.provider)
-        parts = [f"Kestrel {__version__}", self.session.provider, self.session.model or "no model"]
-        err_console.print(" · ".join(parts) + " · /help for commands", highlight=False)
-        err_console.print(
-            f"[dim]agent {escape(self.session.agent.name)} · workspace {self.workspace.root}[/dim]",
-            highlight=False,
+        rows = Text.assemble(
+            ("✻ ", "bold #d78700"),
+            (f"Kestrel {__version__}", "bold"),
+            "\n\n",
+            ("  /help for commands, Esc stops a turn, Ctrl-D quits\n\n", "dim"),
+            ("  model      ", "dim"),
+            f"{self.session.model or 'none (/model NAME)'} ({self.session.provider})\n",
+            ("  agent      ", "dim"),
+            f"{self.session.agent.name}\n",
+            ("  workspace  ", "dim"),
+            _home(self.workspace.root),
         )
+        err_console.print(Panel(rows, box=ROUNDED, border_style="#d78700", expand=False))
         if provider.is_remote:
             err_console.print(
                 f"[bold yellow]REMOTE[/bold yellow] {escape(provider.base_url)}: "
                 "your messages leave this machine."
             )
+
+
+def _home(path: Path) -> str:
+    """`~/Desktop/kestrel/workspace` instead of the full home path."""
+    try:
+        return "~/" + path.relative_to(Path.home()).as_posix()
+    except ValueError:
+        return str(path)

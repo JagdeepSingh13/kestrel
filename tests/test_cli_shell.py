@@ -172,8 +172,15 @@ def test_exit_stops_reading() -> None:
     assert lines == ["never sent"]
 
 
-def test_no_model_asks_to_pick_one(capsys: pytest.CaptureFixture[str]) -> None:
-    fake = FakeProvider()
+def test_no_model_uses_the_first_one_the_backend_lists() -> None:
+    fake = FakeProvider([FakeProvider.text("hi")], models=["qwen3:8b", "other"])
+    shell, _ = make_shell(["hello"], fake, model=None)
+    shell.run()
+    assert [c.model for c in fake.calls] == ["qwen3:8b"]
+
+
+def test_no_model_anywhere_asks_to_pick_one(capsys: pytest.CaptureFixture[str]) -> None:
+    fake = FakeProvider(models=[])
     shell, _ = make_shell(["hi"], fake, model=None)
     shell.run()
     assert "No model chosen" in capsys.readouterr().err
@@ -192,7 +199,7 @@ def test_long_conversation_is_trimmed_to_fit(capsys: pytest.CaptureFixture[str])
     last_sent = sent(fake, -1)
     assert last_sent[-1] == "four"
     assert "one" not in last_sent  # but older turns were left out of the prompt
-    assert "Context trimmed" in capsys.readouterr().err
+    assert "context trimmed" in capsys.readouterr().err
 
 
 def test_completer_suggests_commands_and_models() -> None:
@@ -268,3 +275,11 @@ def test_agent_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
     assert "write_file" in err and "overwrite: confirm" in err  # /tools
     assert "Changing it is turned off" in err  # /workspace refuses to move
     assert "No agent named 'nope'" in err
+
+
+def test_status_line_shows_model_agent_and_context_use() -> None:
+    fake = FakeProvider([FakeProvider.text("x" * 3500)])
+    shell, _ = make_shell(["hi"], fake)
+    assert shell.prompt() == "m · agent default · context 0% of 16K · /help"
+    shell.run()
+    assert "context 7% of 16K" in shell.prompt()  # system prompt, tools and the reply
