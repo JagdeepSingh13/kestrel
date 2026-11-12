@@ -180,7 +180,7 @@ From a normal terminal, `kestrel run "task" --agent NAME`, `kestrel trace last`,
 | M4.2 | Fixes from real chats: real window shown, append and edit tools, nudge, trace summary | done |
 | M4.3 | Lessons from harness research: countdown, nudge after failures, output keeps both ends, looser edit matching | done |
 | M4.1 | Web research as one tool: search, read, summarize with sources | next |
-| M4.5 | Step up only when stuck: model ladder (local models) | |
+| M4.5 | Step up only when stuck: model ladder (local models, plus an optional OpenRouter model for the hardest steps, with your OK) | |
 | M5 | Sessions, MCP tools | |
 | M5.5 | Coder agent: repo map, small edits, run tests (tentative) | |
 | M6+ | Memory, tests from runs (`/keep`), autotune, recipes | |

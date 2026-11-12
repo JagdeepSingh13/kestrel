@@ -415,8 +415,8 @@ Sources: CMU, "Better Harnesses, Smaller Models" (arXiv 2607.08938): most gains 
 - Step-up triggers from M4's failure signals (repairs exhausted, loop warning, repeated tool errors) plus window overflow.
 - Shared conversation across models (neutral format, per-model tool mode), handoff note, step back down after the hard step.
 - `step_up` / `step_down` events with reason; `/trace` shows which model did each step.
-- Local models only. Cloud rung, privacy filter and learning stay in M9.5.
-- **Done when:** FakeProvider tests cover each trigger, handoff note content, stepping back down, and trace marks; a live run on qwen3:4b plus qwen3:8b steps up at least once on a task the 4B fails and finishes it.
+- **Basic OpenRouter rung (moved up from M9.5 by owner, 2026-11-12):** the top rung may be an OpenRouter model (the `openrouter` provider, key from `OPENROUTER_API_KEY`), used only when the agent has `allow_cloud: true` and only for the stuck step. Before anything is sent, the user sees that the step is going to the cloud and approves it (y/n/always this run). It sends the system prompt, the current task and the failing step with a short handoff note, never the whole history; secrets are redacted as in the event log. `/model` marks OpenRouter's free models; its rate-limit errors show as a plain message; the remote model's window and tool support come from OpenRouter's model list. The full privacy filter (exact text shown, spending cap, per-agent "never cloud"), planner/checker splits and learning stay in M9.5.
+- **Done when:** FakeProvider tests cover each trigger, handoff note content, stepping back down, trace marks, and that a cloud step is never taken without `allow_cloud` and the user's yes; a live run on qwen3:4b plus qwen3:8b steps up at least once on a task the 4B fails and finishes it; a live run steps up to an OpenRouter model once with approval.
 
 ### M5: Interactive chat + MCP client
 - `kestrel chat --agent X`: multi-turn session, `/agent`, `/model`, `/tools`, `/trace`, `/exit` slash commands.
@@ -466,7 +466,7 @@ Sources: CMU, "Better Harnesses, Smaller Models" (arXiv 2607.08938): most gains 
 - Scheduler: cron-style jobs run agents in background, results to file / notification.
 
 ### M9.5: Model ladder, full: cloud rung, privacy filter, learning
-- Builds on M4.5. Cloud rung only if the agent allows it (`allow_cloud`): send only the failing step plus a summary, never the whole history.
+- Builds on M4.5 (which has the basic OpenRouter rung). Cloud rung only if the agent allows it (`allow_cloud`): send only the failing step plus a summary, never the whole history.
 - Privacy filter: before anything leaves the machine, redact sensitive data and show the user exactly what will be sent; spending cap per run; per-agent "never cloud".
 - Planner/doer and checker splits; the user as a rung before cloud.
 - Learning: step-up history per task kind decides the starting model; big-model solutions become examples for the small model.
