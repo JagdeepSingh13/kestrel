@@ -5,8 +5,10 @@ from pathlib import Path
 
 from rich.console import Console
 from rich.markup import escape
+from rich.panel import Panel
 from rich.table import Table
 
+from kestrel.cli.output import window_fix
 from kestrel.core.events import first_task, load_value, read_events
 from kestrel.core.types import Event, EventType, JSONValue
 
@@ -14,9 +16,10 @@ SHORT_CHARS = 160
 
 
 def print_trace(path: Path, out: Console, *, full: bool = False) -> None:
-    """Print every logged event of one run, one row each."""
+    """Print a summary of the run, then every logged event, one row each."""
     events = read_events(path)
-    table = Table(title=f"Run {path.stem}", show_lines=full)
+    out.print(Panel("\n".join(escape(line) for line in summary(events)), title=f"Run {path.stem}"))
+    table = Table(show_lines=full)
     table.add_column("Step", justify="right")
     table.add_column("Event")
     table.add_column("Details", overflow="fold")
@@ -28,6 +31,78 @@ def print_trace(path: Path, out: Console, *, full: bool = False) -> None:
             escape(describe(event, full=full)),
         )
     out.print(table)
+
+
+def summary(events: list[Event]) -> list[str]:
+    """What a reader wants first: how the run ended and why, the model, how full the
+    context got, and what went wrong along the way."""
+    by_type: dict[EventType, list[Event]] = {}
+    for event in events:
+        by_type.setdefault(event.type, []).append(event)
+
+    def first(kind: EventType) -> dict[str, JSONValue]:
+        found = by_type.get(kind)
+        return found[0].data if found else {}
+
+    start, end, profile = (
+        first(EventType.run_start),
+        first(EventType.run_end),
+        first(EventType.profile),
+    )
+    reason = str(end.get("stopped_reason", "did not finish (no run_end)"))
+    why = ""
+    if stuck := by_type.get(EventType.stuck):
+        why = f": {stuck[-1].data.get('signal')}, {stuck[-1].data.get('detail')}"
+    elif errors := by_type.get(EventType.error):
+        why = f": {errors[-1].data.get('message')}"
+    lines = [
+        f"ended      {reason}{why}",
+        f"model      {start.get('model')} on {profile.get('kind', start.get('provider'))}",
+    ]
+    window = start.get("window")
+    wanted = profile.get("wanted_window")
+    if isinstance(window, int):
+        peak = max(
+            (
+                _int(u.get("prompt_tokens"))
+                for e in by_type.get(EventType.model_response, [])
+                if isinstance(u := e.data.get("usage"), dict)
+            ),
+            default=0,
+        )
+        line = f"window     {window} tokens, fullest prompt {peak} ({round(100 * peak / window)}%)"
+        if isinstance(wanted, int) and window < wanted:
+            line += f"; the agent wanted {wanted}"
+        lines.append(line)
+        if isinstance(wanted, int) and window < wanted:
+            lines.append(f"  fix      {window_fix(str(profile.get('kind')), wanted)}")
+    trims = by_type.get(EventType.context_trim, [])
+    if trims:
+        emptied = sum(_int(e.data.get("dropped_tool_results")) for e in trims)
+        dropped = sum(_int(e.data.get("dropped_messages")) for e in trims)
+        lines.append(
+            f"trimmed    {len(trims)} times: {emptied} old tool results emptied, "
+            f"{dropped} old messages dropped"
+        )
+    failed = sum(1 for e in by_type.get(EventType.tool_result, []) if e.data.get("is_error"))
+    counts = [
+        f"{end.get('steps', '?')} steps",
+        f"{end.get('tool_calls', '?')} tool calls",
+        f"{failed} failed",
+        f"{len(by_type.get(EventType.repair, []))} repairs",
+        f"{len(by_type.get(EventType.loop_warning, []))} warnings",
+        f"{len(by_type.get(EventType.nudge, []))} nudges",
+    ]
+    lines.append("steps      " + ", ".join(counts))
+    lines.append(
+        f"tokens     {end.get('prompt_tokens', '?')} in, {end.get('completion_tokens', '?')} "
+        f"out, {end.get('wall_seconds', '?')}s"
+    )
+    return lines
+
+
+def _int(value: JSONValue) -> int:
+    return value if isinstance(value, int) else 0
 
 
 def print_run_list(directory: Path, out: Console, limit: int = 10) -> None:
@@ -96,6 +171,8 @@ def describe(event: Event, *, full: bool = False) -> str:
             return f"{d.get('signal')}: {text(d.get('detail'))}"
         case EventType.stuck:
             return f"{d.get('signal')}: {text(d.get('detail'))}"
+        case EventType.nudge:
+            return f"announced an action without a call: {text(d.get('said'))}"
         case EventType.final:
             return text(d.get("answer"))
         case EventType.error:

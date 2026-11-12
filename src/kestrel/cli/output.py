@@ -95,6 +95,14 @@ async def stream_answer(
     return final
 
 
+def window_fix(kind: str, window: int) -> str:
+    """How to start the backend with a `window`-token context."""
+    return {
+        "ollama": f"quit Ollama, then start it with: OLLAMA_CONTEXT_LENGTH={window} ollama serve",
+        "llamacpp": f"start llama-server with -c {window}",
+    }.get(kind, "raise the context length in the backend's settings")
+
+
 def describe_profile(profile: Profile, wanted_window: int) -> list[str]:
     """`/profile` lines: what the backend said about the model, in plain words."""
 
@@ -113,11 +121,17 @@ def describe_profile(profile: Profile, wanted_window: int) -> list[str]:
             )
         )
     )
+    fix = (
+        [f"  fix          {window_fix(profile.kind, wanted_window)}"]
+        if profile.window is not None and profile.window < wanted_window
+        else []
+    )
     return [
         f"{profile.model} on {profile.kind} ({profile.backend})",
         f"  tools        {known(profile.native_tools, 'yes', 'no, so no agent with tools')}",
         f"  thinking     {known(profile.thinking, 'can think (/think on to allow)', 'no')}",
         f"  window       {window}",
+        *fix,
         f"  model max    {profile.max_window or 'unknown'}",
         f"  checked      {profile.probed_at or 'never'}",
     ]

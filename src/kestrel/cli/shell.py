@@ -20,10 +20,11 @@ from kestrel.__about__ import __version__
 from kestrel.agents.schema import AgentConfig
 from kestrel.cli.agent_run import start_run
 from kestrel.cli.frontend import BottomBox
-from kestrel.cli.output import err_console
+from kestrel.cli.output import err_console, window_fix
 from kestrel.core.config import ConfigError, KestrelConfig, ProviderConfig
 from kestrel.core.context import ContextManager
 from kestrel.core.types import Message, Provider, ProviderError, StopReason
+from kestrel.providers.profiles import ProfileCache, cache_path
 from kestrel.safety.paths import Workspace
 
 type ReadLine = Callable[[str], str]
@@ -125,11 +126,15 @@ class Shell:
     def prompt(self) -> str:
         """The status line under the input box: model, agent, how full the context is."""
         session = self.session
-        window = session.agent.context.window
+        wanted = session.agent.context.window
+        # After a turn the conversation holds the window really used (the backend's
+        # loaded one can be smaller than the agent asks for).
+        window = min(wanted, session.conversation.window) if session.history else wanted
         used = session.conversation.build().est_tokens if session.history else 0
+        small = " (backend loaded it small: /profile)" if window < wanted else ""
         return (
             f"{session.model or 'no model'} · agent {session.agent.name} · "
-            f"context {min(100, round(100 * used / window))}% of {window // 1024}K · /help"
+            f"context {min(100, round(100 * used / window))}% of {window // 1024}K{small} · /help"
         )
 
     def send(self, text: str) -> None:
@@ -207,6 +212,17 @@ class Shell:
                 f"[bold yellow]REMOTE[/bold yellow] {escape(provider.base_url)}: "
                 "your messages leave this machine."
             )
+        elif self.session.model is not None:
+            # From the last probe only: asking the backend now could load the model.
+            known = ProfileCache(cache_path(self.env)).get(provider.base_url, self.session.model)
+            wanted = self.session.agent.context.window
+            if known is not None and known.window is not None and known.window < wanted:
+                err_console.print(
+                    f"[bold yellow]Small context:[/bold yellow] {escape(self.session.model)} last "
+                    f"ran with a {known.window}-token window (the agent wants {wanted}).\n"
+                    f"  To fix: {escape(window_fix(known.kind, wanted))}",
+                    highlight=False,
+                )
 
 
 def _home(path: Path) -> str:

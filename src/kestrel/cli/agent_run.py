@@ -10,7 +10,7 @@ from rich.markup import escape
 
 from kestrel.agents.schema import AgentConfig
 from kestrel.cli.frontend import BottomBox, CliFrontend
-from kestrel.cli.output import err_console
+from kestrel.cli.output import err_console, window_fix
 from kestrel.core.config import ProviderConfig
 from kestrel.core.context import UNTRUSTED_RULE, ContextManager
 from kestrel.core.events import EventBus, JsonlWriter, new_run_id, runs_dir
@@ -76,13 +76,11 @@ def start_run(
     if profile.window is not None and profile.window < window:
         if (model, profile.window) not in _warned_windows:  # once per session
             _warned_windows.add((model, profile.window))
-            how = {
-                "ollama": f"restart Ollama with OLLAMA_CONTEXT_LENGTH={window} ollama serve",
-                "llamacpp": f"start llama-server with -c {window}",
-            }.get(profile.kind, "raise the context length in the backend's settings")
             err_console.print(
-                f"[yellow]{escape(model)} is loaded with a {profile.window}-token window"
-                f"[/yellow], so Kestrel uses that instead of {window}. For more: {how}.",
+                f"[bold yellow]Small context: {escape(model)} is loaded with a "
+                f"{profile.window}-token window[/bold yellow] (the agent wants {window}), so "
+                "long chats get trimmed early and the model forgets.\n"
+                f"  To fix: {escape(window_fix(profile.kind, window))}",
                 highlight=False,
             )
         window = profile.window
@@ -127,7 +125,11 @@ def start_run(
             box.set_cancel(None)
 
     async def work() -> RunResult:
-        bus.emit(EventType.profile, 0, profile.model_dump(mode="json"))
+        bus.emit(
+            EventType.profile,
+            0,
+            {**profile.model_dump(mode="json"), "wanted_window": agent.context.window},
+        )
         async with open_provider(provider_name, provider_config) as provider:
             return await run_agent(
                 task,

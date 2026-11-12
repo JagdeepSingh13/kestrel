@@ -330,3 +330,18 @@ def test_thinking_is_off_unless_turned_on(capsys: pytest.CaptureFixture[str]) ->
     shell.run()
     assert [c.think for c in fake.calls] == [False, None]  # off, then left to the model
     assert "Thinking: on" in capsys.readouterr().err
+
+
+def test_status_line_shows_the_window_the_backend_really_loaded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from kestrel.cli import agent_run
+    from kestrel.providers.profiles import Profile
+
+    async def small(name: str, base_url: str, model: str, known: Profile | None) -> Profile:
+        return Profile(backend=base_url, model=model, kind="ollama", window=4096, probed_at="t")
+
+    monkeypatch.setattr(agent_run, "probe_profile", small)
+    shell, _ = make_shell(["hi"], FakeProvider([FakeProvider.text("hello")]))
+    shell.run()
+    assert "of 4K (backend loaded it small" in shell.prompt()
