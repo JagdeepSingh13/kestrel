@@ -12,9 +12,11 @@ from kestrel.providers.profiles import Profile
 def no_backend_probe(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Profiles come from a fake probe (nothing known) and live in a temp cache.
-    Live tests keep the real probe."""
+    """Profiles come from a fake probe (nothing known) and live in a temp cache; HOME
+    points at a temp folder too, so no test can write into the real home folder, even
+    one that passes its own environment. Live tests keep the real probe."""
     monkeypatch.setenv("KESTREL_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
     if request.node.get_closest_marker("live"):
         return
 
