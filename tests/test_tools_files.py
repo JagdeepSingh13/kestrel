@@ -182,3 +182,38 @@ def test_changing_a_file_needs_a_fresh_read_first(ws: Path) -> None:
     os.utime(app, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000))
     stale = registry.precheck(edit)
     assert stale is not None and "changed since you last read it" in stale.content
+
+
+async def test_edit_file_matches_code_whose_indentation_drifted(ws: Path) -> None:
+    (ws / "f.py").write_text("def f():\n\tif x:\n\t\treturn 1\n", encoding="utf-8")
+    drift: JSONObject = {
+        "path": "f.py",
+        "old_text": "    if x:\n        return 1",  # spaces where the file has tabs
+        "new_text": "    if x:\n        return 2",
+    }
+    assert (await call(ws, "edit_file", drift)).startswith("edited")
+    assert (ws / "f.py").read_text(encoding="utf-8") == "def f():\n\tif x:\n\t\treturn 2\n"
+
+
+async def test_reindent_keeps_shallower_lines_shallow_and_never_mixes(ws: Path) -> None:
+    (ws / "c.py").write_text(
+        "class A:\n\tdef f(self):\n\t\treturn 1\n\tdef g(self):\n\t\tpass\n", encoding="utf-8"
+    )
+    dedent: JSONObject = {
+        "path": "c.py",
+        "old_text": "        return 1\n    def g(self):",
+        "new_text": "        return 2\n    def g(self):",
+    }
+    await call(ws, "edit_file", dedent)
+    assert (ws / "c.py").read_text(encoding="utf-8").splitlines()[2:4] == [
+        "\t\treturn 2",
+        "\tdef g(self):",  # still a method of A, not nested in f
+    ]
+    (ws / "d.py").write_text("def h():\n\treturn x\n", encoding="utf-8")
+    deeper: JSONObject = {
+        "path": "d.py",
+        "old_text": "    return x",
+        "new_text": "    if y:\n        return x",
+    }
+    await call(ws, "edit_file", deeper)
+    assert (ws / "d.py").read_text(encoding="utf-8") == "def h():\n\tif y:\n\t\treturn x\n"

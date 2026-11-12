@@ -6,7 +6,9 @@ how much comes back at once. Tools that change a file say exactly what changed a
 the changed lines, so the model (and you) can check the result without another call.
 """
 
+import itertools
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
@@ -222,7 +224,22 @@ def edit_file(
     places = [
         i for i in range(len(plain) - len(wanted) + 1) if plain[i : i + len(wanted)] == wanted
     ]
+    reindent: _Reindent | None = None
     exact = old.count(old_text)
+    if exact == 0 and not places:
+        # Last level: indentation drifted too (tabs vs spaces, a lost leading space).
+        loose = [line.strip() for line in wanted]
+        places = [
+            i
+            for i in range(len(plain) - len(loose) + 1)
+            if [line.strip() for line in plain[i : i + len(loose)]] == loose
+        ]
+        if len(places) == 1 and wanted:
+            reindent = _Reindent.learn(
+                _lines(unnumbered),
+                plain[places[0] : places[0] + len(loose)],
+                _lines(_without_numbers(new_text)),
+            )
     if exact == 1:
         at = old.index(old_text)
         stop = at + len(old_text)
@@ -235,6 +252,8 @@ def edit_file(
     elif exact == 0 and len(places) == 1:
         if unnumbered != old_text:
             new_text = _without_numbers(new_text)  # it copied the numbers into both
+        if reindent is not None:
+            new_text = "\n".join(reindent.apply(line) for line in _lines(new_text))
         at_line, removed = places[0], len(wanted)
         last_old = lines[at_line + removed - 1]
         ending = last_old[len(last_old.rstrip("\r\n")) :]
@@ -264,6 +283,60 @@ def edit_file(
         f"edited {name}: {removed} line(s) at line {first} became {added} line(s), now "
         f"{len(now)} lines. Around the change:\n{shown}"
     )
+
+
+def _indent(line: str) -> str:
+    return line[: len(line) - len(line.lstrip())]
+
+
+@dataclass(frozen=True)
+class _Reindent:
+    """How the model's indentation maps onto the file's, learned from the matched lines
+    (model indent to file indent), plus one level in each for indents not seen there."""
+
+    known: dict[str, str]
+    model_step: str
+    file_step: str
+
+    @classmethod
+    def learn(
+        cls, model_lines: list[str], file_lines: list[str], new_lines: list[str]
+    ) -> "_Reindent":
+        known: dict[str, str] = {}
+        for m, f in zip(model_lines, file_lines, strict=False):
+            if m.strip():
+                known.setdefault(_indent(m), _indent(f))
+        model_step = _step(list(known)) or _step([*known, *map(_indent, new_lines)]) or "    "
+        file_step = _step(list(known.values()))
+        if not file_step:
+            file_step = "\t" if any("\t" in f for f in known.values()) else " " * len(model_step)
+        return cls(known, model_step, file_step)
+
+    def apply(self, line: str) -> str:
+        if not line.strip():
+            return line
+        indent, rest = _indent(line), line.lstrip()
+        if indent in self.known:
+            return self.known[indent] + rest
+        # Unseen: count levels from the nearest known indent; never below no indent.
+        anchor = min(self.known, key=lambda k: abs(len(k) - len(indent)))
+        levels = round((len(indent) - len(anchor)) / len(self.model_step))
+        base = self.known[anchor]
+        if levels >= 0:
+            return base + self.file_step * levels + rest
+        drop = len(self.file_step) * -levels
+        return base[: max(0, len(base) - drop)] + rest
+
+
+def _step(indents: list[str]) -> str:
+    """The smallest gap between two indents (one level), or "" if none."""
+    sizes = sorted({len(i) for i in indents})
+    gaps = [b - a for a, b in itertools.pairwise(sizes) if b > a]
+    if not gaps:
+        return ""
+    gap = min(gaps)
+    sample = next((i for i in indents if len(i) >= gap), "")
+    return sample[-gap:] if sample else " " * gap
 
 
 def _lines(text: str, *, keep_ends: bool = False) -> list[str]:
