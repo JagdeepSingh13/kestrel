@@ -134,7 +134,7 @@ async def test_a_refused_write_is_a_failed_call(ws: Path) -> None:
 
 async def test_edit_file_keeps_line_endings_and_refuses_what_it_would_damage(ws: Path) -> None:
     (ws / "win.txt").write_bytes(b"a\r\nb\r\nc\r\n")
-    edit: JSONObject = {"path": "win.txt", "old_text": "2| b", "new_text": "B\nB2"}
+    edit: JSONObject = {"path": "win.txt", "old_text": "2| b", "new_text": "2| B\n3| B2"}
     assert (await call(ws, "edit_file", edit)).startswith("edited")
     assert (ws / "win.txt").read_bytes() == b"a\r\nB\r\nB2\r\nc\r\n"
     (ws / "latin.txt").write_bytes(b"caf\xe9\nb\n")

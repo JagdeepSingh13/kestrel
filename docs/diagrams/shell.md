@@ -50,7 +50,7 @@ The screen for one message:
   qwen3:8b · agent default · context 18% of 16K · /help
 ```
 
-When the backend loaded the model with a smaller window than the agent wants (Ollama's default is 4096), the status line says so (M4.2), and the welcome panel shows the fix from the last probe:
+When the backend loaded the model with a smaller window than the agent wants (Ollama's default is 4096), the status line says so (M4.2), and the first message prints the fix:
 
 ```
   qwen3:8b · agent default · context 71% of 4K (backend loaded it small: /profile) · /help

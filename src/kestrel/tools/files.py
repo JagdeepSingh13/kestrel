@@ -144,7 +144,7 @@ def append_file(
     added = len(text.splitlines())
     first = len(lines) - added + 1
     name = ctx.workspace.relative(file)
-    shown = _numbered(lines, max(1, first - SHOWN_AROUND), len(lines))
+    shown = _numbered(lines, max(1, first - 1), len(lines))  # short: the new lines matter
     return f"appended {added} line(s) to {name}, now {len(lines)} lines. End of file:\n{shown}"
 
 
@@ -172,7 +172,8 @@ def edit_file(
     lines = _lines(old, keep_ends=True)
     # Small models copy read_file's "12| " prefixes and lose trailing spaces: match by
     # whole lines with those ignored, but only ever replace a single place.
-    wanted = [line.rstrip() for line in _lines(_without_numbers(old_text))]
+    unnumbered = _without_numbers(old_text)
+    wanted = [line.rstrip() for line in _lines(unnumbered)]
     plain = [line.rstrip() for line in lines]
     places = [
         i for i in range(len(plain) - len(wanted) + 1) if plain[i : i + len(wanted)] == wanted
@@ -188,6 +189,8 @@ def edit_file(
         first = old[:at].count("\n") + 1
         removed = len(_lines(old_text)) or 1
     elif exact == 0 and len(places) == 1:
+        if unnumbered != old_text:
+            new_text = _without_numbers(new_text)  # it copied the numbers into both
         at_line, removed = places[0], len(wanted)
         last_old = lines[at_line + removed - 1]
         ending = last_old[len(last_old.rstrip("\r\n")) :]

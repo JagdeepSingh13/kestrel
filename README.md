@@ -72,7 +72,7 @@ Everything a tool returns is wrapped in `<untrusted source="...">` and the model
 Kestrel never runs a model itself. A backend (Ollama, LM Studio, llama.cpp, mlx-lm, vLLM) loads it and listens on a local port. They all speak the same "OpenAI-compatible" HTTP format, so one small client covers them all.
 - Replies stream in, so words appear as soon as the model writes them. The model's thinking is kept apart from its answer.
 - Any backend not on this machine is labelled `REMOTE`: your prompt leaves your computer.
-- **Model profile.** Kestrel asks the backend what the model can do (tool support, thinking, the window it is really loaded with), without sending a prompt, and remembers it. If Ollama loaded the model with a smaller window than the agent wants (its default is 4096 tokens on most laptops), Kestrel uses the real one, says so under the input box and in the welcome panel, and gives the command to raise it. `/profile` shows it all.
+- **Model profile.** Kestrel asks the backend what the model can do (tool support, thinking, the window it is really loaded with), without sending a prompt, and remembers it. If Ollama loaded the model with a smaller window than the agent wants (its default is 4096 tokens on most laptops), Kestrel uses the real one, says so under the input box, and gives the command to raise it. `/profile` shows it all.
 - **Thinking is off by default.** Models like qwen3 can spend a minute thinking before every step; `/think on` allows it when a task needs it.
 - `/doctor` checks every known port at once and lists the backends that are running and their models.
 
