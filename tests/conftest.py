@@ -17,6 +17,10 @@ def no_backend_probe(
     one that passes its own environment. Live tests keep the real probe."""
     monkeypatch.setenv("KESTREL_CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))  # Path.home() on Windows
+    # Per-session memory of what was probed and warned: each test is a new session.
+    monkeypatch.setattr(agent_run, "_probed", set[tuple[str, str]]())
+    monkeypatch.setattr(agent_run, "_warned_windows", set[tuple[str, int]]())
     if request.node.get_closest_marker("live"):
         return
 

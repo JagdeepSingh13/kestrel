@@ -42,7 +42,9 @@ class Workspace:
         if "\x00" in path:
             raise PathNotAllowedError("path contains a null byte")
         candidate = Path(path)
-        if candidate.is_absolute() and not candidate.resolve().is_relative_to(self.root):
+        # `anchor`, not is_absolute(): on Windows "/data" has a root but no drive, so it is
+        # not "absolute", yet joining it to the workspace would land on C:\\data.
+        if candidate.anchor and not candidate.resolve().is_relative_to(self.root):
             candidate = Path(*candidate.parts[1:])  # drop "/" (or "C:\\"): workspace-rooted
         if not candidate.is_absolute():
             candidate = self.root / candidate
