@@ -6,7 +6,7 @@
 
 A model can only think and decide. Kestrel is everything around it: what goes in, what it may do, what gets checked, and what gets recorded. It is built for 3B to 14B models on an ordinary 16GB laptop, works with any OpenAI-compatible backend (Ollama, LM Studio, llama.cpp, mlx-lm, vLLM), and defines agents as small YAML files instead of code.
 
-> **Status: early development (v0.0.6).** Working today: the `kestrel` shell, where every message goes to an agent with real tools (read, search, write, append and edit files; shell; Python) confined to one folder; repair of small models' broken tool calls; a watchdog that stops runs going in circles; model profiles (real window, thinking off); confirmation before risky actions; and a full log of every run. Next: web tools, then stepping up to a bigger model when the small one is stuck. See the [roadmap](#roadmap).
+> **Status: early development (v0.0.7).** Working today: the `kestrel` shell, where every message goes to an agent with real tools (read, search, write, append and edit files; shell; Python) confined to one folder; repair of small models' broken tool calls; a watchdog that stops runs going in circles; model profiles (real window, thinking off); confirmation before risky actions; and a full log of every run. Next: web tools, then stepping up to a bigger model when the small one is stuck. See the [roadmap](#roadmap).
 
 ![An agent is a model, a harness and context](docs/diagrams/img/three-parts.svg)
 
@@ -48,7 +48,9 @@ Every reply goes through repair before anything runs:
 ### Control: when to stop
 - Budgets keep a confused model from running forever: a limit on steps (model calls), and optional limits on tokens and time.
 - **A watchdog notices circles:** the same call three times in a row, going back and forth between two calls, or a call that keeps returning what it returned before. The model first gets a short note; if it keeps going, the run stops as stuck. Three failed tool calls in a row, or a prompt too big to fit even after trimming, also count as stuck. (Next: stuck will hand the step to a bigger model instead of stopping.)
-- **Acting, not announcing.** Small models often end with "Let me do that for you." and stop. When a reply announces an action but calls no tool, the model gets one short note and another try.
+- **Acting, not announcing.** Small models often end with "Let me do that for you." and stop, or give up right after a tool fails. Either way the model gets one short note and another try (once per run; a "no" from you is never pushed back on).
+- **A countdown near the end.** In the last steps before the limit, each tool result says how many steps are left, so the model wraps up instead of being cut off.
+- **Long output keeps both ends.** When a command prints too much, the middle is cut, not the end, because that is where errors usually are.
 - Every run ends with a clear reason: answered, out of steps, over budget, stuck, cancelled (Esc), or backend error.
 - Mistakes are not crashes. A wrong tool name, bad arguments, or a tool that breaks comes back to the model as `ERROR: ...`, so it can try again. These count as failures, so the watchdog sees a model failing again and again.
 
@@ -59,7 +61,7 @@ Every reply goes through repair before anything runs:
 - **Arguments are checked** against the tool's description before anything runs.
 
 ### Action: the tools
-- Built in: a small core, each tool for one clear job: list, read and search files; write a new file, add to the end of one, or change part of one; run a command or Python; ask you a question. Small models pick the right tool far more often when the obvious action has its own tool.
+- Built in: a small core, each tool for one clear job: list, read and search files; write a new file, add to the end of one, or change part of one; run a command or Python; ask you a question. Edits still match when the model gets indentation or copied line numbers slightly wrong. Small models pick the right tool far more often when the obvious action has its own tool.
 - **Read before changing.** Editing or overwriting a file only works after the model has read its current text in this conversation. Otherwise it is told to read it first, before you are asked anything, so you never approve an edit that cannot work.
 - **It knows today's date.** Small models assume it is still the year they were trained in; each message tells them the real date.
 - **Changes show what changed.** Appending to or editing a file replies with the changed lines, numbered, and writing one reports its line count, so the model can check its own work without another step. Line endings and the file's encoding are kept as they were.
@@ -176,7 +178,8 @@ From a normal terminal, `kestrel run "task" --agent NAME`, `kestrel trace last`,
 | M3.5 | Shell as an agent conversation, Claude Code style look | done |
 | M4 | Repair broken tool calls, watch for loops, model profiles, exact model input in the log | done |
 | M4.2 | Fixes from real chats: real window shown, append and edit tools, nudge, trace summary | done |
-| M4.1 | Web research as a sub-agent: search and page fetching | next |
+| M4.3 | Lessons from harness research: countdown, nudge after failures, output keeps both ends, looser edit matching | done |
+| M4.1 | Web research as one tool: search, read, summarize with sources | next |
 | M4.5 | Step up only when stuck: model ladder (local models) | |
 | M5 | Sessions, MCP tools | |
 | M5.5 | Coder agent: repo map, small edits, run tests (tentative) | |

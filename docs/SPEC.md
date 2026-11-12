@@ -2,11 +2,13 @@
 
 Local-first, model-agnostic agent harness for small models.
 
-Status: draft v0.7. Owner edits this file; Claude Code proposes changes via PR.
+Status: draft v0.8. Owner edits this file; Claude Code proposes changes via PR.
 
 v0.2 (2026-11-11): applied the milestone changes agreed in the project handoff (section 1 identity + pillars, 5.5 constrained decoding, M4/M7 changes, new M7.5/M8.5/M9.5, backlog) and logged spec gaps in section 14.
 
 v0.3 (2026-11-11): all spec gaps decided (section 14), open decisions tagged with their milestone; sections 8.3, 10, 11 updated to match.
+
+v0.8 (2026-11-12): new M4.3, ideas from two harness sources (CMU "Better Harnesses, Smaller Models", arXiv 2607.08938; the Hookele Terminal-Bench write-up); M4.1 reshaped as one research tool.
 
 v0.7 (2026-11-12): new M4.2, fixes from the owner's own chats (window, file tools, nudge, trace summary); tool roadmap (small core, MCP, model-proposed tools) noted.
 
@@ -384,7 +386,7 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - `read_tool_output` (page through cut results, kept per session in memory), `fetch_url` (stdlib HTML to text, GET only, size and time caps, private and loopback addresses blocked after every redirect, result untrusted), `web_search` (SearXNG preferred; best-effort fallback decided in the M4.1 plan).
 - `ToolSpec.network`; web tools only exist for agents that list them; a built-in `researcher` agent.
 - Open for the M4.1 plan: confirm fetches to hosts not seen this run (exfiltration risk), and the search fallback.
-- **Shape (owner, 2026-11-12):** web research runs as a sub-agent with its own fresh context; it searches and reads, then hands the main agent a short summary with sources, so raw pages never fill the main agent's small window.
+- **Shape (owner, 2026-11-12; reshaped in M4.3):** web research is one `research(question)` tool. Kestrel runs a fixed pipeline inside it (search, fetch, a separate model call that summarizes with sources), so raw pages never fill the main agent's small window, and the small model never has to manage a sub-agent (the CMU study found sub-agents never helped small models).
 - **Done when:** a research task works on a small local model, with every fetched page wrapped as untrusted.
 
 ### M4.2: Fixes from the owner's chats
@@ -396,6 +398,16 @@ Found by the owner chatting with qwen3:8b: Ollama ran it with a 4096-token windo
 - **Read before changing** (after the owner's chat, where qwen3 edited `sales.csv` from memory and the owner approved an edit that could not match): `edit_file`, and `write_file` with `overwrite=true`, need the file read in this conversation (any read, even part of it) and unchanged since (modification time and size). A read whose result was later trimmed from the prompt still counts; a wrong `old_text` then fails as before. `Toolbox.precheck(call)` runs before the permission gate, so a call that cannot work is answered with an error and the user is never asked. The memory of read files lives for the shell conversation, is cleared by `/clear`, and rolls back with a dropped turn.
 - **Today's date** is added to the system prompt each turn ("Today is Thursday, 2026-11-12 ..."): the model wrote 2023 for dates given without a year.
 - Default agent: the three new tools; prompt says which file tool is for what, to act instead of announcing, to use details already given, and to make a sensible choice when a request is unclear.
+- **Status: built.**
+
+### M4.3: Lessons from harness research
+Sources: CMU, "Better Harnesses, Smaller Models" (arXiv 2607.08938): most gains came from added instructions (86% of winning harnesses), new tools (43%) and fewer tools (29%); sub-agents never helped small models; gains were smallest for the weakest (8B) model and for varied tasks. Hookele (a small model on Terminal-Bench 2.0): delete scaffolding before adding, head-and-tail output caps, failures shown verbatim, one nudge when the model stalls after a failure, a step countdown injected near the limit, fuzzy edit matching.
+- **Head and tail:** long tool output keeps its start and its end with a "cut from the middle" marker (context cut, registry cap, and subprocess output, which now reads up to 5 MB keeping 10 KB of each end before stopping the process).
+- **Steps left:** with 2 steps or fewer left, each tool result ends with a countdown; the last says to answer without tools.
+- **After-failure nudge:** a reply with no tool call right after a failed tool gets one note ("try another way, or say why it cannot be done"). Shares the once-per-run budget with the promise nudge; never after a permission refusal (those results start `ERROR: (not allowed)`); never on the last step. `nudge` events carry `kind` (`promise`, `after_failure`).
+- **Indentation drift in `edit_file`:** a last matching level ignores leading whitespace too, only when that matches one place; the new text is re-indented from the model's indent steps to the file's (learned from the matched lines, so spaces become tabs level for level).
+- **Default agent keeps `python_exec`** (tried dropping it, following Hookele's "fewer tools"; live, qwen3:8b then crammed scripts into `python3 -c` one-liners, repeated the same syntax error five times and invented a total). Its prompt now says standard library only, and to report only results a tool gave; the after-failure note says never to state a result no tool gave.
+- Live finding, not yet acted on: a shell command that exits non-zero is not a failed call for the watchdog or the after-failure nudge (its output must stay wrapped as untrusted, so it cannot simply be marked as an error).
 - **Status: built.**
 
 ### M4.5: Model ladder, basic (headline feature)

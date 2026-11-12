@@ -11,6 +11,7 @@ Small models break tool calls in predictable ways. M4 catches those breaks, fixe
 - `reliability/repair.py` is a pure function: model reply plus tool specs in, checked calls (or a corrective note) out. The loop calls it between the model and the tools.
 - `reliability/watchdog.py` watches the calls and results step by step and emits `loop_warning` and `stuck`. `run_agent(on_stuck=...)` is where M4.5 plugs in a bigger model; without it, stuck stops the run.
 - `reliability/nudge.py` (M4.2) is a pure check on a reply with no tool call: does it end by announcing an action ("Let me do that for you.")? If so the loop keeps the reply, adds one note as a user message starting `(Kestrel:` and asks again, once per run (`nudge` event). The context manager never treats such a note as the user's message, so the real task stays pinned.
+- M4.3: the nudge also fires once when a reply right after a failed tool makes no call (`kind: after_failure`; never after a permission refusal). Near the step limit the loop adds a countdown to each tool result. Long tool output is cut in the middle (start and end kept).
 - Tools raise `ToolError` for failures the model should fix (no such file, no match); the result is `is_error`, so the watchdog's "errors in a row" counts it and it is not wrapped as untrusted.
 - Every model request logs the exact messages sent; `/trace ID --prompt N` shows them, and `/report-failure` saves a step as a case for `tests/fixtures/bad_outputs/` (48 cases so far, one test runs them all).
 
