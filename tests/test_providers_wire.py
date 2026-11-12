@@ -1,5 +1,7 @@
 """Seam 2: providers/wire.py. Kestrel types to OpenAI JSON and back."""
 
+import json
+
 import pytest
 
 from kestrel.core.types import (
@@ -144,7 +146,12 @@ def test_tool_call_arguments_string_is_parsed() -> None:
     )
     assert response.message.content is None  # empty string normalized
     assert response.message.tool_calls == [
-        ToolCall(id="call_1", name="add", arguments={"a": 1, "b": 2})
+        ToolCall(
+            id="call_1",
+            name="add",
+            arguments={"a": 1, "b": 2},
+            arguments_text='{"a": 1, "b": 2}',  # kept verbatim for repair and reports
+        )
     ]
     assert response.usage is None
 
@@ -158,8 +165,8 @@ def test_reasoning_field_is_kept_separately() -> None:
         assert response.message.content == "4"
 
 
-def test_unparseable_tool_arguments_are_reported_with_the_raw_text() -> None:
-    # M1 reports this; M4's repair pipeline will fix it instead.
+def test_unparseable_tool_arguments_are_kept_raw_instead_of_failing() -> None:
+    # A model's broken call must not end the run: M4's repair pipeline gets the raw text.
     body: JSONValue = {
         "choices": [
             {
@@ -172,8 +179,39 @@ def test_unparseable_tool_arguments_are_reported_with_the_raw_text() -> None:
             }
         ]
     }
-    with pytest.raises(BadBackendResponseError, match=r"\{'a': 1,\}"):
-        from_response_body(body)
+    (call,) = from_response_body(body).message.tool_calls
+    assert call.arguments == {}
+    assert call.arguments_text == "{'a': 1,}"
+    assert call.arguments_error is not None and "not valid JSON" in call.arguments_error
+
+
+def test_broken_call_goes_back_to_the_model_as_it_wrote_it() -> None:
+    broken = ToolCall(id="c", name="add", arguments_text="{'a': 1,}", arguments_error="x")
+    body = to_request_body([Message(role=Role.assistant, tool_calls=[broken])], model="m")
+    wire_call = body["messages"][0]["tool_calls"][0]  # type: ignore[index]
+    # Backends reject invalid JSON in history, so it is wrapped; the model still sees it.
+    sent = json.loads(wire_call["function"]["arguments"])  # type: ignore[index]
+    assert sent == {"invalid_arguments": "{'a': 1,}"}
+
+
+@pytest.mark.parametrize(
+    ("raw", "error"),
+    [("[1]", "a list, not an object"), ("null", "null, not an object"), ('"x"', "a string")],
+)
+def test_non_object_arguments_are_explained_in_plain_words(raw: str, error: str) -> None:
+    body: JSONValue = {
+        "choices": [
+            {"message": {"tool_calls": [{"id": "c", "function": {"name": "f", "arguments": raw}}]}}
+        ]
+    }
+    (call,) = from_response_body(body).message.tool_calls
+    assert call.arguments_error is not None and error in call.arguments_error
+
+
+def test_missing_arguments_mean_no_arguments() -> None:
+    body: JSONValue = {"choices": [{"message": {"tool_calls": [{"function": {"name": "f"}}]}}]}
+    (call,) = from_response_body(body).message.tool_calls
+    assert (call.arguments, call.arguments_error) == ({}, None)
 
 
 MALFORMED_BODIES: list[JSONValue] = [

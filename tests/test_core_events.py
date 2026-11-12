@@ -12,11 +12,12 @@ from kestrel.core.events import (
     JsonlWriter,
     find_run,
     first_task,
+    load_value,
     new_run_id,
     read_events,
 )
 from kestrel.core.loop import run_agent
-from kestrel.core.types import Event, EventType
+from kestrel.core.types import Event, EventType, JSONObject, JSONValue
 from kestrel.providers.fake import FakeProvider
 from kestrel.safety.redact import REDACTED, Redactor
 from kestrel.tools.demo import DemoToolbox
@@ -40,7 +41,7 @@ def test_bus_delivers_to_every_subscriber_in_order() -> None:
     assert (event.run_id, event.step, event.ts, event.data) == ("r1", 3, NOW, {"answer": "42"})
 
 
-def write(tmp_path: Path, *events: tuple[EventType, dict[str, str]]) -> Path:
+def write(tmp_path: Path, *events: tuple[EventType, JSONObject]) -> Path:
     path = tmp_path / "runs" / "r1.jsonl"
     writer = JsonlWriter(path, Redactor({"MY_API_KEY": "hunter2secret"}).json)
     bus = EventBus("r1", clock=lambda: NOW)
@@ -134,3 +135,22 @@ async def test_recorded_run_replays_to_the_same_result(tmp_path: Path) -> None:
 def test_events_round_trip_through_json() -> None:
     event = Event(ts=NOW, run_id="r", step=1, type=EventType.final, data={"answer": "x"})
     assert Event.model_validate_json(event.model_dump_json()) == event
+
+
+def test_huge_message_lists_go_to_a_json_side_file_and_load_back(tmp_path: Path) -> None:
+    messages: list[JSONValue] = [
+        {"role": "user", "content": "y" * SIDE_FILE_BYTES},
+        {"role": "assistant"},
+    ]
+    path = write(tmp_path, (EventType.model_request, {"messages": messages, "message_count": 2}))
+    [event] = read_events(path)
+    ref = event.data["messages"]
+    assert isinstance(ref, dict) and str(ref["side_file"]).endswith(".json")
+    assert load_value(path, ref) == messages
+    assert event.data["message_count"] == 2
+
+
+def test_secrets_inside_logged_messages_are_redacted(tmp_path: Path) -> None:
+    messages: list[JSONValue] = [{"role": "tool", "content": "token=sk-abcdefghij0123456789"}]
+    path = write(tmp_path, (EventType.model_request, {"messages": messages}))
+    assert "sk-abc" not in path.read_text(encoding="utf-8")

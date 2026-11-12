@@ -45,6 +45,11 @@ class ToolCall(_Model):
     id: str
     name: str
     arguments: JSONObject = Field(default_factory=dict[str, JSONValue])
+    arguments_text: str | None = None
+    """The arguments exactly as the backend sent them (a JSON string), kept so a broken
+    call can be repaired, logged verbatim and turned into a test case."""
+    arguments_error: str | None = None
+    """Why `arguments_text` could not be read as a JSON object; `arguments` is then empty."""
 
 
 class Message(_Model):

@@ -7,12 +7,14 @@ from rich.markup import escape
 
 from kestrel.agents.loader import AgentError, list_agents, load_agent
 from kestrel.cli.output import console, err_console, print_reports
+from kestrel.cli.report import ReportError, build_case, write_case
 from kestrel.cli.shell import Shell
-from kestrel.cli.trace import print_run_list, print_trace
-from kestrel.core.config import ConfigError
+from kestrel.cli.trace import print_prompt, print_run_list, print_trace
+from kestrel.core.config import ConfigError, default_data_dir
 from kestrel.core.events import find_run, runs_dir
 from kestrel.core.types import ProviderError
 from kestrel.providers.discovery import discover
+from kestrel.safety.redact import Redactor
 from kestrel.tools.builtin import BUILTIN_TOOLS
 
 type Handler = Callable[[Shell, str], bool]
@@ -179,6 +181,14 @@ def _trace(shell: Shell, arg: str) -> bool:
     words = arg.split()
     full = "--full" in words
     words = [w for w in words if w != "--full"]
+    prompt_step: int | None = None
+    if "--prompt" in words:
+        at = words.index("--prompt")
+        if at + 1 >= len(words) or not words[at + 1].isdigit():
+            err_console.print("Usage: /trace [id] --prompt STEP")
+            return True
+        prompt_step = int(words[at + 1])
+        del words[at : at + 2]
     directory = runs_dir(shell.env)
     if words == ["list"]:
         print_run_list(directory, console)
@@ -189,7 +199,40 @@ def _trace(shell: Shell, arg: str) -> bool:
         err_console.print(f"No single run matches {escape(wanted)!r}.")
         print_run_list(directory, err_console)
         return True
+    if prompt_step is not None:
+        if not print_prompt(path, prompt_step, console):
+            err_console.print(f"Step {prompt_step} has no logged prompt in run {path.stem}.")
+        return True
     print_trace(path, console, full=full)
+    return True
+
+
+def _report_failure(shell: Shell, arg: str) -> bool:
+    words = arg.split()
+    step: int | None = None
+    if "--step" in words:
+        at = words.index("--step")
+        if at + 1 >= len(words) or not words[at + 1].isdigit():
+            err_console.print("Usage: /report-failure [run] [--step N]")
+            return True
+        step = int(words[at + 1])
+        del words[at : at + 2]
+    wanted = words[0] if words else "last"
+    path = find_run(runs_dir(shell.env), wanted)
+    if path is None:
+        err_console.print(f"No single run matches {escape(wanted)!r}. /trace list shows runs.")
+        return True
+    try:
+        case = build_case(path, step, Redactor(shell.env).json)
+    except ReportError as exc:
+        err_console.print(escape(str(exc)))
+        return True
+    saved = write_case(case, default_data_dir(shell.env) / "reports")
+    err_console.print(f"Saved that step as a test case: {saved}")
+    err_console.print(
+        "[dim]Secrets removed; nothing was uploaded. Fill in its expect block, then copy it "
+        "to tests/fixtures/bad_outputs/ to keep it as a test.[/dim]"
+    )
     return True
 
 
@@ -208,7 +251,12 @@ COMMANDS: dict[str, Command] = {
     "agents": Command(_agents, "/agents", "list available agents"),
     "tools": Command(_tools, "/tools", "the agent's tools and their permissions"),
     "workspace": Command(_workspace, "/workspace", "the only folder agents may use"),
-    "trace": Command(_trace, "/trace [id] [--full]", "show a run step by step (/trace list)"),
+    "trace": Command(
+        _trace, "/trace [id] [--full]", "show a run step by step (/trace list, --prompt N)"
+    ),
+    "report-failure": Command(
+        _report_failure, "/report-failure [id]", "save a bad step as a test case (--step N)"
+    ),
     "clear": Command(_clear, "/clear", "forget the conversation"),
     "doctor": Command(_doctor, "/doctor", "check which backends are running"),
     "exit": Command(_exit, "/exit", "leave (also /quit, Ctrl-D)"),

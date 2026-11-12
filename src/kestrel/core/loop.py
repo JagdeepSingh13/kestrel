@@ -90,6 +90,7 @@ async def run_agent(
             "model": model,
             "provider": provider.name,
             "tools": [s.name for s in specs],
+            "tool_specs": [s.model_dump(mode="json") for s in specs],
             "max_steps": budgets.max_steps,
             "window": context.window,
         },
@@ -178,7 +179,13 @@ async def _ask_model(
     bus.emit(
         EventType.model_request,
         step,
-        {"messages": len(prompt.messages), "est_tokens": prompt.est_tokens},
+        {
+            "message_count": len(prompt.messages),
+            "est_tokens": prompt.est_tokens,
+            # Exactly what the model is shown this step, after trimming (big ones go to a
+            # side file). With `tool_specs` in run_start, a step can be replayed or reported.
+            "messages": [_message_data(m) for m in prompt.messages],
+        },
     )
     final: ModelResponse | None = None
     async for chunk in provider.stream(
@@ -226,6 +233,17 @@ async def _run_tool(
     """Check permission, then execute one call. A refused or crashing call becomes an
     `ERROR:` result the model can read, never a crashed run."""
     bus.emit(EventType.tool_call, step, _call_data(call))
+    if call.arguments_error is not None:  # M4 piece 2 repairs these before they get here
+        result = ToolResult(
+            call_id=call.id,
+            content=(
+                f"ERROR: the arguments for {call.name} are {call.arguments_error}. "
+                "Send the call again with the arguments as one JSON object."
+            ),
+            is_error=True,
+        )
+        bus.emit(EventType.tool_result, step, _result_data(call, result, 0))
+        return result
     spec = next((s for s in specs if s.name == call.name), None)
     if gate is not None and spec is not None:  # unknown tools are reported by the toolbox
         decision = await gate.check(call, spec)
@@ -280,7 +298,26 @@ def _source(call: ToolCall) -> str:
 
 
 def _call_data(call: ToolCall) -> JSONObject:
-    return {"id": call.id, "name": call.name, "arguments": call.arguments}
+    data: JSONObject = {"id": call.id, "name": call.name, "arguments": call.arguments}
+    if call.arguments_text is not None:
+        data["arguments_text"] = call.arguments_text  # verbatim, for repair and reports
+    if call.arguments_error is not None:
+        data["arguments_error"] = call.arguments_error
+    return data
+
+
+def _message_data(message: Message) -> JSONObject:
+    """A message as logged: everything the model is shown, nothing it is not."""
+    data: JSONObject = {"role": message.role.value}
+    if message.content is not None:
+        data["content"] = message.content
+    if message.tool_calls:
+        data["tool_calls"] = [_call_data(c) for c in message.tool_calls]
+    if message.tool_call_id is not None:
+        data["tool_call_id"] = message.tool_call_id
+    if message.name is not None:
+        data["name"] = message.name
+    return data
 
 
 def _end(bus: EventBus, totals: _Totals, reason: StopReason, wall: float) -> None:

@@ -58,3 +58,25 @@ async def test_agent_uses_the_add_tool() -> None:
     assert result.stopped_reason is StopReason.final
     assert "42" in (result.answer or "")
     assert any(e.type is EventType.tool_call and e.data["name"] == "add" for e in events)
+
+
+async def test_backend_accepts_a_broken_call_in_history() -> None:
+    """Ollama answers 400 to invalid JSON in a past call's arguments; Kestrel wraps it."""
+    from kestrel.core.types import ToolCall, ToolSpec
+
+    broken = ToolCall(
+        id="c1", name="read_file", arguments_text="{'path': 'a.txt',}", arguments_error="x"
+    )
+    history = [
+        Message(role=Role.user, content="Read a.txt. /no_think"),
+        Message(role=Role.assistant, tool_calls=[broken]),
+        Message(role=Role.tool, tool_call_id="c1", content="ERROR: not valid JSON. Try again."),
+    ]
+    spec = ToolSpec(
+        name="read_file",
+        description="Read a file.",
+        parameters={"type": "object", "properties": {"path": {"type": "string"}}},
+    )
+    async with OpenAICompatProvider(URL) as provider:
+        response = await provider.chat(history, [spec], model=MODEL, temperature=0.0)
+    assert response.message.tool_calls or response.message.content  # no 400

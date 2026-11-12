@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from kestrel.core.events import first_task, read_events
+from kestrel.core.events import first_task, load_value, read_events
 from kestrel.core.types import Event, EventType, JSONValue
 
 SHORT_CHARS = 160
@@ -61,7 +61,8 @@ def describe(event: Event, *, full: bool = False) -> str:
             tools = ", ".join(str(t) for t in listed) if isinstance(listed, list) else ""
             return f"{text(d.get('task'))}  (model {d.get('model')}, tools: {tools or 'none'})"
         case EventType.model_request:
-            return f"{d.get('messages')} messages, ~{d.get('est_tokens')} tokens"
+            count = d.get("message_count", d.get("messages"))  # older logs: a plain count
+            return f"{count} messages, ~{d.get('est_tokens')} tokens (/trace ID --prompt N)"
         case EventType.model_response:
             parts: list[str] = []
             if d.get("content"):
@@ -95,6 +96,35 @@ def describe(event: Event, *, full: bool = False) -> str:
             )
         case _:
             return text(d)
+
+
+def print_prompt(path: Path, step: int, out: Console) -> bool:
+    """Print exactly what the model was shown at `step`. False if that step has none."""
+    request = next(
+        (e for e in read_events(path) if e.type is EventType.model_request and e.step == step),
+        None,
+    )
+    try:
+        messages = load_value(path, request.data.get("messages")) if request else None
+    except (OSError, ValueError):  # side file deleted or damaged
+        return False
+    if not isinstance(messages, list):
+        return False
+    out.print(f"[bold]Run {path.stem}, step {step}: {len(messages)} messages sent[/bold]")
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        role = str(message.get("role"))
+        out.print(f"\n[cyan]{escape(role)}[/cyan]", highlight=False)
+        content = message.get("content")
+        if isinstance(content, str):
+            out.print(content, markup=False, highlight=False)
+        calls = message.get("tool_calls")
+        for call in calls if isinstance(calls, list) else []:
+            if isinstance(call, dict):
+                raw = call.get("arguments_text") or json.dumps(call.get("arguments"))
+                out.print(f"call {call.get('name')} {raw}", markup=False, highlight=False)
+    return True
 
 
 def _style(event: Event) -> str:

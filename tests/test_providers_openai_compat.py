@@ -16,7 +16,6 @@ from kestrel.core.types import (
     Provider,
     Role,
     StreamChunk,
-    ToolCall,
 )
 from kestrel.providers.openai_compat import OpenAICompatProvider
 
@@ -137,7 +136,7 @@ async def test_stream_yields_pieces_then_done() -> None:
     done = chunks[-1].done
     assert done is not None
     assert done.message.content == "Hi there"
-    assert done.message.tool_calls == [ToolCall(id="c1", name="echo", arguments={})]
+    assert [(c.id, c.name, c.arguments) for c in done.message.tool_calls] == [("c1", "echo", {})]
     assert done.usage is not None
     assert done.usage.prompt_tokens == 5
 

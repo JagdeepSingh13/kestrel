@@ -49,7 +49,10 @@ def estimate_tokens(messages: Sequence[Message]) -> int:
     for m in messages:
         chars = len(m.content or "")
         if m.tool_calls:
-            chars += len(json.dumps([c.model_dump() for c in m.tool_calls]))
+            for c in m.tool_calls:  # what goes on the wire, roughly
+                chars += len(c.id) + len(c.name)
+                broken = c.arguments_error is not None and c.arguments_text is not None
+                chars += len(c.arguments_text or "") if broken else len(json.dumps(c.arguments))
         total += _tokens(chars) + MESSAGE_OVERHEAD_TOKENS
     return total
 

@@ -106,7 +106,9 @@ def test_tool_call_split_across_events_is_stitched() -> None:
     assert chunks == []  # nothing to print while a tool call streams
     assert final.done is not None
     assert final.done.message.tool_calls == [
-        ToolCall(id="call_1", name="add", arguments={"a": 1, "b": 2})
+        ToolCall(
+            id="call_1", name="add", arguments={"a": 1, "b": 2}, arguments_text='{"a": 1, "b": 2}'
+        )
     ]
     assert final.done.finish_reason == "tool_calls"
 
@@ -132,8 +134,11 @@ def test_invalid_streamed_arguments_are_reported_at_the_end() -> None:
     assembler.feed_line(
         delta(tool_calls=[{"index": 0, "function": {"name": "add", "arguments": "{a:1"}}])
     )
-    with pytest.raises(BadBackendResponseError, match=r"\{a:1"):
-        assembler.finish()
+    final = assembler.finish()
+    assert final.done is not None
+    (call,) = final.done.message.tool_calls
+    assert (call.arguments, call.arguments_text) == ({}, "{a:1")
+    assert call.arguments_error is not None
 
 
 def test_reasoning_field_streams_as_reasoning() -> None:

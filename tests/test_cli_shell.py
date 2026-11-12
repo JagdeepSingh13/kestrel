@@ -1,11 +1,13 @@
 """Seam: the interactive shell, driven by scripted input lines and a FakeProvider."""
 
+import json
 from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
 
+from kestrel.agents.schema import AgentConfig
 from kestrel.cli.prompt import SlashCompleter
 from kestrel.cli.shell import Session, Shell
 from kestrel.core.config import KestrelConfig, ProviderConfig
@@ -13,9 +15,11 @@ from kestrel.core.types import (
     BackendUnreachableError,
     JSONObject,
     Message,
+    ModelResponse,
     Provider,
     Role,
     StreamChunk,
+    ToolCall,
     ToolSpec,
 )
 from kestrel.providers.fake import FakeProvider
@@ -283,3 +287,37 @@ def test_status_line_shows_model_agent_and_context_use() -> None:
     assert shell.prompt() == "m · agent default · context 0% of 16K · /help"
     shell.run()
     assert "context 7% of 16K" in shell.prompt()  # system prompt, tools and the reply
+
+
+def test_report_failure_saves_the_broken_step_and_trace_shows_its_prompt(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    broken = ToolCall(
+        id="c1",
+        name="list_dir",
+        arguments_text="{'path': '.',}",
+        arguments_error="not valid JSON",
+    )
+    fake = FakeProvider(
+        [
+            ModelResponse(message=Message(role=Role.assistant, tool_calls=[broken]), raw_text=""),
+            FakeProvider.text("Gave up."),
+        ]
+    )
+    shell, _ = make_shell(
+        ["look around", "/report-failure", "/trace last --prompt 1", "/trace last --prompt 9"],
+        fake,
+    )
+    shell.session.agent = AgentConfig(name="t", tools=["list_dir"])
+    shell.run()
+    out = capsys.readouterr()
+    [report] = list((tmp_path / "reports").glob("*.json"))
+    case = json.loads(report.read_text(encoding="utf-8"))
+    assert case["source"]["step"] == 1  # the step with the broken call
+    assert case["response"]["tool_calls"] == [
+        {"name": "list_dir", "arguments_text": "{'path': '.',}"}
+    ]
+    assert [t["name"] for t in case["tools"]] == ["list_dir"]
+    assert case["expect"]["kind"].startswith("TODO")
+    assert "look around" in out.out  # the prompt of step 1, as sent
+    assert "Step 9 has no logged prompt" in out.err

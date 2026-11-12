@@ -14,6 +14,7 @@ from kestrel.core.types import (
     EventType,
     JSONObject,
     Message,
+    ModelResponse,
     PermissionDecision,
     Provider,
     Role,
@@ -260,3 +261,42 @@ async def test_refused_call_is_not_run_and_the_model_is_told() -> None:
     assert tool_messages(fake.calls[1].messages) == ["ERROR: add was not run: user said no"]
     [permission] = rec.of(EventType.permission)
     assert permission.data["allowed"] is False
+
+
+def test_a_broken_call_becomes_an_error_the_model_can_fix() -> None:
+    broken = ToolCall(
+        id="c1", name="add", arguments_text="{'a': 17,", arguments_error="not valid JSON"
+    )
+    fake = FakeProvider(
+        [
+            ModelResponse(message=Message(role=Role.assistant, tool_calls=[broken]), raw_text=""),
+            call("add", {"a": 17, "b": 25}, call_id="c2"),
+            text("42"),
+        ]
+    )
+    rec = Recorded()
+    result = asyncio.run(rec.run(fake))
+    assert result.stopped_reason is StopReason.final  # the run goes on
+    first = rec.of(EventType.tool_result)[0].data
+    assert first["is_error"] and "not valid JSON" in str(first["content"])
+    assert rec.of(EventType.tool_call)[0].data["arguments_text"] == "{'a': 17,"
+
+
+def test_each_request_logs_the_exact_messages_and_the_run_logs_tool_specs() -> None:
+    rec = Recorded()
+    asyncio.run(rec.run(FakeProvider([call("add", {"a": 1, "b": 2}), text("3")])))
+    requests = rec.of(EventType.model_request)
+    second = requests[1].data["messages"]
+    assert isinstance(second, list)
+    assert [m["role"] for m in second if isinstance(m, dict)] == [
+        "system",
+        "user",
+        "assistant",
+        "tool",
+    ]
+    assert requests[1].data["message_count"] == 4
+    specs = rec.of(EventType.run_start)[0].data["tool_specs"]
+    assert isinstance(specs, list) and {str(s["name"]) for s in specs if isinstance(s, dict)} == {
+        "add",
+        "echo",
+    }

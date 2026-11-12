@@ -89,12 +89,27 @@ class JsonlWriter:
         self._file.close()
 
     def _maybe_side_file(self, key: str, value: JSONValue) -> JSONValue:
-        if not isinstance(value, str) or len(value.encode("utf-8")) <= SIDE_FILE_BYTES:
+        """Values over 64KB go to a file next to the log (text as .txt, lists and objects
+        as .json); the event keeps the path (spec gap 13)."""
+        if value is None or isinstance(value, bool | int | float):
+            return value
+        text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+        if len(text.encode("utf-8")) <= SIDE_FILE_BYTES:
             return value
         self._side_dir.mkdir(exist_ok=True)
-        side = self._side_dir / f"{self._count:04d}-{key}.txt"
-        side.write_text(value, encoding="utf-8")
-        return {"side_file": f"{self._side_dir.name}/{side.name}", "chars": len(value)}
+        suffix = "txt" if isinstance(value, str) else "json"
+        side = self._side_dir / f"{self._count:04d}-{key}.{suffix}"
+        side.write_text(text, encoding="utf-8")
+        return {"side_file": f"{self._side_dir.name}/{side.name}", "chars": len(text)}
+
+
+def load_value(log: Path, value: JSONValue) -> JSONValue:
+    """A logged value, read back from its side file if it was moved to one."""
+    if isinstance(value, dict) and isinstance(value.get("side_file"), str):
+        side = log.parent / str(value["side_file"])
+        text = side.read_text(encoding="utf-8")
+        return text if side.suffix == ".txt" else json.loads(text)
+    return value
 
 
 def read_events(path: Path) -> list[Event]:

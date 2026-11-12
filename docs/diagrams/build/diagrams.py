@@ -987,12 +987,24 @@ def repair_steps() -> Diagram:
     d = Diagram("repair-steps", clean=True)
     d.text(0, -70, "What repair does to every model reply", size=34, color="#1e1e1e")
     steps = [
-        ("1. Find the calls", "in the tool-call field, or in\nthe text: ```json blocks,\n<tool_call> tags, bare JSON"),
-        ("2. Fix the JSON", "trailing commas, single\nquotes, missing brackets,\narguments sent as a string"),
+        (
+            "1. Find the calls",
+            "in the tool-call field, or in\nthe text: ```json blocks,\n<tool_call> tags, bare JSON",
+        ),
+        (
+            "2. Fix the JSON",
+            "trailing commas, single\nquotes, missing brackets,\narguments sent as a string",
+        ),
         ("3. Fix the name", "read-file to read_file;\nonly when exactly one\ntool is that close"),
-        ("4. Check arguments", "against the tool's schema;\n\"5\" becomes 5"),
-        ("5. Fix escaped text", "literal \\n in a file's text\nbecomes real new lines;\nonly on text arguments"),
-        ("6. One call per step", "only the first call runs,\nso the model cannot guess\nthe result of the next"),
+        ("4. Check arguments", 'against the tool\'s schema;\n"5" becomes 5'),
+        (
+            "5. Fix escaped text",
+            "literal \\n in a file's text\nbecomes real new lines;\nonly on text arguments",
+        ),
+        (
+            "6. One call per step",
+            "only the first call runs,\nso the model cannot guess\nthe result of the next",
+        ),
     ]
     w, h, gx, gy = 380, 190, 40, 40
     for i, (title, body) in enumerate(steps):
@@ -1005,7 +1017,7 @@ def repair_steps() -> Diagram:
         3 * w + 2 * gx,
         150,
         "Still broken?",
-        "the model gets a short note with the error and that tool's schema, and tries again\n(twice per step). Then the watchdog hears \"stuck\". Every fix is written to the run log.",
+        'the model gets a short note with the error and that tool\'s schema, and tries again\n(twice per step). Then the watchdog hears "stuck". Every fix is written to the run log.',
     )
     return d
 

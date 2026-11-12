@@ -19,6 +19,9 @@ from kestrel.core.types import (
 )
 from kestrel.providers.think import split_think
 
+INVALID_ARGUMENTS_KEY = "invalid_arguments"
+"""Wraps a broken call's text when it is sent back to the backend in history."""
+
 
 def to_request_body(
     messages: Sequence[Message],
@@ -52,6 +55,15 @@ def to_request_body(
     return body
 
 
+def _arguments_to_wire(call: ToolCall) -> str:
+    """Arguments as the JSON string OpenAI expects. A broken call's text is wrapped in
+    valid JSON: backends reject invalid JSON in history (Ollama answers 400 "invalid tool
+    call arguments", checked 2026-11-12), and the model still sees what it wrote."""
+    if call.arguments_error is not None and call.arguments_text is not None:
+        return json.dumps({INVALID_ARGUMENTS_KEY: call.arguments_text})
+    return json.dumps(call.arguments)
+
+
 def _message_to_wire(message: Message) -> JSONObject:
     # `reasoning` is deliberately not sent back: it is the model's scratchpad.
     wire: JSONObject = {"role": message.role.value, "content": message.content}
@@ -61,7 +73,7 @@ def _message_to_wire(message: Message) -> JSONObject:
                 "id": call.id,
                 "type": "function",
                 # OpenAI sends and expects arguments as a JSON *string*.
-                "function": {"name": call.name, "arguments": json.dumps(call.arguments)},
+                "function": {"name": call.name, "arguments": _arguments_to_wire(call)},
             }
             for call in message.tool_calls
         ]
@@ -124,32 +136,51 @@ def parse_tool_call(index: int, raw: JSONValue) -> ToolCall:
     name = _as_str(_get(function, "name"))
     if not name:
         raise BadBackendResponseError(f"tool call {index} has no function name")
-    arguments = _get(function, "arguments")
-    if isinstance(arguments, str):
-        arguments = parse_arguments(arguments, name)
-    if not isinstance(arguments, dict):
-        raise BadBackendResponseError(f"tool call {name!r}: arguments are not an object")
     # Some backends omit ids; generate a stable one so results can be matched.
     call_id = _as_str(_get(raw, "id")) or f"call_{index}"
-    return ToolCall(id=call_id, name=name, arguments=arguments)
+    arguments = _get(function, "arguments")
+    if isinstance(arguments, dict):
+        return ToolCall(id=call_id, name=name, arguments=arguments)
+    if arguments is None:
+        return ToolCall(id=call_id, name=name)  # no arguments sent: same as {}
+    text = arguments if isinstance(arguments, str) else json.dumps(arguments)
+    return tool_call_from_text(call_id, name, text)
 
 
-def parse_arguments(text: str, tool_name: str) -> JSONObject:
-    """Parse a tool call's arguments string into an object.
+def tool_call_from_text(call_id: str, name: str, text: str) -> ToolCall:
+    """A call whose arguments arrived as a JSON string. Text that is not a JSON object is
+    kept, with the reason, for the repair pipeline (M4): a model's broken call must not
+    end the run."""
+    arguments, error = parse_arguments(text)
+    return ToolCall(
+        id=call_id, name=name, arguments=arguments, arguments_text=text, arguments_error=error
+    )
 
-    M1 reports bad JSON with the raw text; M4's repair pipeline will fix it instead.
-    """
+
+def parse_arguments(text: str) -> tuple[JSONObject, str | None]:
+    """The arguments object, or `{}` and why the text is not a JSON object (in plain
+    words, because the model reads it)."""
     if not text.strip():
-        return {}
+        return {}, None
     try:
         value: JSONValue = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise BadBackendResponseError(
-            f"tool call {tool_name!r} has invalid JSON arguments ({exc.msg}): {text}"
-        ) from exc
+        return {}, f"not valid JSON ({exc.msg} at character {exc.pos})"
     if not isinstance(value, dict):
-        raise BadBackendResponseError(f"tool call {tool_name!r}: arguments are not an object")
-    return value
+        return {}, f"{_kind(value)}, not an object"
+    return value, None
+
+
+def _kind(value: JSONValue) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "a true/false value"
+    if isinstance(value, int | float):
+        return "a number"
+    if isinstance(value, str):
+        return "a string"
+    return "a list"
 
 
 def reasoning_from(obj: JSONObject) -> str | None:

@@ -18,7 +18,7 @@ from kestrel.core.types import (
     Usage,
 )
 from kestrel.providers.think import ThinkSplitter
-from kestrel.providers.wire import parse_arguments, parse_usage, reasoning_from
+from kestrel.providers.wire import parse_usage, reasoning_from, tool_call_from_text
 
 DONE_MARKER = "[DONE]"
 
@@ -132,10 +132,8 @@ class StreamAssembler:
             if not parts.name:
                 raise BadBackendResponseError(f"streamed tool call {index} has no name")
             calls.append(
-                ToolCall(
-                    id=parts.id or f"call_{index}",
-                    name=parts.name,
-                    arguments=parse_arguments("".join(parts.arguments), parts.name),
+                tool_call_from_text(
+                    parts.id or f"call_{index}", parts.name, "".join(parts.arguments)
                 )
             )
         return calls
