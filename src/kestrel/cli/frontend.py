@@ -126,6 +126,9 @@ class CliFrontend:
             case EventType.repair:
                 self._stop_spinner()
                 err_console.print(Text("  ✎ fixed: " + describe_fix(data), style="dim"))
+            case EventType.loop_warning:
+                self._stop_spinner()
+                err_console.print(Text("  ! warned: " + _str(data.get("detail")), style="yellow"))
             case EventType.stuck:
                 self._stop_spinner()
                 err_console.print(

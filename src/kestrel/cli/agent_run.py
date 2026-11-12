@@ -17,6 +17,7 @@ from kestrel.core.context import UNTRUSTED_RULE, ContextManager
 from kestrel.core.events import EventBus, JsonlWriter, new_run_id, runs_dir
 from kestrel.core.loop import DEFAULT_SYSTEM_PROMPT, Budgets, run_agent
 from kestrel.core.types import Provider, Role, RunResult, StopReason
+from kestrel.reliability.watchdog import WatchLimits
 from kestrel.safety.paths import Workspace
 from kestrel.safety.permissions import Permissions
 from kestrel.safety.redact import Redactor
@@ -114,7 +115,12 @@ def start_run(
                     limits.max_steps,
                     limits.max_tokens_total,
                     limits.max_wall_seconds,
-                    limits.max_repairs,
+                    max_repairs=limits.max_repairs,
+                    watch=WatchLimits(
+                        max_repeats=limits.max_repeats,
+                        max_stall_steps=limits.max_stall_steps,
+                        max_tool_errors=limits.max_tool_errors,
+                    ),
                 ),
                 gate=Permissions(frontend.confirm, agent.permissions),
                 temperature=agent.temperature,

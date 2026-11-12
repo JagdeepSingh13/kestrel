@@ -8,8 +8,8 @@ M4 adds tool-call repair and loop detection; M3 adds permission checks.
 
 import asyncio
 import time
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
 
 from kestrel.core.context import ContextManager, wrap_untrusted
 from kestrel.core.events import EventBus
@@ -32,6 +32,10 @@ from kestrel.core.types import (
     ToolSpec,
 )
 from kestrel.reliability.repair import Fix, repair
+from kestrel.reliability.watchdog import Signal, Watchdog, WatchLimits
+
+type OnStuck = Callable[[Signal], Awaitable[bool]]
+"""Called when a run is stuck; True means it was handled and the run goes on."""
 
 ONE_CALL_NOTE = "(Only this call ran: one tool per step. Call others again if still needed.)"
 
@@ -50,6 +54,8 @@ class Budgets:
     max_tokens_total: int | None = None
     """Prompt plus completion tokens over the whole run, as reported by the backend."""
     max_wall_seconds: float | None = None
+    watch: WatchLimits = field(default_factory=WatchLimits)
+    """Watchdog thresholds: repeats, steps without progress, errors in a row."""
     max_repairs: int = 2
     """Unusable tool calls allowed in a row (each gets a note and a retry); one more and
     the run is stuck."""
@@ -75,11 +81,14 @@ async def run_agent(
     gate: PermissionGate | None = None,
     temperature: float = 0.2,
     clock: Callable[[], float] = time.monotonic,
+    on_stuck: OnStuck | None = None,
 ) -> RunResult:
     """Run one task to the end and return what happened.
 
     Backend failures end the run with `stopped_reason=error` (not an exception).
     Cancellation (Ctrl-C) logs `run_end` with `cancelled`, then propagates.
+    When the run is stuck (watchdog or repairs), `on_stuck` decides: True carries on
+    (M4.5 steps up a model there); without it, or on False, the run stops with `loop`.
     """
     budgets = budgets or Budgets()
     specs = toolbox.specs()
@@ -89,6 +98,15 @@ async def run_agent(
     reason = StopReason.max_steps
     repairs_used = 0
     """Unusable calls in a row; past `budgets.max_repairs` the run is stuck."""
+    watchdog = Watchdog(budgets.watch)
+
+    async def stop_for(signal: Signal, step: int) -> bool:
+        """Log a stuck signal; True when the run should stop."""
+        bus.emit(EventType.stuck, step, {"signal": signal.signal, "detail": signal.detail})
+        if on_stuck is not None and await on_stuck(signal):
+            watchdog.reset()  # handled (e.g. a bigger model): judge it afresh
+            return False
+        return True
 
     bus.emit(
         EventType.run_start,
@@ -113,8 +131,12 @@ async def run_agent(
                 reason = StopReason.budget
                 break
             totals.steps = step
-            response = await _ask_model(provider, model, specs, context, bus, step, temperature)
+            response, over_budget = await _ask_model(
+                provider, model, specs, context, bus, step, temperature
+            )
+            prompt_tokens = None
             if response.usage is not None:
+                prompt_tokens = response.usage.prompt_tokens
                 totals.prompt_tokens += response.usage.prompt_tokens or 0
                 totals.completion_tokens += response.usage.completion_tokens or 0
 
@@ -137,13 +159,11 @@ async def run_agent(
                 context.add(_tool_message(broken, note.content + extra))
                 repairs_used += 1
                 if repairs_used > budgets.max_repairs:
-                    bus.emit(
-                        EventType.stuck,
-                        step,
-                        {"signal": "repairs_exhausted", "detail": repaired.problem},
-                    )
-                    reason = StopReason.loop
-                    break
+                    exhausted = Signal("stuck", "repairs_exhausted", repaired.problem)
+                    if await stop_for(exhausted, step):
+                        reason = StopReason.loop
+                        break
+                    repairs_used = 0
                 continue
             repairs_used = 0
 
@@ -152,6 +172,14 @@ async def run_agent(
                 answer = message.content or ""
                 bus.emit(EventType.final, step, {"answer": answer})
                 reason = StopReason.final
+                break
+
+            # A final answer always counts; a run that cannot fit its next prompt is stuck.
+            full = watchdog.after_prompt(
+                over_budget=over_budget, prompt_tokens=prompt_tokens, window=context.window
+            )
+            if full is not None and await stop_for(full, step):
+                reason = StopReason.loop
                 break
 
             call = repaired.calls[0]  # one call per step (repair step 6)
@@ -165,7 +193,19 @@ async def run_agent(
             )
             if repaired.dropped:
                 content += f"\n{ONE_CALL_NOTE}"
+            signals = watchdog.after_tool(call, result)
+            for warning in (s for s in signals if s.level == "warn"):
+                bus.emit(
+                    EventType.loop_warning,
+                    step,
+                    {"signal": warning.signal, "detail": warning.detail},
+                )
+                content += f"\n{warning.note}"
             context.add(_tool_message(call, content))
+            stuck = next((s for s in signals if s.level == "stuck"), None)
+            if stuck is not None and await stop_for(stuck, step):
+                reason = StopReason.loop
+                break
 
             used = totals.prompt_tokens + totals.completion_tokens
             if budgets.max_tokens_total is not None and used >= budgets.max_tokens_total:
@@ -199,8 +239,9 @@ async def _ask_model(
     bus: EventBus,
     step: int,
     temperature: float,
-) -> ModelResponse:
-    """Build the prompt, stream the reply (live pieces as `model_delta`), log the result."""
+) -> tuple[ModelResponse, bool]:
+    """Build the prompt, stream the reply (live pieces as `model_delta`), log the result.
+    Also says whether the prompt was still over budget after trimming."""
     prompt = context.build()
     if prompt.trimmed or prompt.over_budget:
         bus.emit(
@@ -255,7 +296,7 @@ async def _ask_model(
             "usage": usage,
         },
     )
-    return final
+    return final, prompt.over_budget
 
 
 async def _run_tool(
