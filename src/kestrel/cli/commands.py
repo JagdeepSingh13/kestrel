@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from rich.markup import escape
 
 from kestrel.agents.loader import AgentError, list_agents, load_agent
-from kestrel.cli.agent_run import start_run
 from kestrel.cli.output import console, err_console, print_reports
 from kestrel.cli.shell import Shell
 from kestrel.cli.trace import print_run_list, print_trace
@@ -46,7 +45,10 @@ def _help(shell: Shell, arg: str) -> bool:
         if not command.hidden:
             usage = escape(f"{command.usage:<22}")  # pad before escaping, or [..] skews it
             err_console.print(f"  [bold]{usage}[/bold] {command.help}")
-    err_console.print("  Anything else is sent to the model. Ctrl-C stops a reply, Ctrl-D quits.")
+    err_console.print(
+        "  Anything else goes to the agent, which uses its tools when needed. "
+        "Ctrl-C stops a turn, Ctrl-D quits."
+    )
     return True
 
 
@@ -55,7 +57,7 @@ def _exit(shell: Shell, arg: str) -> bool:
 
 
 def _clear(shell: Shell, arg: str) -> bool:
-    shell.session.history.clear()
+    shell.session.conversation.clear()
     err_console.print("Conversation cleared.")
     return True
 
@@ -119,35 +121,6 @@ def _think(shell: Shell, arg: str) -> bool:
     return True
 
 
-def _run(shell: Shell, arg: str) -> bool:
-    if not arg:
-        err_console.print("Usage: /run TASK, e.g. /run list the files and summarize them")
-        return True
-    agent = shell.session.agent
-    model = agent.model[0] if agent.model else shell.session.model
-    if model is None:
-        err_console.print("[red]No model chosen.[/red] /model NAME picks one.")
-        return True
-    name = agent.provider or shell.session.provider
-    try:
-        provider_config = shell.config.provider(name)
-    except ConfigError as exc:
-        err_console.print(f"[red]{escape(str(exc))}[/red]")
-        return True
-    start_run(
-        arg,
-        agent=agent,
-        workspace=shell.workspace,
-        provider_name=name,
-        provider_config=provider_config,
-        open_provider=shell.open_provider,
-        model=model,
-        env=shell.env,
-        show_thinking=shell.session.show_thinking,
-    )
-    return True
-
-
 def _agents(shell: Shell, arg: str) -> bool:
     for name, where in list_agents(shell.env).items():
         marker = "*" if name == shell.session.agent.name else " "
@@ -172,7 +145,9 @@ def _agent(shell: Shell, arg: str) -> bool:
         err_console.print(f"[red]{escape(str(exc))}[/red]")
         return True
     shell.session.agent = agent
-    model = agent.model[0] if agent.model else "the shell's model"
+    if agent.model:
+        shell.session.model = agent.model[0]
+    model = shell.session.model or "no model"
     err_console.print(f"Agent: {escape(agent.name)} ({escape(model)}). {escape(agent.description)}")
     err_console.print(f"[dim]tools: {escape(', '.join(agent.tools) or 'none')}[/dim]")
     return True
@@ -229,8 +204,7 @@ COMMANDS: dict[str, Command] = {
     "model": Command(_model, "/model [name]", "list models, or switch (keeps the conversation)"),
     "provider": Command(_provider, "/provider [name]", "list backends, or switch"),
     "think": Command(_think, "/think [on|off]", "show or hide the model's thinking"),
-    "run": Command(_run, "/run TASK", "run the agent on a task, with its tools"),
-    "agent": Command(_agent, "/agent [name]", "show or switch the agent /run uses"),
+    "agent": Command(_agent, "/agent [name]", "show or switch the agent (keeps the conversation)"),
     "agents": Command(_agents, "/agents", "list available agents"),
     "tools": Command(_tools, "/tools", "the agent's tools and their permissions"),
     "workspace": Command(_workspace, "/workspace", "the only folder agents may use"),

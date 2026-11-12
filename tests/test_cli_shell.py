@@ -14,6 +14,7 @@ from kestrel.core.types import (
     JSONObject,
     Message,
     Provider,
+    Role,
     StreamChunk,
     ToolSpec,
 )
@@ -23,6 +24,13 @@ from kestrel.safety.paths import Workspace
 type Line = str | type[BaseException]
 
 
+@pytest.fixture(autouse=True)
+def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Run logs and the workspace go to a temp folder, never the real home."""
+    monkeypatch.setenv("KESTREL_DATA_DIR", str(tmp_path))
+    return tmp_path
+
+
 def make_shell(
     lines: list[Line],
     provider: Provider,
@@ -30,6 +38,9 @@ def make_shell(
     env: dict[str, str] | None = None,
 ) -> tuple[Shell, list[str]]:
     """A shell whose input is `lines` (an exception class is raised instead of read)."""
+    import os
+
+    env = env or {"KESTREL_DATA_DIR": os.environ["KESTREL_DATA_DIR"]}
     opened: list[str] = []
 
     @asynccontextmanager
@@ -49,8 +60,8 @@ def make_shell(
         KestrelConfig(),
         Session(provider="ollama", model=model),
         open_provider=open_provider,
-        env=env or {},
-        workspace=Workspace(Path(env["KESTREL_DATA_DIR"]) if env else Path.cwd()),
+        env=env,
+        workspace=Workspace(Path(env["KESTREL_DATA_DIR"])),
         read_line=read_line,
     )
     return shell, opened
@@ -60,12 +71,17 @@ def history_text(shell: Shell) -> list[str | None]:
     return [m.content for m in shell.session.history]
 
 
+def sent(fake: FakeProvider, call: int) -> list[str | None]:
+    """What the model got on one call, without the system prompt."""
+    return [m.content for m in fake.calls[call].messages if m.role is not Role.system]
+
+
 def test_conversation_is_remembered_across_turns() -> None:
     fake = FakeProvider([FakeProvider.text("Hi Jag"), FakeProvider.text("Jag")])
     shell, _ = make_shell(["my name is Jag", "what is my name?"], fake)
     shell.run()
     assert history_text(shell) == ["my name is Jag", "Hi Jag", "what is my name?", "Jag"]
-    assert [m.content for m in fake.calls[1].messages] == history_text(shell)[:3]
+    assert sent(fake, 1) == history_text(shell)[:3]
 
 
 def test_reasoning_is_not_kept_in_history(capsys: pytest.CaptureFixture[str]) -> None:
@@ -165,15 +181,18 @@ def test_no_model_asks_to_pick_one(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_long_conversation_is_trimmed_to_fit(capsys: pytest.CaptureFixture[str]) -> None:
-    fake = FakeProvider([FakeProvider.text("x" * 200) for _ in range(4)])
+    fake = FakeProvider([FakeProvider.text("x" * 2000) for _ in range(4)])
     shell, _ = make_shell(["one", "two", "three", "four"], fake)
-    shell.session.context_window = 100
+    agent = shell.session.agent
+    shell.session.agent = agent.model_copy(
+        update={"context": agent.context.model_copy(update={"window": 2600})}
+    )
     shell.run()
     assert len(shell.session.history) == 8  # the shell still remembers everything
-    last_sent = [m.content for m in fake.calls[-1].messages]
+    last_sent = sent(fake, -1)
     assert last_sent[-1] == "four"
     assert "one" not in last_sent  # but older turns were left out of the prompt
-    assert "Left out" in capsys.readouterr().err
+    assert "Context trimmed" in capsys.readouterr().err
 
 
 def test_completer_suggests_commands_and_models() -> None:
@@ -190,32 +209,45 @@ def test_completer_suggests_commands_and_models() -> None:
     assert complete("hello") == []
 
 
-def test_run_then_trace_inside_the_shell(
+def test_the_agent_decides_to_use_tools_and_trace_shows_it(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    fake = FakeProvider([FakeProvider.tool_call("list_dir", {}), FakeProvider.text("It is empty.")])
-    env = {"KESTREL_DATA_DIR": str(tmp_path)}
-    shell, _ = make_shell(["/run What is here?", "/trace", "/trace list"], fake, env=env)
+    (tmp_path / "notes.txt").write_text("hi")
+    fake = FakeProvider([FakeProvider.tool_call("list_dir", {}), FakeProvider.text("One file.")])
+    shell, _ = make_shell(["What is here?", "/trace", "/trace list"], fake)
     shell.run()
     out = capsys.readouterr()
-    assert "It is empty." in out.out  # the agent's answer
-    assert "tool list_dir" in out.err  # tool calls shown live
+    assert "One file." in out.out  # the agent's answer
+    assert "list_dir" in out.err  # tool calls shown live
     for text in ["run_start", "tool_call", "final", "run_end"]:
         assert text in out.out  # /trace timeline
     assert "What is here?" in out.out  # /trace list
     assert len(list((tmp_path / "runs").glob("*.jsonl"))) == 1
-    assert shell.session.history == []  # agent runs do not enter the chat
+    roles = [m.role for m in shell.session.history]
+    assert roles == [Role.user, Role.assistant, Role.tool, Role.assistant]
 
 
-def test_run_needs_a_task_and_trace_needs_a_run(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    shell, _ = make_shell(
-        ["/run", "/trace"], FakeProvider(), env={"KESTREL_DATA_DIR": str(tmp_path)}
+def test_tool_results_carry_over_to_the_next_message(tmp_path: Path) -> None:
+    (tmp_path / "notes.txt").write_text("secret plan")
+    fake = FakeProvider(
+        [
+            FakeProvider.tool_call("read_file", {"path": "notes.txt"}),
+            FakeProvider.text("It says secret plan."),
+            FakeProvider.text("Two words."),
+        ]
     )
+    shell, _ = make_shell(["read notes.txt", "how many words is it?"], fake)
+    shell.run()
+    later = " ".join(t or "" for t in sent(fake, 2))
+    assert "secret plan" in later  # the file read in turn 1 is still there in turn 2
+    assert len(list((tmp_path / "runs").glob("*.jsonl"))) == 2  # one run per message
+
+
+def test_run_command_is_gone_and_trace_needs_a_run(capsys: pytest.CaptureFixture[str]) -> None:
+    shell, _ = make_shell(["/run x", "/trace"], FakeProvider())
     shell.run()
     err = capsys.readouterr().err
-    assert "Usage: /run TASK" in err
+    assert "Unknown command /run" in err
     assert "No runs yet" in err
 
 

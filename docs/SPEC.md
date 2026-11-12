@@ -2,11 +2,13 @@
 
 Local-first, model-agnostic agent harness for small models.
 
-Status: draft v0.4. Owner edits this file; Claude Code proposes changes via PR.
+Status: draft v0.5. Owner edits this file; Claude Code proposes changes via PR.
 
 v0.2 (2026-11-11): applied the milestone changes agreed in the project handoff (section 1 identity + pillars, 5.5 constrained decoding, M4/M7 changes, new M7.5/M8.5/M9.5, backlog) and logged spec gaps in section 14.
 
 v0.3 (2026-11-11): all spec gaps decided (section 14), open decisions tagged with their milestone; sections 8.3, 10, 11 updated to match.
+
+v0.5 (2026-11-12): new M3.5, the shell becomes an agent conversation with a Claude Code style look.
 
 v0.4 (2026-11-11): headline feature is the model ladder ("step up only when stuck", section 1); its basic version moves from M9.5 to a new M4.5.
 
@@ -352,6 +354,13 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - **Plan (2026-11-11), six pieces, each walked through before the next:** (1) path jail, (2) tool registry + `@tool`, (3) file tools, (4) permissions + confirm, (5) `run_shell`, `python_exec`, `ask_user`, (6) agent YAML + shell `/agent`, `/agents`, `/workspace` (shows the folder), `/tools` + untrusted wrapping. Diagrams: `docs/diagrams/tools-and-safety.md`.
 - **Status: done (v0.0.3).** Live demo on qwen3:8b with the `counter` agent: correct counts (19, 81, 60, total 160) in 4 steps, 157 s; it asked `read_file` for one line per file to get the "N lines total" header. Finding for M4: the report was written with literal `\n` text, because the model double-escaped newlines inside the JSON arguments (a double-encoded string, section 5.2 step 2).
 - **Decisions (2026-11-11):** no OS sandbox in M3 for `run_shell`/`python_exec` (confirm by default, workspace cwd, timeout, output cap, secret env vars removed; README says plainly it is not a sandbox; real sandbox in backlog). Confirm answer "a" allows that tool for the rest of the run only, never saved. Subprocesses get the environment minus vars named like `*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASSWORD*`. Workspace (changed by owner, 2026-11-11, for safety): agents only ever use one folder, `workspace/` inside the Kestrel project folder (created on first use, ignored by git). For now there is no way to point agents anywhere else; `/workspace` only shows the path. `python_exec` uses Kestrel's own interpreter with `-I` and a temp dir inside the workspace.
+
+### M3.5: Shell as an agent (Claude Code style)
+- Every message typed in the shell is one agent turn with the current agent's tools; the model decides when to use them. `/run` is removed. The conversation (tool calls and results included) carries over between messages, trimmed by the context manager; the latest user message is the pinned task. `/clear` forgets it; `/agent` keeps it but swaps prompt, tools and permissions.
+- Each message is one run with its own log file, so `/trace` works as before. A turn that fails or is stopped (Ctrl-C, Esc, backend error) is rolled back and not kept; a turn that hits a budget is kept.
+- New look, no new dependency (prompt_toolkit + rich): welcome panel; bordered input box with a status line under it (model, agent, context used); `/` shows matching commands with their help under the box; tool calls as one line `⏺ tool(arg)` with a short result under `⎿`; spinner with elapsed time; Esc stops a turn; permission prompt as an arrow-key menu (Yes / Yes for the rest of this turn / No). Falls back to plain prompts when not attached to a terminal.
+- `kestrel run "task"` keeps working with the same output.
+- **Plan (2026-11-12), two pieces:** (1) conversation turns in the shell, (2) the new look. Diagram: `docs/diagrams/shell.md`.
 
 ### M4: Reliability layer + web tools
 - Capability probe + profile cache.

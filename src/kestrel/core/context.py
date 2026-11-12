@@ -3,7 +3,7 @@
 The full conversation is kept; `build()` returns a trimmed view of it. Trimming order:
 1. Empty old tool results (keep the message, so every tool call still has its answer).
 2. Drop the oldest turns.
-Never touched: the system prompt, the original task (when pinned), and the latest step.
+Never touched: the system prompt, the latest user message (the task), and the latest step.
 Tokens are estimated as characters / 3.5; real tokenizers may come in M4.
 """
 
@@ -91,15 +91,15 @@ class ContextManager:
         response_reserve: int = DEFAULT_RESPONSE_RESERVE,
         max_tool_result_tokens: int = DEFAULT_MAX_TOOL_RESULT_TOKENS,
         tools: Sequence[ToolSpec] = (),
-        pin_first_user: bool = True,
+        pin_task: bool = True,
     ) -> None:
-        """`pin_first_user` keeps the task forever (agent runs); chats pass False."""
+        """`pin_task` never drops the latest user message (the task being worked on)."""
         self.system_prompt = system_prompt
         self.window = window
         self.response_reserve = response_reserve
         self.max_tool_result_tokens = max_tool_result_tokens
         self.tools = list(tools)
-        self.pin_first_user = pin_first_user
+        self.pin_task = pin_task
         self.history: list[Message] = []
 
     def add(self, message: Message) -> None:
@@ -119,30 +119,33 @@ class ContextManager:
             [Message(role=Role.system, content=self.system_prompt)] if self.system_prompt else []
         )
         rest = list(self.history)
-        head: list[Message] = []
-        if self.pin_first_user and rest and rest[0].role is Role.user:
-            head, rest = rest[:1], rest[1:]
-        tail_start = _latest_step_start(rest)
-        middle, tail = rest[:tail_start], rest[tail_start:]
+        kept = set(range(_latest_step_start(rest), len(rest)))
+        task = _latest_user(rest)
+        if self.pin_task and task is not None:
+            kept.add(task)
 
         def size() -> int:
-            return estimate_tokens([*system, *head, *middle, *tail])
+            return estimate_tokens([*system, *rest])
 
         dropped_results = 0
-        for i, m in enumerate(middle):
+        for i, m in enumerate(rest):
             if size() <= budget:
                 break
-            if m.role is Role.tool and m.content != REMOVED_TOOL_RESULT:
-                middle[i] = m.model_copy(update={"content": REMOVED_TOOL_RESULT})
+            if i not in kept and m.role is Role.tool and m.content != REMOVED_TOOL_RESULT:
+                rest[i] = m.model_copy(update={"content": REMOVED_TOOL_RESULT})
                 dropped_results += 1
 
-        groups = _turn_groups(middle)
         dropped_messages = 0
-        while groups and size() > budget:
-            dropped_messages += len(groups.pop(0))
-            middle = [m for group in groups for m in group]
+        groups = _turn_groups(list(enumerate(rest)))
+        while size() > budget:
+            droppable = next((g for g in groups if not any(i in kept for i, _ in g)), None)
+            if droppable is None:
+                break
+            groups.remove(droppable)
+            dropped_messages += len(droppable)
+            rest = [m for group in groups for _, m in group]
 
-        messages = [*system, *head, *middle, *tail]
+        messages = [*system, *rest]
         used = estimate_tokens(messages)
         return Prompt(
             messages=messages,
@@ -171,13 +174,20 @@ def _latest_step_start(messages: list[Message]) -> int:
     return max(len(messages) - 1, 0)
 
 
-def _turn_groups(messages: list[Message]) -> list[list[Message]]:
+def _latest_user(messages: list[Message]) -> int | None:
+    for i in range(len(messages) - 1, -1, -1):
+        if messages[i].role is Role.user:
+            return i
+    return None
+
+
+def _turn_groups(messages: list[tuple[int, Message]]) -> list[list[tuple[int, Message]]]:
     """Split into droppable units: each non-tool message plus the tool results after it,
     so a tool call and its answer are always dropped together."""
-    groups: list[list[Message]] = []
-    for m in messages:
-        if m.role is Role.tool and groups:
-            groups[-1].append(m)
+    groups: list[list[tuple[int, Message]]] = []
+    for item in messages:
+        if item[1].role is Role.tool and groups:
+            groups[-1].append(item)
         else:
-            groups.append([m])
+            groups.append([item])
     return groups

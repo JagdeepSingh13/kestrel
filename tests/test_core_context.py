@@ -105,8 +105,8 @@ def test_too_big_even_after_trimming_is_flagged_not_broken() -> None:
     assert prompt.over_budget
 
 
-def test_chat_mode_can_drop_the_first_user_message() -> None:
-    ctx = ContextManager(None, window=40, response_reserve=0, pin_first_user=False)
+def test_in_a_conversation_old_questions_go_but_the_newest_stays() -> None:
+    ctx = ContextManager(None, window=40, response_reserve=0)
     for i in range(4):
         ctx.add(user(f"question {i} " + "q" * 40))
         ctx.add(assistant(f"answer {i}"))
@@ -127,3 +127,17 @@ def test_clear_keeps_only_the_system_prompt() -> None:
     ctx.add(user(GOAL))
     ctx.clear()
     assert contents(ctx.build().messages) == [SYSTEM]
+
+
+def test_newest_question_is_kept_even_with_tool_steps_after_it() -> None:
+    ctx = ContextManager(None, window=60, response_reserve=0)
+    ctx.add(user("old question " + "o" * 60))
+    ctx.add(assistant("old answer " + "a" * 60))
+    ctx.add(user("NEW"))
+    for n in range(3):
+        call = ToolCall(id=f"c{n}", name="read_file", arguments={})
+        ctx.add(Message(role=Role.assistant, tool_calls=[call]))
+        ctx.add(Message(role=Role.tool, tool_call_id=f"c{n}", content="r" * 80))
+    texts = contents(ctx.build().messages)
+    assert "NEW" in texts
+    assert not any(t and t.startswith("old") for t in texts)

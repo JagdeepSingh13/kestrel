@@ -1,5 +1,5 @@
-"""Start one agent run with live output and a log file. Shared by the shell's `/run`
-and the terminal's `kestrel run`, so both behave the same."""
+"""Start one agent run with live output and a log file. Shared by the shell (every message
+is a run) and the terminal's `kestrel run`, so both behave the same."""
 
 import asyncio
 from collections.abc import Callable, Mapping
@@ -14,7 +14,7 @@ from kestrel.core.config import ProviderConfig
 from kestrel.core.context import UNTRUSTED_RULE, ContextManager
 from kestrel.core.events import EventBus, JsonlWriter, new_run_id, runs_dir
 from kestrel.core.loop import DEFAULT_SYSTEM_PROMPT, Budgets, run_agent
-from kestrel.core.types import Provider, RunResult
+from kestrel.core.types import Provider, RunResult, StopReason
 from kestrel.safety.paths import Workspace
 from kestrel.safety.permissions import Permissions
 from kestrel.safety.redact import Redactor
@@ -40,9 +40,14 @@ def start_run(
     model: str,
     env: Mapping[str, str],
     show_thinking: bool = False,
+    conversation: ContextManager | None = None,
 ) -> RunResult | None:
     """Run `task` with `agent` to the end. Returns None if it could not start or the user
-    pressed Ctrl-C."""
+    pressed Ctrl-C.
+
+    `conversation` carries earlier turns (the shell); the run adds to it. A turn that is
+    stopped or fails is taken back out, so the next message starts from the last good one.
+    """
     if provider_config.is_remote and not agent.allow_cloud:
         err_console.print(
             f"[red]Agent {escape(agent.name)} may not use a remote backend[/red] "
@@ -59,13 +64,12 @@ def start_run(
         [BUILTIN_TOOLS[name] for name in agent.tools],
         ToolContext(workspace=workspace, env=env, ask=frontend.ask),
     )
-    system = f"{agent.system or DEFAULT_SYSTEM_PROMPT}\n\n{UNTRUSTED_RULE}"
-    context = ContextManager(
-        system,
-        window=agent.context.window,
-        max_tool_result_tokens=agent.context.max_tool_result_tokens,
-        tools=tools.specs(),
-    )
+    context = conversation or ContextManager(None)
+    context.system_prompt = f"{agent.system or DEFAULT_SYSTEM_PROMPT}\n\n{UNTRUSTED_RULE}"
+    context.window = agent.context.window
+    context.max_tool_result_tokens = agent.context.max_tool_result_tokens
+    context.tools = tools.specs()  # the agent may have changed since the last turn
+    kept = len(context.history)
     limits = agent.limits
 
     async def go() -> RunResult:
@@ -82,12 +86,15 @@ def start_run(
                 temperature=agent.temperature,
             )
 
+    result: RunResult | None = None
     try:
-        return asyncio.run(go())
+        result = asyncio.run(go())
     except KeyboardInterrupt:
         err_console.print("[dim]Stopped. The run so far is in the log.[/dim]")
-        return None
     finally:
+        if result is None or result.stopped_reason is StopReason.error:
+            del context.history[kept:]
         frontend.stop()
         writer.close()
         err_console.print(f"[dim]Run id {run_id}. See it with /trace[/dim]")
+    return result

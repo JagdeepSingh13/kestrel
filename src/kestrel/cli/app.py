@@ -197,7 +197,10 @@ def _start_shell(model: str | None, provider: str | None) -> None:
     except AgentError as exc:
         err_console.print(f"[red]{escape(str(exc))}[/red]")
         raise typer.Exit(2) from None
-    session = Session(provider=provider_name, model=model or config.default_model, agent=agent)
+    first_model = agent.model[0] if agent.model else None
+    session = Session(
+        provider=provider_name, model=model or first_model or config.default_model, agent=agent
+    )
     shell = Shell(
         config,
         session,
