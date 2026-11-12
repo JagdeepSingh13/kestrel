@@ -8,7 +8,7 @@ from contextlib import AbstractAsyncContextManager
 from rich.markup import escape
 
 from kestrel.agents.schema import AgentConfig
-from kestrel.cli.frontend import CliFrontend
+from kestrel.cli.frontend import BottomBox, CliFrontend
 from kestrel.cli.keys import watch_stop_keys
 from kestrel.cli.output import err_console
 from kestrel.core.config import ProviderConfig
@@ -42,6 +42,7 @@ def start_run(
     env: Mapping[str, str],
     show_thinking: bool = False,
     conversation: ContextManager | None = None,
+    box: BottomBox | None = None,
 ) -> RunResult | None:
     """Run `task` with `agent` to the end. Returns None if it could not start or the user
     pressed Ctrl-C.
@@ -57,7 +58,7 @@ def start_run(
         return None
     run_id = new_run_id()
     writer = JsonlWriter(runs_dir(env) / f"{run_id}.jsonl", Redactor(env).json)
-    frontend = CliFrontend(show_thinking=show_thinking)
+    frontend = CliFrontend(show_thinking=show_thinking, box=box)
     bus = EventBus(run_id)
     bus.subscribe(writer)  # every step goes to the log file...
     bus.subscribe(frontend.on_event)  # ...and to the screen
@@ -80,6 +81,17 @@ def start_run(
         def stop() -> None:
             task.cancel()
 
+        if box is not None:  # the box owns the keyboard; its Esc stops us (from its thread)
+            loop = asyncio.get_running_loop()
+
+            def stop_from_box() -> None:
+                loop.call_soon_threadsafe(stop)
+
+            box.set_cancel(stop_from_box)
+            try:
+                return await work()
+            finally:
+                box.set_cancel(None)
         with watch_stop_keys(stop) as pause:
             if pause is not None:
                 frontend.pause_keys = pause

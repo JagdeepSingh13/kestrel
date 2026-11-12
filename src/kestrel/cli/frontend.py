@@ -8,8 +8,9 @@ stdout; everything else to stderr, so `kestrel run ... > file` still captures on
 import json
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext
+from typing import Protocol
 
 from rich.console import Console, Group, RenderableType
 from rich.live import Live
@@ -33,13 +34,42 @@ type PauseKeys = Callable[[], AbstractContextManager[None]]
 """Stops the Esc watcher while the user answers a question (see `cli.keys`)."""
 
 
+class BottomBox(Protocol):
+    """The shell's input box that stays at the bottom while a turn runs (`cli.tui`).
+    When there is one, the spinner, menus and questions go through it."""
+
+    def set_activity(self, label: str | None) -> None:
+        """Show `label` with a spinner above the box; None hides it."""
+        ...
+
+    def set_cancel(self, cancel: Callable[[], None] | None) -> None:
+        """What Esc should call to stop the running turn."""
+        ...
+
+    async def choose(self, question: str, options: Sequence[tuple[str, str]]) -> str:
+        """Arrow-key menu above the box; returns the picked option's value."""
+        ...
+
+    async def ask(self, question: str) -> str:
+        """Use the box to get a typed answer."""
+        ...
+
+
 class CliFrontend:
     """Prints events as they happen."""
 
-    def __init__(self, *, show_thinking: bool = False, interactive: bool | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        show_thinking: bool = False,
+        interactive: bool | None = None,
+        box: BottomBox | None = None,
+    ) -> None:
         """`show_thinking` prints the model's reasoning, dimmed. `interactive` (default: a
-        terminal is attached) uses arrow-key menus; otherwise plain typed answers."""
+        terminal is attached) uses arrow-key menus; otherwise plain typed answers. `box`:
+        the shell's bottom input box, if it is running."""
         self.show_thinking = show_thinking
+        self.box = box
         self.interactive = (
             sys.stdin.isatty() and err_console.is_terminal if interactive is None else interactive
         )
@@ -53,6 +83,7 @@ class CliFrontend:
         self._printed_text = False
         self._printed_thinking = False
         self._answer = ""
+        self._thinking = ""
         self._live: Live | None = None
 
     def on_event(self, event: Event) -> None:
@@ -61,7 +92,7 @@ class CliFrontend:
         match event.type:
             case EventType.model_request:
                 self._printed_text = self._printed_thinking = False
-                self._answer = ""
+                self._answer = self._thinking = ""
                 self._spin("Working")
             case EventType.model_delta:
                 self._delta(_str(data.get("text")), _str(data.get("reasoning")))
@@ -111,7 +142,15 @@ class CliFrontend:
                 expand=False,
             )
         )
-        if not self.interactive:
+        options: list[tuple[ConfirmAnswer, str]] = [
+            ("yes", "Yes"),
+            ("always", f"Yes, and don't ask again for {call.name} this turn"),
+            ("no", "No"),
+        ]
+        if self.box is not None:  # the shell's bottom box draws the menu
+            answers: dict[str, ConfirmAnswer] = {value: value for value, _ in options}
+            picked = answers[await self.box.choose("Allow it?", options)]
+        elif not self.interactive:
             answer = Prompt.ask(
                 "Allow? [y]es / [n]o / [a]lways this run",
                 choices=["y", "n", "a"],
@@ -119,18 +158,13 @@ class CliFrontend:
                 console=err_console,
                 show_choices=False,
             )
-            answers: dict[str, ConfirmAnswer] = {"y": "yes", "a": "always"}
-            return answers.get(answer, "no")
+            typed: dict[str, ConfirmAnswer] = {"y": "yes", "a": "always"}
+            return typed.get(answer, "no")
+        else:
+            from kestrel.cli.prompt import choose  # prompt_toolkit only when interactive
 
-        from kestrel.cli.prompt import choose  # prompt_toolkit only when interactive
-
-        options: list[tuple[ConfirmAnswer, str]] = [
-            ("yes", "Yes"),
-            ("always", f"Yes, and don't ask again for {call.name} this turn"),
-            ("no", "No"),
-        ]
-        with self.pause_keys():
-            picked = await choose("Allow it?", options)
+            with self.pause_keys():
+                picked = await choose("Allow it?", options)
         err_console.print(
             _under(
                 {"yes": "allowed", "always": "allowed for this turn", "no": "refused"}[picked],
@@ -143,6 +177,10 @@ class CliFrontend:
         """Ask the user something on the agent's behalf (`ask_user`)."""
         self.stop()
         err_console.print(Text.assemble(("⏺ ", "yellow"), question), highlight=False)
+        if self.box is not None:
+            answer = await self.box.ask(question)
+            err_console.print(_under(answer, ""), highlight=False)
+            return answer
         if not self.interactive:
             return Prompt.ask("  ", console=err_console)
         from prompt_toolkit import PromptSession
@@ -157,8 +195,17 @@ class CliFrontend:
         if self._live is not None:
             self._live.stop()
             self._live = None
+        if self.box is not None:  # with a bottom box the answer is printed once, when done
+            if self._thinking:
+                err_console.print(Text("∴ " + self._thinking.strip(), style="dim italic"))
+                self._thinking = ""
+            if self._answer:
+                console.print(_bulleted(Markdown(self._answer)))
+                self._answer = ""
 
     def _stop_spinner(self) -> None:
+        if self.box is not None:
+            self.box.set_activity(None)
         if self._spinner is not None:
             self._spinner.stop()
             self._spinner = None
@@ -167,10 +214,19 @@ class CliFrontend:
         self.stop()
         self.label = label
         self.since = time.monotonic()
+        if self.box is not None:
+            self.box.set_activity(label)
+            return
         self._spinner = err_console.status(_Elapsed(self), spinner="dots")
         self._spinner.start()
 
     def _delta(self, text: str, reasoning: str) -> None:
+        if self.box is not None:  # collect; `stop` prints it above the box when done
+            self._thinking += reasoning if self.show_thinking else ""
+            self._answer += text
+            self.box.set_activity("Writing" if self._answer else "Thinking")
+            self._printed_text = self._printed_text or bool(text)
+            return
         if reasoning:
             if self.show_thinking:
                 self._stop_spinner()

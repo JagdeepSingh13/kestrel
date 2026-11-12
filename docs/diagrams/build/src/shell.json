@@ -520,7 +520,7 @@
   "type": "text",
   "x": 0,
   "y": 1000,
-  "text": "Under the input box: model, agent, and how full the context window is.",
+  "text": "The input box stays at the bottom the whole time; you can type ahead while a turn runs.",
   "fontSize": 18,
   "strokeColor": "#495057",
   "roughness": 0,

@@ -1,31 +1,25 @@
-"""Terminal input for the shell (prompt_toolkit), in the Claude Code style.
+"""Shared terminal input pieces (prompt_toolkit), in the Claude Code style.
 
-- `InputBox`: a bordered input box with a status line under it, input history, and the
-  matching `/commands` listed under the box as you type (Tab or arrows pick one).
-- `choose`: a small arrow-key menu, used for permission prompts.
-
-Kept apart from `shell.py` so the shell can be tested without a terminal.
+- `SlashCompleter`: the `/commands` (with their help) and model names offered as you type.
+- `input_history`: lines typed in the shell, saved between sessions.
+- `choose`: a one-off arrow-key menu (`kestrel run` in a terminal; the shell's own box
+  in `cli.tui` draws its menu itself).
 """
 
 import os
 from collections.abc import Callable, Iterable, Sequence
 
-from prompt_toolkit.application import Application, get_app
-from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.application import Application
 from prompt_toolkit.completion import CompleteEvent, Completer, Completion
 from prompt_toolkit.document import Document
-from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import StyleAndTextTuples
-from prompt_toolkit.history import FileHistory
+from prompt_toolkit.history import FileHistory, History
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
-from prompt_toolkit.layout import ConditionalContainer, HSplit, Layout, VSplit, Window
-from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
+from prompt_toolkit.layout import Layout, Window
+from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.styles import Style
-from rich.markup import escape
 
 from kestrel.cli.commands import COMMANDS
-from kestrel.cli.output import err_console
-from kestrel.cli.shell import ReadLine
 from kestrel.core.config import default_data_dir
 
 HISTORY_FILE = "shell_history"
@@ -40,6 +34,7 @@ STYLE = Style.from_dict(
         "suggestion": "#888888",
         "suggestion.selected": "bold #5fafff",
         "menu.selected": "bold #5fafff",
+        "spinner": "#d78700",
     }
 )
 
@@ -72,81 +67,15 @@ class SlashCompleter(Completer):
                     )
 
 
-class InputBox:
-    """The bordered input box. Call it with the status text; it returns the typed line.
+type InputHistory = History
+"""Lines typed in the shell, saved between sessions."""
 
-    Raises KeyboardInterrupt (Ctrl-C) or EOFError (Ctrl-D on an empty box), like `input()`.
-    """
 
-    def __init__(self, model_names: Callable[[], Sequence[str]]) -> None:
-        """Input history is saved in the data dir."""
-        data_dir = default_data_dir(os.environ)
-        data_dir.mkdir(parents=True, exist_ok=True)
-        self.history = FileHistory(str(data_dir / HISTORY_FILE))
-        self.completer = SlashCompleter(model_names)
-
-    def __call__(self, status: str) -> str:
-        """Show the box with `status` under it until Enter."""
-        buffer = Buffer(
-            history=self.history,
-            completer=self.completer,
-            complete_while_typing=True,
-            multiline=False,
-            accept_handler=lambda buf: _exit_with(buf.text),
-        )
-        keys = KeyBindings()
-
-        @keys.add("c-c")
-        def _(event: KeyPressEvent) -> None:
-            event.app.exit(exception=KeyboardInterrupt)
-
-        @keys.add("c-d", filter=Condition(lambda: not buffer.text))
-        def _(event: KeyPressEvent) -> None:
-            event.app.exit(exception=EOFError)
-
-        def suggestions() -> StyleAndTextTuples:
-            state = buffer.complete_state
-            if state is None:
-                return []
-            out: StyleAndTextTuples = []
-            for i, c in enumerate(state.completions[:MAX_SUGGESTIONS]):
-                style = (
-                    "class:suggestion.selected"
-                    if i == state.complete_index
-                    else ("class:suggestion")
-                )
-                out.append((style, f"  {c.text:<14} {c.display_meta_text}\n"))
-            return out
-
-        input_line = Window(
-            BufferControl(buffer),
-            wrap_lines=True,
-            dont_extend_height=True,
-            get_line_prefix=lambda line, wrap: [("bold", "> " if line == 0 and not wrap else "  ")],
-        )
-        box = HSplit(
-            [
-                _rule("╭", "╮"),
-                VSplit([_side(), Window(width=1), input_line, Window(width=1), _side()]),
-                _rule("╰", "╯"),
-                Window(FormattedTextControl([("class:status", f"  {status}")]), height=1),
-                ConditionalContainer(
-                    Window(FormattedTextControl(suggestions), dont_extend_height=True),
-                    filter=Condition(lambda: buffer.complete_state is not None),
-                ),
-            ]
-        )
-        app: Application[str] = Application(
-            layout=Layout(box, focused_element=input_line),
-            key_bindings=keys,
-            style=STYLE,
-            erase_when_done=True,
-        )
-        text = app.run()
-        if text.strip():
-            gap = "" if text.startswith("/") else "\n"
-            err_console.print(f"[bold]>[/bold] {escape(text)}{gap}", highlight=False)
-        return text
+def input_history() -> InputHistory:
+    """The shell's input history file in the data dir."""
+    data_dir = default_data_dir(os.environ)
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return FileHistory(str(data_dir / HISTORY_FILE))
 
 
 async def choose[T](question: str, options: Sequence[tuple[T, str]]) -> T:
@@ -195,27 +124,3 @@ async def choose[T](question: str, options: Sequence[tuple[T, str]]) -> T:
         erase_when_done=True,
     )
     return options[await app.run_async()][0]
-
-
-def terminal_read_line(model_names: Callable[[], Sequence[str]]) -> ReadLine:
-    """The shell's input in a real terminal."""
-    return InputBox(model_names)
-
-
-def _exit_with(text: str) -> bool:
-    get_app().exit(result=text)
-    return False  # clear the box (the text is already in the history)
-
-
-def _rule(left: str, right: str) -> VSplit:
-    return VSplit(
-        [
-            Window(FormattedTextControl([("class:border", left)]), width=1, height=1),
-            Window(char="─", height=1, style="class:border"),
-            Window(FormattedTextControl([("class:border", right)]), width=1, height=1),
-        ]
-    )
-
-
-def _side() -> Window:
-    return Window(char="│", width=1, style="class:border")

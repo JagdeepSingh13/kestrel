@@ -19,6 +19,7 @@ from rich.text import Text
 from kestrel.__about__ import __version__
 from kestrel.agents.schema import AgentConfig
 from kestrel.cli.agent_run import start_run
+from kestrel.cli.frontend import BottomBox
 from kestrel.cli.output import err_console
 from kestrel.core.config import ConfigError, KestrelConfig, ProviderConfig
 from kestrel.core.context import ContextManager
@@ -74,31 +75,47 @@ class Shell:
         self.open_provider = open_provider
         self.workspace = workspace
         """The only folder agents may touch (owner decision: fixed for now)."""
+        self.box: BottomBox | None = None
+        """The input box fixed at the bottom of the terminal (`cli.tui`), when running."""
 
     def run(self) -> None:
-        """Loop until `/exit` or Ctrl-D."""
-        from kestrel.cli.commands import run_command  # commands imports Shell
-
+        """Loop until `/exit` or Ctrl-D, reading lines with `read_line` (tests, no terminal).
+        In a terminal the shell runs inside `cli.tui` instead, which calls `handle`."""
         read_line = self.read_line
         if read_line is None:
             raise RuntimeError("Shell.read_line must be set before run()")
-        if self.session.model is None:
-            self._pick_first_model()
-        self._banner()
+        self.start()
         while True:
             try:
-                line = read_line(self.prompt()).strip()
+                line = read_line(self.prompt())
             except KeyboardInterrupt:
                 continue  # Ctrl-C at the prompt only clears the line
             except EOFError:
                 break
-            if not line:
-                continue
-            if line.startswith("/"):
-                if not run_command(self, line):
-                    break
-            else:
-                self.send(line)
+            if not self.handle(line):
+                break
+        self.finish()
+
+    def start(self) -> None:
+        """Pick a model if none is set, then show the welcome panel."""
+        if self.session.model is None:
+            self._pick_first_model()
+        self._banner()
+
+    def handle(self, line: str) -> bool:
+        """Run one typed line: a /command or a message to the agent. False means leave."""
+        from kestrel.cli.commands import run_command  # commands imports Shell
+
+        line = line.strip()
+        if not line:
+            return True
+        if line.startswith("/"):
+            return run_command(self, line)
+        self.send(line)
+        return True
+
+    def finish(self) -> None:
+        """Say goodbye."""
         err_console.print("[dim]Bye.[/dim]")
 
     def prompt(self) -> str:
@@ -137,6 +154,7 @@ class Shell:
             env=self.env,
             show_thinking=self.session.show_thinking,
             conversation=self.session.conversation,
+            box=self.box,
         )
         if result is None or result.stopped_reason is StopReason.error:
             err_console.print("[dim]That turn was not kept.[/dim]")

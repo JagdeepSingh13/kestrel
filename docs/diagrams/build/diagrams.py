@@ -695,7 +695,7 @@ def shell() -> Diagram:
     d.text(
         0,
         1000,
-        "Under the input box: model, agent, and how full the context window is.",
+        "The input box stays at the bottom the whole time; you can type ahead while a turn runs.",
         size=18,
     )
     return d
@@ -704,9 +704,7 @@ def shell() -> Diagram:
 def agent_run() -> Diagram:
     """One agent run: the loop, the window, and the checks before every tool."""
     d = Diagram("agent-run")
-    d.box(
-        "task", 0, 0, 420, 90, YELLOW, "Your message\ncount the lines in every .py file", size=18
-    )
+    d.box("task", 0, 0, 420, 90, YELLOW, "Your message\ncount the lines in every .py file", size=18)
     d.box(
         "ctx",
         0,

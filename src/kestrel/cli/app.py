@@ -187,8 +187,9 @@ def trace(
 
 
 def _start_shell(model: str | None, provider: str | None) -> None:
-    from kestrel.cli.prompt import terminal_read_line
+    from kestrel.cli.prompt import input_history
     from kestrel.cli.shell import Session, Shell
+    from kestrel.cli.tui import Tui
 
     config = _load_config_or_exit()
     provider_name, _ = _pick_provider_or_exit(config, provider)
@@ -208,8 +209,7 @@ def _start_shell(model: str | None, provider: str | None) -> None:
         env=os.environ,
         workspace=agent_run.default_workspace(),
     )
-    shell.read_line = terminal_read_line(lambda: shell.model_names)
-    shell.run()
+    Tui(shell, input_history()).run()
 
 
 def _resolve_or_exit(provider: str | None, model: str | None) -> tuple[str, ProviderConfig, str]:
