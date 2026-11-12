@@ -135,5 +135,7 @@ def _kill(proc: asyncio.subprocess.Process) -> None:
             check=False,
         )
     else:
-        with contextlib.suppress(ProcessLookupError):  # it already exited
+        # Already gone: ProcessLookupError, or on macOS EPERM when the group's leader has
+        # exited but not been reaped yet. Either way there is nothing left to stop.
+        with contextlib.suppress(ProcessLookupError, PermissionError):
             os.killpg(proc.pid, signal.SIGKILL)
