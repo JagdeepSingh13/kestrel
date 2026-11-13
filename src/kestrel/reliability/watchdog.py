@@ -5,13 +5,13 @@ The watchdog answers with signals:
 - `warn`: the model gets a short note after the tool result, once per signal, and a
   `loop_warning` event is logged;
 - `stuck`: the run cannot make progress. M4 stops it (`stopped_reason=loop`); M4.5 steps
-  up to a bigger model instead, through the loop's `on_stuck` hook.
+  up to a bigger model instead, through the run's model ladder.
 
 Signals: `repeat` (same call, same arguments, in a row), `oscillation` (A, B, A, B),
 `stall` (the same call keeps giving the same result), `tool_errors` (failures in a
 row), `context_overflow` (even after trimming, the prompt does not fit the window;
 Ollama would silently drop its start). `repairs_exhausted` comes from the loop.
-After `on_stuck` handles a signal, the loop calls `reset()` so the next model starts
+After the ladder steps up, the loop calls `reset()` so the next model starts
 with a clean slate.
 """
 

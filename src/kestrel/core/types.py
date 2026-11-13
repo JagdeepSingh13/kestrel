@@ -5,6 +5,7 @@ Providers convert backend wire formats into these types; nothing above
 """
 
 from collections.abc import AsyncIterator, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal, Protocol, Self
@@ -177,6 +178,10 @@ class EventType(StrEnum):
     loop_warning = "loop_warning"
     web = "web"
     """A web search, fetch (or block), or research summary from inside a tool (M4.1)."""
+    step_up = "step_up"
+    """A stuck step went to a bigger model (M4.5): from, to, reason, detail."""
+    step_down = "step_down"
+    """After a good step, back to the smaller model (M4.5)."""
     nudge = "nudge"
     """A reply announced an action but called no tool; the model was asked again (M4.2)."""
     stuck = "stuck"
@@ -230,6 +235,44 @@ class RunResult(_Model):
     prompt_tokens: int
     completion_tokens: int
     wall_seconds: float
+
+
+@dataclass(frozen=True)
+class Rung:
+    """One step of the model ladder (M4.5): which model answers, and how."""
+
+    provider: "Provider"
+    model: str
+    label: str = ""
+    """How it is shown and logged: `qwen3:8b`, `openrouter:google/gemma-4-26b-a4b-it:free`."""
+    window: int | None = None
+    """Its context window; None keeps the run's window."""
+    think: bool | None = None
+    """None: the run's thinking setting."""
+
+    @property
+    def name(self) -> str:
+        """`label`, else the model name."""
+        return self.label or self.model
+
+
+class Ladder(Protocol):
+    """The models a run may use, smallest first (M4.5). The loop asks it which rung to
+    use each step, and tells it when the run is stuck and how each step went."""
+
+    def current(self) -> Rung:
+        """The rung for the next step."""
+        ...
+
+    async def step_up(self, reason: str, detail: str) -> Rung | None:
+        """The run is stuck (`reason` is the watchdog signal). The next rung up, or None
+        to stop (no rung left, or a cloud step you declined)."""
+        ...
+
+    def after_step(self, ok: bool) -> Rung | None:
+        """A step finished (`ok`: its tool worked). The rung stepped back down to, if
+        any."""
+        ...
 
 
 class Toolbox(Protocol):

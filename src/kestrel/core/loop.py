@@ -8,22 +8,24 @@ M4 adds tool-call repair and loop detection; M3 adds permission checks.
 
 import asyncio
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from kestrel.core.context import ContextManager, wrap_untrusted
+from kestrel.core.context import NOTE_PREFIX, ContextManager, wrap_untrusted
 from kestrel.core.events import EventBus
 from kestrel.core.types import (
     BadBackendResponseError,
     EventType,
     JSONObject,
     JSONValue,
+    Ladder,
     Message,
     ModelResponse,
     PermissionGate,
     Provider,
     ProviderError,
     Role,
+    Rung,
     RunResult,
     StopReason,
     Toolbox,
@@ -35,8 +37,11 @@ from kestrel.reliability.nudge import nudge_for
 from kestrel.reliability.repair import Fix, repair
 from kestrel.reliability.watchdog import Signal, Watchdog, WatchLimits
 
-type OnStuck = Callable[[Signal], Awaitable[bool]]
-"""Called when a run is stuck; True means it was handled and the run goes on."""
+HANDOFF_NOTE = (
+    f"{NOTE_PREFIX} a smaller model ({{small}}) got stuck here: {{reason}} ({{detail}}). "
+    "You are a bigger model taking over this step. Do not repeat what failed; take "
+    "another approach.)"
+)
 
 DENIED_PREFIX = "ERROR: (not allowed) "
 """Start of the result for a call the permission gate refused."""
@@ -75,6 +80,26 @@ class Budgets:
     the run is stuck."""
 
 
+class FixedLadder:
+    """One rung, never moves: a run with a single model."""
+
+    def __init__(self, rung: Rung) -> None:
+        """Always `rung`."""
+        self.rung = rung
+
+    def current(self) -> Rung:
+        """The only rung."""
+        return self.rung
+
+    async def step_up(self, reason: str, detail: str) -> Rung | None:
+        """Nowhere to go: the run stops."""
+        return None
+
+    def after_step(self, ok: bool) -> Rung | None:
+        """Never moves."""
+        return None
+
+
 @dataclass
 class _Totals:
     steps: int = 0
@@ -86,8 +111,8 @@ class _Totals:
 async def run_agent(
     task: str,
     *,
-    provider: Provider,
-    model: str,
+    provider: Provider | None = None,
+    model: str | None = None,
     toolbox: Toolbox,
     bus: EventBus,
     context: ContextManager,
@@ -95,16 +120,23 @@ async def run_agent(
     gate: PermissionGate | None = None,
     temperature: float = 0.2,
     clock: Callable[[], float] = time.monotonic,
-    on_stuck: OnStuck | None = None,
     think: bool | None = None,
+    ladder: Ladder | None = None,
 ) -> RunResult:
     """Run one task to the end and return what happened.
 
     Backend failures end the run with `stopped_reason=error` (not an exception).
     Cancellation (Ctrl-C) logs `run_end` with `cancelled`, then propagates.
-    When the run is stuck (watchdog or repairs), `on_stuck` decides: True carries on
-    (M4.5 steps up a model there); without it, or on False, the run stops with `loop`.
+    Models come from `ladder` (M4.5), or else the one `provider` and `model`. When the
+    run is stuck (watchdog or repairs) the ladder may step up to a bigger model, which
+    gets a short handoff note; with no rung left the run stops with `loop`.
     """
+    if ladder is None:
+        if provider is None or model is None:
+            raise ValueError("run_agent needs a ladder, or a provider and a model")
+        ladder = FixedLadder(Rung(provider, model))
+    by_model: dict[str, list[int]] = {}
+    """Steps, prompt tokens and completion tokens per model."""
     budgets = budgets or Budgets()
     specs = toolbox.specs()
     started = clock()
@@ -120,20 +152,35 @@ async def run_agent(
     """Whether the latest tool call failed (for the after-failure nudge)."""
 
     async def stop_for(signal: Signal, step: int) -> bool:
-        """Log a stuck signal; True when the run should stop."""
+        """Log a stuck signal, then step up if the ladder can; True when the run stops."""
         bus.emit(EventType.stuck, step, {"signal": signal.signal, "detail": signal.detail})
-        if on_stuck is not None and await on_stuck(signal):
-            watchdog.reset()  # handled (e.g. a bigger model): judge it afresh
-            return False
-        return True
+        small = ladder.current().name
+        bigger = await ladder.step_up(signal.signal, signal.detail)
+        if bigger is None:
+            return True
+        bus.emit(
+            EventType.step_up,
+            step,
+            {"from": small, "to": bigger.name, "reason": signal.signal, "detail": signal.detail},
+        )
+        note = HANDOFF_NOTE.format(small=small, reason=signal.signal, detail=signal.detail)
+        context.add(Message(role=Role.user, content=note))
+        watchdog.reset()  # a new model: judge it afresh
+        return False
+
+    def step_done(step: int, ok: bool) -> None:
+        before = ladder.current().name
+        down = ladder.after_step(ok)
+        if down is not None:
+            bus.emit(EventType.step_down, step, {"from": before, "to": down.name})
 
     bus.emit(
         EventType.run_start,
         0,
         {
             "task": task,
-            "model": model,
-            "provider": provider.name,
+            "model": ladder.current().name,
+            "provider": ladder.current().provider.name,
             "tools": [s.name for s in specs],
             "tool_specs": [s.model_dump(mode="json") for s in specs],
             "max_steps": budgets.max_steps,
@@ -150,14 +197,27 @@ async def run_agent(
                 reason = StopReason.budget
                 break
             totals.steps = step
+            rung = ladder.current()
+            if rung.window is not None:
+                context.window = rung.window  # each model gets the conversation trimmed to fit
             response, over_budget = await _ask_model(
-                provider, model, specs, context, bus, step, temperature, think
+                rung,
+                specs,
+                context,
+                bus,
+                step,
+                temperature,
+                think if rung.think is None else rung.think,
             )
+            counts = by_model.setdefault(rung.name, [0, 0, 0])
+            counts[0] += 1
             prompt_tokens = None
             if response.usage is not None:
                 prompt_tokens = response.usage.prompt_tokens
                 totals.prompt_tokens += response.usage.prompt_tokens or 0
                 totals.completion_tokens += response.usage.completion_tokens or 0
+                counts[1] += response.usage.prompt_tokens or 0
+                counts[2] += response.usage.completion_tokens or 0
 
             message = response.message
             repaired = repair(  # model_response above keeps the verbatim reply
@@ -209,9 +269,11 @@ async def run_agent(
             full = watchdog.after_prompt(
                 over_budget=over_budget, prompt_tokens=prompt_tokens, window=context.window
             )
-            if full is not None and await stop_for(full, step):
-                reason = StopReason.loop
-                break
+            if full is not None:
+                if await stop_for(full, step):
+                    reason = StopReason.loop
+                    break
+                continue  # the bigger rung answers this step afresh
 
             call = repaired.calls[0]  # one call per step (repair step 6)
             context.add(_stored(message, call, repaired.content))
@@ -240,9 +302,12 @@ async def run_agent(
                 content += f"\n{steps_left_note(left)}"
             context.add(_tool_message(call, content))
             stuck = next((s for s in signals if s.level == "stuck"), None)
-            if stuck is not None and await stop_for(stuck, step):
-                reason = StopReason.loop
-                break
+            if stuck is not None:
+                if await stop_for(stuck, step):
+                    reason = StopReason.loop
+                    break
+            else:
+                step_done(step, not result.is_error)
 
             used = totals.prompt_tokens + totals.completion_tokens
             if budgets.max_tokens_total is not None and used >= budgets.max_tokens_total:
@@ -252,11 +317,11 @@ async def run_agent(
         bus.emit(EventType.error, totals.steps, {"kind": type(exc).__name__, "message": str(exc)})
         reason = StopReason.error
     except (asyncio.CancelledError, KeyboardInterrupt):
-        _end(bus, totals, StopReason.cancelled, clock() - started)
+        _end(bus, totals, StopReason.cancelled, clock() - started, by_model)
         raise
 
     wall = clock() - started
-    _end(bus, totals, reason, wall)
+    _end(bus, totals, reason, wall, by_model)
     return RunResult(
         run_id=bus.run_id,
         stopped_reason=reason,
@@ -269,8 +334,7 @@ async def run_agent(
 
 
 async def _ask_model(
-    provider: Provider,
-    model: str,
+    rung: Rung,
     specs: list[ToolSpec],
     context: ContextManager,
     bus: EventBus,
@@ -296,6 +360,7 @@ async def _ask_model(
         EventType.model_request,
         step,
         {
+            "model": rung.name,
             "message_count": len(prompt.messages),
             "est_tokens": prompt.est_tokens,
             # Exactly what the model is shown this step, after trimming (big ones go to a
@@ -304,8 +369,8 @@ async def _ask_model(
         },
     )
     final: ModelResponse | None = None
-    async for chunk in provider.stream(
-        prompt.messages, specs or None, model=model, temperature=temperature, think=think
+    async for chunk in rung.provider.stream(
+        prompt.messages, specs or None, model=rung.model, temperature=temperature, think=think
     ):
         if chunk.text or chunk.reasoning:
             bus.emit(
@@ -332,6 +397,7 @@ async def _ask_model(
             "tool_calls": [_call_data(c) for c in final.message.tool_calls],
             "finish_reason": final.finish_reason,
             "usage": usage,
+            "model": rung.name,
         },
     )
     return final, prompt.over_budget
@@ -457,7 +523,13 @@ def _message_data(message: Message) -> JSONObject:
     return data
 
 
-def _end(bus: EventBus, totals: _Totals, reason: StopReason, wall: float) -> None:
+def _end(
+    bus: EventBus,
+    totals: _Totals,
+    reason: StopReason,
+    wall: float,
+    by_model: dict[str, list[int]],
+) -> None:
     bus.emit(
         EventType.run_end,
         totals.steps,
@@ -468,5 +540,9 @@ def _end(bus: EventBus, totals: _Totals, reason: StopReason, wall: float) -> Non
             "prompt_tokens": totals.prompt_tokens,
             "completion_tokens": totals.completion_tokens,
             "wall_seconds": round(wall, 3),
+            "by_model": {
+                name: {"steps": c[0], "prompt_tokens": c[1], "completion_tokens": c[2]}
+                for name, c in by_model.items()
+            },
         },
     )

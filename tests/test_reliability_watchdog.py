@@ -5,9 +5,18 @@ import asyncio
 from kestrel.core.context import ContextManager
 from kestrel.core.events import EventBus
 from kestrel.core.loop import Budgets, run_agent
-from kestrel.core.types import Event, EventType, Role, StopReason, ToolCall, ToolResult, Usage
+from kestrel.core.types import (
+    Event,
+    EventType,
+    Role,
+    Rung,
+    StopReason,
+    ToolCall,
+    ToolResult,
+    Usage,
+)
 from kestrel.providers.fake import FakeProvider
-from kestrel.reliability.watchdog import Signal, Watchdog, WatchLimits
+from kestrel.reliability.watchdog import Watchdog, WatchLimits
 from kestrel.tools.demo import DemoToolbox
 
 
@@ -124,18 +133,47 @@ def test_loop_warns_the_model_then_stops_when_stuck() -> None:
     assert last_tool.content is not None and "same arguments 2 times" in last_tool.content
 
 
-def test_on_stuck_can_keep_the_run_going() -> None:
+class TwoRungs:
+    """A test ladder: `small` until stuck, then `big` for one good step, then back."""
+
+    def __init__(self, small: FakeProvider, big: FakeProvider) -> None:
+        self.rungs = [Rung(small, "small"), Rung(big, "big", think=True)]
+        self.at = 0
+        self.reasons: list[str] = []
+
+    def current(self) -> Rung:
+        return self.rungs[self.at]
+
+    async def step_up(self, reason: str, detail: str) -> Rung | None:
+        self.reasons.append(reason)
+        if self.at + 1 >= len(self.rungs):
+            return None
+        self.at += 1
+        return self.rungs[self.at]
+
+    def after_step(self, ok: bool) -> Rung | None:
+        if self.at and ok:
+            self.at = 0
+            return self.rungs[0]
+        return None
+
+
+def test_a_stuck_step_goes_up_with_a_note_and_comes_back_down() -> None:
     same = FakeProvider.tool_call("add", {"a": 1, "b": 2})
-    fake = FakeProvider([same, same, same, FakeProvider.text("3")])
-    handled: list[Signal] = []
-
-    async def step_up(signal: Signal) -> bool:
-        handled.append(signal)
-        return True  # M4.5 would switch to a bigger model here
-
-    _, reason = asyncio.run(run(fake, on_stuck=step_up))
+    small = FakeProvider([same, same, same, same, FakeProvider.text("7")])
+    big = FakeProvider([FakeProvider.tool_call("add", {"a": 3, "b": 4})])
+    ladder = TwoRungs(small, big)
+    events, reason = asyncio.run(run(small, ladder=ladder))
     assert reason is StopReason.final
-    assert [s.signal for s in handled] == ["repeat"]
+    kinds = [e.type for e in events if e.type in (EventType.step_up, EventType.step_down)]
+    assert kinds == [EventType.step_up, EventType.step_down]
+    up = next(e for e in events if e.type is EventType.step_up)
+    assert (up.data["from"], up.data["to"], up.data["reason"]) == ("small", "big", "repeat")
+    handoff = big.calls[0].messages[-1].content or ""
+    assert handoff.startswith("(Kestrel: a smaller model (small) got stuck here: repeat")
+    assert big.calls[0].think is True  # thinking on for the handed-off step
+    end = next(e for e in events if e.type is EventType.run_end)
+    assert set(end.data["by_model"]) == {"small", "big"}  # type: ignore[arg-type]
 
 
 def test_a_prompt_that_cannot_fit_stops_a_tool_step() -> None:
@@ -151,14 +189,22 @@ def test_a_final_answer_is_kept_even_when_the_prompt_was_too_big() -> None:
     assert reason is StopReason.final
 
 
-def test_repairs_exhausted_goes_through_on_stuck() -> None:
+def test_repairs_exhausted_also_steps_up_and_the_top_rung_stuck_stops() -> None:
     bad = FakeProvider.tool_call("add", {"a": "many", "b": 1})
-    handled: list[str] = []
+    small = FakeProvider([bad, bad, bad])
+    big = FakeProvider([bad, bad, bad])
+    ladder = TwoRungs(small, big)
+    _, reason = asyncio.run(run(small, ladder=ladder))
+    assert ladder.reasons == ["repairs_exhausted", "repairs_exhausted"]
+    assert reason is StopReason.loop  # no rung above the top one
 
-    async def step_up(signal: Signal) -> bool:
-        handled.append(signal.signal)
-        return True
 
-    fake = FakeProvider([bad, bad, bad, FakeProvider.text("3")])
-    _, reason = asyncio.run(run(fake, on_stuck=step_up))
-    assert reason is StopReason.final and handled == ["repairs_exhausted"]
+def test_after_an_overflow_step_up_the_bigger_model_answers() -> None:
+    big_prompt = FakeProvider.tool_call("add", {"a": 1, "b": 2}, usage=Usage(prompt_tokens=1_000))
+    small = FakeProvider([big_prompt])
+    big = FakeProvider([FakeProvider.text("3")])
+    ladder = TwoRungs(small, big)
+    events, reason = asyncio.run(run(small, ladder=ladder, window=1_024))
+    assert reason is StopReason.final and len(big.calls) == 1
+    assert not [e for e in events if e.type is EventType.step_down]
+    assert not [e for e in events if e.type is EventType.tool_call]  # the small call never ran
