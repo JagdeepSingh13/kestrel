@@ -427,7 +427,7 @@ def _result_data(call: ToolCall, result: ToolResult, seconds: float) -> JSONObje
 
 def _source(call: ToolCall) -> str:
     """`read_file:src/app.py`: the tool plus what it looked at, for the untrusted tag."""
-    for key in ("path", "command"):
+    for key in ("path", "command", "question"):
         value = call.arguments.get(key)
         if isinstance(value, str):
             return f"{call.name}:{value[:80]}"

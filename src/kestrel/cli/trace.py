@@ -8,6 +8,7 @@ from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
+from kestrel.cli.frontend import describe_web
 from kestrel.cli.output import window_fix
 from kestrel.core.events import first_task, load_value, read_events
 from kestrel.core.types import Event, EventType, JSONValue
@@ -171,8 +172,15 @@ def describe(event: Event, *, full: bool = False) -> str:
             return f"{d.get('signal')}: {text(d.get('detail'))}"
         case EventType.stuck:
             return f"{d.get('signal')}: {text(d.get('detail'))}"
+        case EventType.web:
+            return describe_web(d)
         case EventType.nudge:
-            return f"announced an action without a call: {text(d.get('said'))}"
+            why = (
+                "stopped after a failed tool"
+                if d.get("kind") == "after_failure"
+                else "announced an action without a call"
+            )
+            return f"{why}: {text(d.get('said'))}"
         case EventType.final:
             return text(d.get("answer"))
         case EventType.error:

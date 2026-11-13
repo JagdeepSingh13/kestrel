@@ -11,6 +11,7 @@ from kestrel.tools.files import (
 from kestrel.tools.interact import ask_user
 from kestrel.tools.process import python_exec, run_shell
 from kestrel.tools.registry import Tool
+from kestrel.tools.research import research
 
 BUILTIN_TOOLS: dict[str, Tool] = {
     t.name: t
@@ -24,5 +25,6 @@ BUILTIN_TOOLS: dict[str, Tool] = {
         run_shell,
         python_exec,
         ask_user,
+        research,
     ]
 }

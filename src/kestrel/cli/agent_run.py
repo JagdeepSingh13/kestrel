@@ -3,6 +3,7 @@ is a run) and the terminal's `kestrel run`, so both behave the same."""
 
 import asyncio
 import contextlib
+import dataclasses
 from collections.abc import Callable, Mapping
 from contextlib import AbstractAsyncContextManager
 from datetime import date
@@ -17,13 +18,14 @@ from kestrel.core.config import ProviderConfig
 from kestrel.core.context import NOTE_PREFIX, UNTRUSTED_RULE, ContextManager
 from kestrel.core.events import EventBus, JsonlWriter, new_run_id, runs_dir
 from kestrel.core.loop import DEFAULT_SYSTEM_PROMPT, Budgets, run_agent
-from kestrel.core.types import EventType, Message, Provider, Role, RunResult, StopReason
+from kestrel.core.types import EventType, JSONObject, Message, Provider, Role, RunResult, StopReason
 from kestrel.providers.profiles import Profile, ProfileCache, cache_path, probe
 from kestrel.safety.paths import Workspace
 from kestrel.safety.permissions import Permissions
 from kestrel.safety.redact import Redactor
 from kestrel.tools.builtin import BUILTIN_TOOLS
 from kestrel.tools.registry import FileStamp, ToolContext, ToolRegistry
+from kestrel.tools.research import urls_in
 
 type OpenProvider = Callable[[str, ProviderConfig], AbstractAsyncContextManager[Provider]]
 
@@ -94,6 +96,13 @@ def start_run(
     bus = EventBus(run_id)
     bus.subscribe(writer)  # every step goes to the log file...
     bus.subscribe(frontend.on_event)  # ...and to the screen
+    step_now = [0]
+    """The loop's current step, so events from inside a tool land on it."""
+    bus.subscribe(lambda event: step_now.__setitem__(0, event.step))
+
+    def emit(kind: str, data: JSONObject) -> None:
+        bus.emit(EventType(kind), step_now[0], data)
+
     tools = ToolRegistry(
         [BUILTIN_TOOLS[name] for name in agent.tools],
         ToolContext(
@@ -101,6 +110,9 @@ def start_run(
             env=env,
             ask=frontend.ask,
             seen=seen_files if seen_files is not None else {},
+            emit=emit,
+            user_urls=frozenset(_user_urls(task, conversation)),
+            window=window,
         ),
     )
     context = conversation or ContextManager(None)
@@ -143,6 +155,22 @@ def start_run(
             {**profile.model_dump(mode="json"), "wanted_window": agent.context.window},
         )
         async with open_provider(provider_name, provider_config) as provider:
+
+            async def complete(system: str, user: str, max_tokens: int) -> str:
+                reply = await provider.chat(
+                    [
+                        Message(role=Role.system, content=system),
+                        Message(role=Role.user, content=user),
+                    ],
+                    None,
+                    model=model,
+                    temperature=0.1,
+                    max_tokens=max_tokens,
+                    think=False,
+                )
+                return reply.message.content or ""
+
+            tools.context = dataclasses.replace(tools.context, complete=complete)
             return await run_agent(
                 task,
                 provider=provider,
@@ -182,6 +210,15 @@ _probed: set[tuple[str, str]] = set()
 """(backend, model) pairs asked this session: once per session keeps profiles fresh
 (a re-pulled model, a restarted backend) without asking on every turn."""
 _warned_windows: set[tuple[str, int]] = set()
+
+
+def _user_urls(task: str, conversation: ContextManager | None) -> set[str]:
+    """Links the user typed, in this message or earlier ones (never in tool output)."""
+    found: set[str] = urls_in(task)
+    for message in conversation.history if conversation else []:
+        if message.role is Role.user and not _is_note(message):
+            found |= urls_in(message.content or "")
+    return found
 
 
 def _is_note(message: Message) -> bool:

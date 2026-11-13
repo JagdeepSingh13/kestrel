@@ -22,12 +22,16 @@ from pydantic import BaseModel, ConfigDict, ValidationError, create_model
 from kestrel.core.context import head_tail
 from kestrel.core.types import JSONObject, JSONValue, ToolCall, ToolResult, ToolSpec
 from kestrel.safety.paths import PathNotAllowedError, Workspace
+from kestrel.tools.web.fetch import Web
 
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_MAX_OUTPUT_CHARS = 20_000
 
 type Permission = Literal["allow", "confirm", "deny"]
 
+
+type Complete = Callable[[str, str, int], Awaitable[str]]
+"""(system prompt, user message, max tokens) to the model's reply text."""
 
 type FileStamp = tuple[int, int]
 """A file's modification time (ns) and size: if either moved, it changed."""
@@ -44,6 +48,18 @@ class ToolContext:
     seen: dict[Path, FileStamp] = field(default_factory=dict[Path, FileStamp])
     """Files the model has read or written, with their modification time and size then. Kept for
     a whole shell conversation, so an edit can require a fresh read."""
+    complete: Complete | None = None
+    """One extra model call (the agent's own model, thinking off), for tools that need a
+    summary (`research`). Set by the run once the backend is open."""
+    emit: Callable[[str, JSONObject], None] | None = None
+    """Log a `web` event (kind, data) from inside a tool. Set by the run."""
+    user_urls: frozenset[str] = frozenset()
+    """Links the user typed in this conversation: the only links a tool may open besides
+    search results (a model cannot smuggle data out through a URL it made up)."""
+    window: int = 16_384
+    """The model's context window, so a tool can size what it sends to `complete`."""
+    web: Web = field(default_factory=Web)
+    """How tools reach the web (tests swap the network)."""
 
 
 type Precheck = Callable[[ToolContext, BaseModel], str | None]

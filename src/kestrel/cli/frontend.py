@@ -11,6 +11,7 @@ import json
 import time
 from collections.abc import Callable, Sequence
 from typing import Protocol
+from urllib.parse import urlsplit
 
 from rich.console import Console, Group, RenderableType
 from rich.markdown import Markdown
@@ -118,12 +119,15 @@ class CliFrontend:
                 err_console.print(Text("  ! warned: " + _str(data.get("detail")), style="yellow"))
             case EventType.nudge:
                 self._stop_spinner()
-                err_console.print(
-                    Text(
-                        "  ↻ it said it would act but called no tool; asked it to go on",
-                        style="dim",
-                    )
+                why = (
+                    "its tool failed and it stopped"
+                    if data.get("kind") == "after_failure"
+                    else "it said it would act but called no tool"
                 )
+                err_console.print(Text(f"  ↻ {why}; asked it to go on", style="dim"))
+            case EventType.web:
+                self._stop_spinner()
+                err_console.print(Text("     " + describe_web(data), style="dim"))
             case EventType.stuck:
                 self._stop_spinner()
                 err_console.print(
@@ -304,9 +308,37 @@ def summarize_result(content: JSONValue) -> str:
     return shown
 
 
+def describe_web(data: JSONObject) -> str:
+    """One line for a `web` event: a search, a page read or skipped, the summary."""
+    kind = data.get("kind")
+    if kind == "search":
+        if data.get("error"):
+            return f"search failed: {data.get('error')}"
+        results = data.get("results")
+        count = len(results) if isinstance(results, list) else 0
+        return f"searched {data.get('backend')}: {count} results"
+    if kind == "fetch":
+        try:
+            host = urlsplit(_str(data.get("final_url") or data.get("url"))).hostname or "?"
+        except ValueError:  # a malformed link must never break the screen
+            host = "?"
+        problem = data.get("blocked") or data.get("error")
+        if problem:
+            return f"skipped {host}: {problem}"
+        return f"read {host} ({_int(data.get('bytes')) // 1024} KB)"
+    if kind == "summary":
+        return "summarized the pages"
+    return str(kind)
+
+
 def confirm_preview(call: ToolCall) -> RenderableType:
     """Exactly what will run: the command, the code, or the file about to be written."""
     args = call.arguments
+    question = args.get("question")
+    if call.name == "research" and isinstance(question, str):
+        return Text.assemble(
+            ("search the web (DuckDuckGo) and read the top pages for:\n", "bold"), question
+        )
     code, command, path = args.get("code"), args.get("command"), args.get("path")
     if isinstance(code, str):
         return Syntax(_clip(code), "python", theme="ansi_dark", background_color="default")

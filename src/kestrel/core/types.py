@@ -175,6 +175,8 @@ class EventType(StrEnum):
     tool_result = "tool_result"
     context_trim = "context_trim"
     loop_warning = "loop_warning"
+    web = "web"
+    """A web search, fetch (or block), or research summary from inside a tool (M4.1)."""
     nudge = "nudge"
     """A reply announced an action but called no tool; the model was asked again (M4.2)."""
     stuck = "stuck"

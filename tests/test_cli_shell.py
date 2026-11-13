@@ -345,3 +345,20 @@ def test_status_line_shows_the_window_the_backend_really_loaded(
     shell, _ = make_shell(["hi"], FakeProvider([FakeProvider.text("hello")]))
     shell.run()
     assert "of 4K (backend loaded it small" in shell.prompt()
+
+
+def test_only_links_the_user_typed_count_as_theirs() -> None:
+    from kestrel.cli.agent_run import _user_urls  # pyright: ignore[reportPrivateUsage]
+    from kestrel.core.context import ContextManager
+    from kestrel.core.types import Message, Role
+    from kestrel.reliability.nudge import NOTE
+
+    talk = ContextManager(None)
+    talk.add(Message(role=Role.user, content="see https://mine.example/a."))
+    talk.add(Message(role=Role.assistant, content="try https://model.example/b"))
+    talk.add(Message(role=Role.tool, content="https://page.example/c", tool_call_id="t"))
+    talk.add(Message(role=Role.user, content=NOTE + " https://note.example/d"))
+    assert _user_urls("and https://now.example/e", talk) == {
+        "https://mine.example/a",
+        "https://now.example/e",
+    }
