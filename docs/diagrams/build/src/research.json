@@ -1,0 +1,496 @@
+[
+ {
+  "type": "text",
+  "x": 0,
+  "y": -70,
+  "text": "Web research as one tool",
+  "fontSize": 34,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "agent",
+  "x": 0,
+  "y": 0,
+  "width": 300,
+  "height": 180,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 14,
+  "text": "Agent (small model)",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 56,
+  "width": 264,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    264,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 68,
+  "text": "only writes the question:\nresearch(\"...\");\nyou approve the first\nweb call of the turn",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "search",
+  "x": 400,
+  "y": 0,
+  "width": 300,
+  "height": 180,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 418,
+  "y": 14,
+  "text": "1. Search",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 418,
+  "y": 56,
+  "width": 264,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    264,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 418,
+  "y": 68,
+  "text": "DuckDuckGo's plain HTML\nresults page; one query\nper call (SearXNG later)",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "fetch",
+  "x": 800,
+  "y": 0,
+  "width": 320,
+  "height": 180,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 818,
+  "y": 14,
+  "text": "2. Fetch 3 pages",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 818,
+  "y": 56,
+  "width": 284,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    284,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 818,
+  "y": 68,
+  "text": "only links from the search\n(or pasted by you); public\naddresses only; size and\ntime caps; page to text",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "summ",
+  "x": 800,
+  "y": 290,
+  "width": 320,
+  "height": 200,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 818,
+  "y": 304,
+  "text": "3. Summarize",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 818,
+  "y": 346,
+  "width": 284,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    284,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 818,
+  "y": 358,
+  "text": "a second call to the same\nmodel; pages marked as\nuntrusted data; answer\nonly from them, cite [n]",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "result",
+  "x": 400,
+  "y": 290,
+  "width": 300,
+  "height": 200,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 418,
+  "y": 304,
+  "text": "4. Result",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 418,
+  "y": 346,
+  "width": 264,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    264,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 418,
+  "y": 358,
+  "text": "short answer with [1] [2]\nand a sources list Kestrel\nwrites itself; marked\nuntrusted for the agent",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "log",
+  "x": 0,
+  "y": 290,
+  "width": 300,
+  "height": 200,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 304,
+  "text": "Run log",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 346,
+  "width": 264,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    264,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 358,
+  "text": "every query, URL, block\nreason, page text and the\nsummary prompt: /trace\nshows what was read",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 303,
+  "y": 90.0,
+  "width": 94,
+  "height": 1,
+  "start": {
+   "id": "agent"
+  },
+  "end": {
+   "id": "search"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 310.0,
+  "y": 58.0,
+  "text": "question",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 703,
+  "y": 90.0,
+  "width": 94,
+  "height": 1,
+  "start": {
+   "id": "search"
+  },
+  "end": {
+   "id": "fetch"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 725.0,
+  "y": 58.0,
+  "text": "links",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 960.0,
+  "y": 183,
+  "width": 1,
+  "height": 104,
+  "start": {
+   "id": "fetch"
+  },
+  "end": {
+   "id": "summ"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 972.0,
+  "y": 223.0,
+  "text": "page text",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 797,
+  "y": 390.0,
+  "width": -94,
+  "height": 1,
+  "start": {
+   "id": "summ"
+  },
+  "end": {
+   "id": "result"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 720.0,
+  "y": 358.0,
+  "text": "answer",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 350.0,
+  "y": 287,
+  "width": 1,
+  "height": -104,
+  "start": {
+   "id": "result"
+  },
+  "end": {
+   "id": "agent"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 362.0,
+  "y": 223.0,
+  "text": "tool result",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 397,
+  "y": 390.0,
+  "width": -94,
+  "height": 1,
+  "start": {
+   "id": "result"
+  },
+  "end": {
+   "id": "log"
+  },
+  "strokeStyle": "dashed",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 320.0,
+  "y": 358.0,
+  "text": "logged",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 0,
+  "y": 560,
+  "text": "The small model never manages a sub-agent and never picks a URL itself.",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ }
+]

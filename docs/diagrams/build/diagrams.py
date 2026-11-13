@@ -1016,6 +1016,76 @@ def repair_steps() -> Diagram:
     return d
 
 
+def research() -> Diagram:
+    """M4.1: one research tool; Kestrel runs the pipeline, the model asks."""
+    d = Diagram("research", clean=True)
+    d.text(0, -70, "Web research as one tool", size=34, color="#1e1e1e")
+    d.card(
+        "agent",
+        0,
+        0,
+        300,
+        180,
+        "Agent (small model)",
+        'only writes the question:\nresearch("...");\nyou approve the first\nweb call of the turn',
+    )
+    d.card(
+        "search",
+        400,
+        0,
+        300,
+        180,
+        "1. Search",
+        "DuckDuckGo's plain HTML\nresults page; one query\nper call (SearXNG later)",
+    )
+    d.card(
+        "fetch",
+        800,
+        0,
+        320,
+        180,
+        "2. Fetch 3 pages",
+        "only links from the search\n(or pasted by you); public\naddresses only; size and\ntime caps; page to text",
+    )
+    d.card(
+        "summ",
+        800,
+        290,
+        320,
+        200,
+        "3. Summarize",
+        "a second call to the same\nmodel; pages marked as\nuntrusted data; answer\nonly from them, cite [n]",
+    )
+    d.card(
+        "result",
+        400,
+        290,
+        300,
+        200,
+        "4. Result",
+        "short answer with [1] [2]\nand a sources list Kestrel\nwrites itself; marked\nuntrusted for the agent",
+    )
+    d.card(
+        "log",
+        0,
+        290,
+        300,
+        200,
+        "Run log",
+        "every query, URL, block\nreason, page text and the\nsummary prompt: /trace\nshows what was read",
+    )
+    d.arrow("agent", "search", "question")
+    d.arrow("search", "fetch", "links")
+    d.arrow("fetch", "summ", "page text")
+    d.arrow("summ", "result", "answer")
+    d.arrow("result", "agent", "tool result")
+    d.arrow("result", "log", "logged", dashed=True)
+    d.text(
+        0, 560, "The small model never manages a sub-agent and never picks a URL itself.", size=18
+    )
+    return d
+
+
 def all_diagrams() -> list[Diagram]:
     return [
         harness(),
@@ -1032,6 +1102,7 @@ def all_diagrams() -> list[Diagram]:
         core_types(),
         reliability(),
         repair_steps(),
+        research(),
     ]
 
 

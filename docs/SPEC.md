@@ -2,11 +2,13 @@
 
 Local-first, model-agnostic agent harness for small models.
 
-Status: draft v0.8. Owner edits this file; Claude Code proposes changes via PR.
+Status: draft v0.9. Owner edits this file; Claude Code proposes changes via PR.
 
 v0.2 (2026-11-11): applied the milestone changes agreed in the project handoff (section 1 identity + pillars, 5.5 constrained decoding, M4/M7 changes, new M7.5/M8.5/M9.5, backlog) and logged spec gaps in section 14.
 
 v0.3 (2026-11-11): all spec gaps decided (section 14), open decisions tagged with their milestone; sections 8.3, 10, 11 updated to match.
+
+v0.9 (2026-11-14): M4.1 built: one `research` tool (DuckDuckGo search, guarded fetch, summary with sources) and a built-in `researcher` agent; SearXNG moved to the backlog.
 
 v0.8 (2026-11-12): new M4.3, ideas from two harness sources (CMU "Better Harnesses, Smaller Models", arXiv 2607.08938; the Hookele Terminal-Bench write-up); M4.1 reshaped as one research tool.
 
@@ -313,9 +315,7 @@ Decorator builds `ToolSpec` from signature + docstring (pydantic model from type
 | `edit_file` | M4.2 | confirm | needs a fresh `read_file` of the file first (checked before asking); replace one exact `old_text`; falls back to whole lines with `12| ` prefixes and trailing spaces ignored, only when that matches one place; shows the lines around the change |
 | `run_shell` | M3 | confirm | cwd = workspace, timeout, output cap |
 | `python_exec` | M3 | confirm | subprocess with `-I`, timeout, temp dir in workspace |
-| `web_search` | M4 | allow | pluggable backend: SearXNG URL in config, else DuckDuckGo via small library (ask before adding dep) |
-| `fetch_url` | M4 | allow | HTML to readable text/markdown, result wrapped as untrusted |
-| `read_tool_output` | M4 | allow | page through truncated results |
+| `research` | M4.1 | confirm | one question in; DuckDuckGo search, the top 3 pages through the guarded fetch, a summary by the same model with [n] citations, sources listed by Kestrel; only opens search results and links the user typed; result untrusted |
 | `ask_user` | M3 | allow | lets agent ask a clarifying question via frontend |
 
 ### 8.4 MCP (M5)
@@ -382,10 +382,14 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - **Status: done (v0.0.5).** Corpus: 48 cases. Live on qwen3:8b: thinking off cut a two-step task from about 20s to 5s; the M3 line-count demo took 17s (was 157s) and repair's one-call rule fired on two parallel `read_file` calls; a broken call sent back in history is accepted after wrapping (Ollama rejected it raw). Double-escaped content did not recur live; its real case is in the corpus. The token estimate for qwen3:8b with tools came out about 25% high, not low as in M2; it stays a plain estimate (per-model measuring was built, then dropped in the cleanup as it changed nothing). qwen3:4b live check skipped by the owner for now (model not downloaded); run it after `ollama pull qwen3:4b`. Every piece was reviewed by the kestrel-reviewer agent before its commit; its findings (truncated calls being completed, escapes in one-line code, false stuck signals, remote probes, cache races) were fixed with tests.
 - **Cleanup (owner, 2026-11-12):** the shell is the only interactive path; `kestrel run` prints plain output and takes typed y/n/a answers (Ctrl-C stops it). Dropped: the separate arrow-key menu and Esc watcher for `kestrel run`, the terminal `kestrel report-failure`, per-model token-ratio measuring, the watchdog and repair limits in agent files, and tests that only checked wording. Paths: the workspace is the model's whole world, so `/data` means `<workspace>/data` (qwen3 kept writing `/data` and giving up).
 
-### M4.1: Web tools
-- `read_tool_output` (page through cut results, kept per session in memory), `fetch_url` (stdlib HTML to text, GET only, size and time caps, private and loopback addresses blocked after every redirect, result untrusted), `web_search` (SearXNG preferred; best-effort fallback decided in the M4.1 plan).
-- `ToolSpec.network`; web tools only exist for agents that list them; a built-in `researcher` agent.
-- Open for the M4.1 plan: confirm fetches to hosts not seen this run (exfiltration risk), and the search fallback.
+### M4.1: Web research
+- **Built (2026-11-14):** one `research(question)` tool (section 8.3) and a built-in `researcher` agent (`research`, `write_file`, `ask_user`; `/agent researcher`). The default agent stays offline. Plan and pictures: `docs/diagrams/research.md`.
+- **Search:** DuckDuckGo's plain HTML results page (POST, one query per call, Kestrel's own user agent, standard-library parsing; ads and duplicates dropped). A rate-limit or puzzle page is a clear error, never a retry. SearXNG is in the backlog (owner, 2026-11-14). `ddgs` was rejected (a compiled browser-imitating client that fans out to many engines).
+- **Guarded fetch:** GET over http(s) on ports 80 and 443; no cookies, no proxy settings; DNS resolved first and every address must be public (IPv4-mapped IPv6 included); the connection goes to that checked address with the real Host header and TLS name, so DNS rebinding cannot redirect it; at most 5 redirects, each checked; 10 s and 2 MB per page; HTML or plain text only.
+- **Exfiltration:** the tool opens only links from its own search results and links the user typed in the conversation (never a link the model wrote; tool output never counts). Questions are capped at 300 characters. `research` defaults to `confirm`; "always" covers the rest of the turn.
+- **Summary:** `ToolContext.complete`, set by the run once the backend is open: the agent's model, thinking off, temperature 0.1, 700 tokens. Pages are wrapped as untrusted inside the summary prompt; page text is cut to fit (window minus 2,500 tokens, split over 3 pages, at most 8,000 characters each). The top 3 results are fetched at once; each one that cannot be read is replaced by the next result (at most 5 fetched), then by its search snippet. Each page has a 30 s deadline as well as the 10 s per-read timeout. Host names with non-ASCII letters are sent in their IDNA form. IPv6 forms that carry an IPv4 address (mapped, compatible, NAT64) are judged by that address; site-local `fec0::/10` is refused.
+- **Events:** `web` (kind `search`, `fetch` with page text or the block reason, `summary` with the exact prompt and answer), through `ToolContext.emit`; the screen shows one dim line each. The summary call's tokens are not in the run totals.
+- Not now: SearXNG, PDFs, JavaScript pages, robots.txt, caching, multi-hop research, keyed search APIs, `read_tool_output`, `ToolSpec.network` (tools only exist for agents that list them).
 - **Shape (owner, 2026-11-12; reshaped in M4.3):** web research is one `research(question)` tool. Kestrel runs a fixed pipeline inside it (search, fetch, a separate model call that summarizes with sources), so raw pages never fill the main agent's small window, and the small model never has to manage a sub-agent (the CMU study found sub-agents never helped small models).
 - **Done when:** a research task works on a small local model, with every fetched page wrapped as untrusted.
 
@@ -478,6 +482,7 @@ Sources: CMU, "Better Harnesses, Smaller Models" (arXiv 2607.08938): most gains 
 - Voice (whisper.cpp + Piper).
 
 ### Backlog (unscheduled)
+- **SearXNG for research** (owner, 2026-11-14): `[tools.research] searxng_url`; its JSON format must be enabled (403 otherwise). More private and stable than DuckDuckGo.
 - **Tool strategy** (owner, 2026-11-12): a small, sharp built-in core (files, search, shell, Python); breadth through MCP servers (M5), switched on per agent; each agent lists only the tools its job needs. Later (with memory, M6): the model may propose saving a Python snippet that worked as a named tool; the owner reviews and approves it, and it runs under the same jail and confirm rules.
 - `/profile fix`: create a copy of the model in Ollama with `num_ctx` set, so the bigger window needs no restart (changes the user's Ollama setup, so it would ask first).
 - **Text tool-call modes** (moved from M4 by owner, 2026-11-12): `json` mode (one JSON object per reply, forced by the backend's JSON schema output where supported) and `react` mode (`Thought` / `Action` / `Action Input` / `Final Answer` text, generation stopped at `Observation:` so the model cannot invent results). For models without native tool calls (gemma3, phi4). History stays in the neutral format; a renderer turns it into each mode's text.
@@ -506,11 +511,10 @@ allow_cloud: false               # cloud models need true (gap 14)
 tool_mode: auto                  # auto | native | json | react
 temperature: 0.2
 system: |
-  You research topics using web_search and fetch_url.
-  Cite every claim with its URL. Write results with write_file.
+  You research topics with the research tool.
+  Keep its [n] citations and sources. Write results with write_file.
 tools:
-  - web_search
-  - fetch_url
+  - research
   - write_file
 permissions:                     # overrides tool defaults; loosening needs --trust-agent (gap 7)
   write_file: confirm
@@ -538,7 +542,7 @@ One JSON object per line:
 
 Events store full tool arguments, full results and verbatim model output; results over 64KB go to a side file referenced by path (gap 13). Every line is redacted before writing (gaps 6, 11).
 
-Event types: `run_start`, `profile` (what was known about the model, M4), `model_request` (with the exact messages sent, M4), `model_response`, `repair`, `tool_call`, `permission`, `tool_result`, `context_trim`, `loop_warning`, `stuck` (M4), `nudge` (M4.2), `error`, `final`, `run_end`.
+Event types: `run_start`, `profile` (what was known about the model, M4), `model_request` (with the exact messages sent, M4), `model_response`, `repair`, `tool_call`, `permission`, `tool_result`, `context_trim`, `loop_warning`, `stuck` (M4), `nudge` (M4.2), `web` (M4.1), `error`, `final`, `run_end`.
 
 `run_end.data` includes `stopped_reason` (`final|max_steps|budget|loop|cancelled|error`), totals for steps, tokens, repairs, wall time.
 
@@ -565,8 +569,7 @@ base_url = "http://localhost:1234/v1"
 base_url = "https://openrouter.ai/api/v1"
 api_key_env = "OPENROUTER_API_KEY"   # never store keys in file
 
-[tools.web_search]
-backend = "searxng"
+[tools.research]                     # backlog: SearXNG instead of DuckDuckGo
 searxng_url = "http://localhost:8888"
 
 [[mcp_servers]]
@@ -600,7 +603,7 @@ Rules (implemented in `core/config.py`, M1):
 Each is resolved at the start of the named milestone's plan, with evidence from real runs.
 
 - Final project name (M3/M4, before going public). `kestrel` and `kestrel-agent` are taken on PyPI (the former by an inference engine); `kestrel-harness` is free (checked 2026-11-11).
-- Web search default when no SearXNG: which library (M4).
+- Web search default when no SearXNG: decided in M4.1 (DuckDuckGo HTML, standard library; SearXNG later).
 - Vector store: sqlite-vec vs LanceDB vs Chroma (M6).
 - Tokenizer: keep approximation or use per-model tokenizers (M4).
 - Constrained decoding coverage across backends: which support GBNF, JSON schema, neither (M4).
