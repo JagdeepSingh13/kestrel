@@ -9,6 +9,7 @@ Tokens are estimated as characters / 3.5; real tokenizers may come in M4.
 
 import json
 import math
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -34,8 +35,8 @@ def wrap_untrusted(source: str, text: str) -> str:
 
     A closing tag inside the text is defused so the content cannot "end" the block early.
     """
-    safe_source = source.replace('"', "'")
-    safe_text = text.replace("</untrusted", "</ untrusted")
+    safe_source = re.sub(r"[\"<>\r\n]", " ", source)
+    safe_text = re.sub(r"</(\s*)untrusted", r"</ \1untrusted", text, flags=re.IGNORECASE)
     return f'<untrusted source="{safe_source}">\n{safe_text}\n</untrusted>'
 
 
