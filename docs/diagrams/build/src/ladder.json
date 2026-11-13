@@ -1,0 +1,417 @@
+[
+ {
+  "type": "text",
+  "x": 0,
+  "y": -70,
+  "text": "The model ladder: step up only when stuck",
+  "fontSize": 34,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "loop",
+  "x": 0,
+  "y": 0,
+  "width": 340,
+  "height": 180,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 14,
+  "text": "Agent loop",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 56,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 68,
+  "text": "each step asks the current\nrung's model; trims the\nconversation to that\nmodel's window",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "watch",
+  "x": 0,
+  "y": 290,
+  "width": 340,
+  "height": 200,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 304,
+  "text": "Watchdog: stuck?",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 346,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 358,
+  "text": "repeats, no progress,\nfailed calls in a row,\nrepairs used up; warnings\nand nudges come first",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "small",
+  "x": 560,
+  "y": 580,
+  "width": 380,
+  "height": 170,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 578,
+  "y": 594,
+  "text": "Rung 1: small, local",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 578,
+  "y": 636,
+  "width": 344,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    344,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 578,
+  "y": 648,
+  "text": "e.g. qwen3:4b; fast;\nevery step starts here",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "mid",
+  "x": 560,
+  "y": 290,
+  "width": 380,
+  "height": 200,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 578,
+  "y": 304,
+  "text": "Rung 2: bigger, local",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 578,
+  "y": 346,
+  "width": 344,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    344,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 578,
+  "y": 358,
+  "text": "e.g. qwen3:8b, thinking on\nfor the stuck step; sees the\nconversation plus a short\nnote on what failed",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "cloud",
+  "x": 560,
+  "y": 0,
+  "width": 380,
+  "height": 200,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 578,
+  "y": 14,
+  "text": "Rung 3: OpenRouter",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 578,
+  "y": 56,
+  "width": 344,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    344,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 578,
+  "y": 68,
+  "text": "only if the agent allows\ncloud and you say yes; gets\nthe task and the failing\nstep, secrets removed",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 170.0,
+  "y": 183,
+  "width": 1,
+  "height": 104,
+  "start": {
+   "id": "loop"
+  },
+  "end": {
+   "id": "watch"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 182.0,
+  "y": 223.0,
+  "text": "each step",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 343,
+  "y": 390.0,
+  "width": 214,
+  "height": 1,
+  "start": {
+   "id": "watch"
+  },
+  "end": {
+   "id": "mid"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 415.0,
+  "y": 358.0,
+  "text": "step up",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 690.0,
+  "y": 577,
+  "width": 1,
+  "height": -84,
+  "start": {
+   "id": "small"
+  },
+  "end": {
+   "id": "mid"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 702.0,
+  "y": 523.0,
+  "text": "stuck",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 810.0,
+  "y": 493,
+  "width": 1,
+  "height": 84,
+  "start": {
+   "id": "mid"
+  },
+  "end": {
+   "id": "small"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 822.0,
+  "y": 523.0,
+  "text": "one good step: back down",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 750.0,
+  "y": 287,
+  "width": 1,
+  "height": -84,
+  "start": {
+   "id": "mid"
+  },
+  "end": {
+   "id": "cloud"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 762.0,
+  "y": 233.0,
+  "text": "still stuck",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 0,
+  "y": 800,
+  "text": "At most 2 step-ups per run. /trace shows which model did each step and why.",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ }
+]

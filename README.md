@@ -6,7 +6,7 @@
 
 A model can only think and decide. Kestrel is everything around it: what goes in, what it may do, what gets checked, and what gets recorded. It is built for 3B to 14B models on an ordinary 16GB laptop, works with any OpenAI-compatible backend (Ollama, LM Studio, llama.cpp, mlx-lm, vLLM), and defines agents as small YAML files instead of code.
 
-> **Status: early development (v0.0.8).** Working today: the `kestrel` shell, where every message goes to an agent with real tools (read, search, write, append and edit files; shell; Python) confined to one folder; web research with sources (the `researcher` agent); repair of small models' broken tool calls; a watchdog that stops runs going in circles; model profiles (real window, thinking off); confirmation before risky actions; and a full log of every run. Next: stepping up to a bigger model when the small one is stuck. See the [roadmap](#roadmap).
+> **Status: early development (v0.0.9).** Working today: the `kestrel` shell, where every message goes to an agent with real tools (read, search, write, append and edit files; shell; Python) confined to one folder; web research with sources (the `researcher` agent); repair of small models' broken tool calls; a watchdog that stops runs going in circles; model profiles (real window, thinking off); confirmation before risky actions; and a full log of every run; and the model ladder (a stuck step goes to a bigger model, optionally OpenRouter with your OK). Next: sessions and MCP tools. See the [roadmap](#roadmap).
 
 ![An agent is a model, a harness and context](docs/diagrams/img/three-parts.svg)
 
@@ -69,6 +69,15 @@ Every reply goes through repair before anything runs:
 - A tool is a plain Python function; Kestrel describes it to the model from its name, docstring and argument types.
 - Commands are not a sandbox: they start inside the workspace, stop after a time limit, have their output capped, and cannot see environment variables named like `*KEY*`, `*TOKEN*`, `*SECRET*` or `*PASSWORD*`. A command can still name a path outside the folder, which is why they always ask first.
 
+### Step up only when stuck: the model ladder
+![The model ladder](docs/diagrams/img/ladder.svg)
+
+- **Small first.** Every step runs on the smallest model you set. When the watchdog says it is stuck (repeating itself, no progress, failing calls, repairs used up), that one step goes to the next, bigger model with a short note on what failed. Warnings and nudges come first; they never step up.
+- **Back down.** After one good step the run returns to the small model. At most two step-ups per run, so it never bounces back and forth.
+- **Thinking where it pays.** The bigger model may think while it has the run; steps on the small model stay fast.
+- **Cloud only with your yes.** The top rung may be an OpenRouter model (free ones included). The agent must allow cloud, and Kestrel asks you before each step that goes to the cloud. It sends only the instructions, your task, the failing step and the note (plus the cloud model's own steps until it hands back), never the rest of the conversation. Secret values from your environment are removed; file contents in the failing step are sent as they are. Saying no stops the run, and your answer is in the run log.
+- **Set it per agent or per session:** `model: [qwen3:8b, "openrouter:google/gemma-4-26b-a4b-it:free"]` in an agent file, or `/ladder qwen3:8b openrouter:...` in the shell; `/up` puts your next message on the bigger model. `/trace` shows which model did each step and why.
+
 ### Research: answers from the web, with sources
 ![Web research as one tool](docs/diagrams/img/research.svg)
 
@@ -100,8 +109,6 @@ Kestrel never runs a model itself. A backend (Ollama, LM Studio, llama.cpp, mlx-
 
 ## What's next
 
-### Step up only when stuck (next)
-- **Step up only when stuck (headline):** each step runs on a small, fast model. When it gets stuck (repairs fail, loops, repeated errors), Kestrel hands that one step to a bigger model, with the conversation and a note on what failed, then steps back down. `/trace` shows which model did each step and why. Cloud models only if you allow it, with secrets removed and the exact text shown first.
 
 ### Agents that get better on your laptop (planned)
 
@@ -185,7 +192,7 @@ From a normal terminal, `kestrel run "task" --agent NAME`, `kestrel trace last`,
 | M4.2 | Fixes from real chats: real window shown, append and edit tools, nudge, trace summary | done |
 | M4.3 | Lessons from harness research: countdown, nudge after failures, output keeps both ends, looser edit matching | done |
 | M4.1 | Web research as one tool: search, read, summarize with sources | done |
-| M4.5 | Step up only when stuck: model ladder (local models, plus an optional OpenRouter model for the hardest steps, with your OK) | |
+| M4.5 | Step up only when stuck: model ladder (local models, plus an optional OpenRouter model for the hardest steps, with your OK) | done |
 | M5 | Sessions, MCP tools | |
 | M5.5 | Coder agent: repo map, small edits, run tests (tentative) | |
 | M6+ | Memory, tests from runs (`/keep`), autotune, recipes | |

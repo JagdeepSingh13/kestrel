@@ -1086,6 +1086,69 @@ def research() -> Diagram:
     return d
 
 
+def ladder() -> Diagram:
+    """M4.5: step up only when stuck, then back down."""
+    d = Diagram("ladder", clean=True)
+    d.text(0, -70, "The model ladder: step up only when stuck", size=34, color="#1e1e1e")
+    d.card(
+        "loop",
+        0,
+        0,
+        340,
+        180,
+        "Agent loop",
+        "each step asks the current\nrung's model; trims the\nconversation to that\nmodel's window",
+    )
+    d.card(
+        "watch",
+        0,
+        290,
+        340,
+        200,
+        "Watchdog: stuck?",
+        "repeats, no progress,\nfailed calls in a row,\nrepairs used up; warnings\nand nudges come first",
+    )
+    d.card(
+        "small",
+        560,
+        580,
+        380,
+        170,
+        "Rung 1: small, local",
+        "e.g. qwen3:4b; fast;\nevery step starts here",
+    )
+    d.card(
+        "mid",
+        560,
+        290,
+        380,
+        200,
+        "Rung 2: bigger, local",
+        "e.g. qwen3:8b, thinking on\nfor the stuck step; sees the\nconversation plus a short\nnote on what failed",
+    )
+    d.card(
+        "cloud",
+        560,
+        0,
+        380,
+        200,
+        "Rung 3: OpenRouter",
+        "only if the agent allows\ncloud and you say yes; gets\nthe task and the failing\nstep, secrets removed",
+    )
+    d.arrow("loop", "watch", "each step")
+    d.arrow("watch", "mid", "step up")
+    d.arrow("small", "mid", "stuck", shift=-60)
+    d.arrow("mid", "small", "one good step: back down", shift=60)
+    d.arrow("mid", "cloud", "still stuck")
+    d.text(
+        0,
+        800,
+        "At most 2 step-ups per run. /trace shows which model did each step and why.",
+        size=18,
+    )
+    return d
+
+
 def all_diagrams() -> list[Diagram]:
     return [
         harness(),
@@ -1103,6 +1166,7 @@ def all_diagrams() -> list[Diagram]:
         reliability(),
         repair_steps(),
         research(),
+        ladder(),
     ]
 
 
