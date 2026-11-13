@@ -4,7 +4,7 @@ is a run) and the terminal's `kestrel run`, so both behave the same."""
 import asyncio
 import contextlib
 import dataclasses
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
 from datetime import date
 from pathlib import Path
@@ -13,12 +13,22 @@ from rich.markup import escape
 
 from kestrel.agents.schema import AgentConfig
 from kestrel.cli.frontend import BottomBox, CliFrontend
+from kestrel.cli.ladder import RungSpec, ShellLadder
 from kestrel.cli.output import err_console, window_fix
 from kestrel.core.config import ProviderConfig
 from kestrel.core.context import NOTE_PREFIX, UNTRUSTED_RULE, ContextManager
 from kestrel.core.events import EventBus, JsonlWriter, new_run_id, runs_dir
 from kestrel.core.loop import DEFAULT_SYSTEM_PROMPT, Budgets, run_agent
-from kestrel.core.types import EventType, JSONObject, Message, Provider, Role, RunResult, StopReason
+from kestrel.core.types import (
+    EventType,
+    JSONObject,
+    Message,
+    Provider,
+    Role,
+    Rung,
+    RunResult,
+    StopReason,
+)
 from kestrel.providers.profiles import Profile, ProfileCache, cache_path, probe
 from kestrel.safety.paths import Workspace
 from kestrel.safety.permissions import Permissions
@@ -55,6 +65,8 @@ def start_run(
     box: BottomBox | None = None,
     think: bool | None = False,
     seen_files: dict[Path, FileStamp] | None = None,
+    uppers: Sequence[RungSpec] = (),
+    start: int = 0,
 ) -> RunResult | None:
     """Run `task` with `agent` to the end. Returns None if it could not start or the user
     pressed Ctrl-C.
@@ -63,6 +75,8 @@ def start_run(
     stopped or fails is taken back out, so the next message starts from the last good one.
     `think=False` (the default) asks the model not to think first; None leaves it be.
     `seen_files` remembers which files the model has read, across a shell conversation.
+    `uppers` are the ladder's rungs above `model` (M4.5); `start` > 0 begins that many
+    rungs up (`/up`).
     """
     if provider_config.is_remote and not agent.allow_cloud:
         err_console.print(
@@ -154,7 +168,10 @@ def start_run(
             0,
             {**profile.model_dump(mode="json"), "wanted_window": agent.context.window},
         )
-        async with open_provider(provider_name, provider_config) as provider:
+        async with contextlib.AsyncExitStack() as stack:
+            provider = await stack.enter_async_context(
+                open_provider(provider_name, provider_config)
+            )
 
             async def complete(system: str, user: str, max_tokens: int) -> str:
                 reply = await provider.chat(
@@ -171,10 +188,24 @@ def start_run(
                 return reply.message.content or ""
 
             tools.context = dataclasses.replace(tools.context, complete=complete)
+            ladder = ShellLadder(
+                Rung(provider, model, model, window),
+                uppers,
+                stack=stack,
+                open_provider=open_provider,
+                load_profile=load_profile_async,
+                cache=cache,
+                env=dict(env),
+                allow_cloud=agent.allow_cloud,
+                approve=frontend.approve,
+                agent_window=agent.context.window,
+                start=start,
+                emit=emit,
+            )
+            await ladder.begin()
             return await run_agent(
                 task,
-                provider=provider,
-                model=model,
+                ladder=ladder,
                 toolbox=tools,
                 bus=bus,
                 context=context,
@@ -236,15 +267,22 @@ def today_note(today: date) -> str:
 def load_profile(name: str, config: ProviderConfig, model: str, cache: ProfileCache) -> Profile:
     """The cached profile, or a fresh probe of the backend's metadata (a few local calls,
     no prompt). Never fails: an unreachable backend gives an empty profile."""
+    try:
+        return asyncio.run(load_profile_async(name, config, model, cache))
+    except KeyboardInterrupt:
+        return cache.get(config.base_url, model) or Profile(backend=config.base_url, model=model)
+
+
+async def load_profile_async(
+    name: str, config: ProviderConfig, model: str, cache: ProfileCache
+) -> Profile:
+    """`load_profile` from inside a running loop (a ladder rung probed mid-run)."""
     known = cache.get(config.base_url, model)
     if known is not None and (config.base_url, model) in _probed:
         return known  # asked once this session already
     if not known:
         err_console.print(f"[dim]Checking {escape(model)} on {escape(name)}...[/dim]")
-    try:
-        fresh = asyncio.run(probe_profile(name, config.base_url, model, known))
-    except KeyboardInterrupt:
-        return known or Profile(backend=config.base_url, model=model)
+    fresh = await probe_profile(name, config.base_url, model, known)
     _probed.add((config.base_url, model))
     cache.save(fresh)
     return fresh

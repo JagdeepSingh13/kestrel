@@ -125,6 +125,19 @@ class CliFrontend:
                     else "it said it would act but called no tool"
                 )
                 err_console.print(Text(f"  ↻ {why}; asked it to go on", style="dim"))
+            case EventType.step_up:
+                self._stop_spinner()
+                why = _str(data.get("reason")).replace("_", " ")
+                err_console.print(
+                    Text(
+                        f"  ↑ stepped up to {_str(data.get('to'))}: "
+                        f"{why} ({_str(data.get('detail'))})",
+                        style="cyan",
+                    )
+                )
+            case EventType.step_down:
+                self._stop_spinner()
+                err_console.print(Text(f"  ↓ back to {_str(data.get('to'))}", style="dim cyan"))
             case EventType.web:
                 self._stop_spinner()
                 err_console.print(Text("     " + describe_web(data), style="dim"))
@@ -184,6 +197,35 @@ class CliFrontend:
             )
         )
         return picked
+
+    async def approve(self, question: str, lines: list[str]) -> ConfirmAnswer:
+        """Ask before something leaves the machine (a cloud step): yes, always this run, no."""
+        self.stop()
+        err_console.print(
+            Panel(
+                "\n".join(escape(line) for line in lines),
+                title=f"[bold]{escape(question)}[/bold]",
+                title_align="left",
+                border_style="yellow",
+                expand=False,
+            )
+        )
+        if self.box is None:
+            answer = Prompt.ask(
+                r"Send it? \[y]es / \[n]o / \[a]lways this run",
+                choices=["y", "n", "a"],
+                default="n",
+                console=err_console,
+                show_choices=False,
+            )
+            return {"y": "yes", "a": "always"}.get(answer, "no")  # type: ignore[return-value]
+        options: list[tuple[ConfirmAnswer, str]] = [
+            ("yes", "Yes, send it"),
+            ("always", "Yes, and don't ask again this run"),
+            ("no", "No, stop here"),
+        ]
+        answers: dict[str, ConfirmAnswer] = {value: value for value, _ in options}
+        return answers[await self.box.choose("Send it?", options)]
 
     async def ask(self, question: str) -> str:
         """Ask the user something on the agent's behalf (`ask_user`)."""
@@ -374,12 +416,25 @@ def _under(text: str, style: str) -> Text:
     return body
 
 
+def _model_split(value: JSONValue) -> list[str]:
+    """`qwen3:8b 6, openrouter:... 1` when more than one model worked on the run."""
+    if not isinstance(value, dict) or len(value) < 2:
+        return []
+    return [
+        ", ".join(
+            f"{name} {_int(c.get('steps')) if isinstance(c, dict) else 0}"
+            for name, c in value.items()
+        )
+    ]
+
+
 def _run_summary(event: Event) -> Text:
     data = event.data
     reason = _str(data.get("stopped_reason"))
     tokens = _int(data.get("prompt_tokens")) + _int(data.get("completion_tokens"))
     parts = [
         f"{data.get('steps')} steps",
+        *_model_split(data.get("by_model")),
         f"{data.get('tool_calls')} tools",
         f"{tokens / 1000:.1f}K tokens" if tokens >= 1000 else f"{tokens} tokens",
         f"{round(_float(data.get('wall_seconds')))}s",

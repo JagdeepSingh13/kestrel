@@ -95,6 +95,14 @@ def summary(events: list[Event]) -> list[str]:
         f"{len(by_type.get(EventType.nudge, []))} nudges",
     ]
     lines.append("steps      " + ", ".join(counts))
+    split = end.get("by_model")
+    if isinstance(split, dict) and len(split) > 1:
+        ups = len(by_type.get(EventType.step_up, []))
+        per = ", ".join(
+            f"{name} {_int(c.get('steps')) if isinstance(c, dict) else 0}"
+            for name, c in split.items()
+        )
+        lines.append(f"models     {per} ({ups} step-ups)")
     lines.append(
         f"tokens     {end.get('prompt_tokens', '?')} in, {end.get('completion_tokens', '?')} "
         f"out, {end.get('wall_seconds', '?')}s"
@@ -174,6 +182,10 @@ def describe(event: Event, *, full: bool = False) -> str:
             return f"{d.get('signal')}: {text(d.get('detail'))}"
         case EventType.web:
             return describe_web(d)
+        case EventType.step_up:
+            return f"{d.get('from')} to {d.get('to')}: {d.get('reason')} ({text(d.get('detail'))})"
+        case EventType.step_down:
+            return f"{d.get('from')} back to {d.get('to')}"
         case EventType.nudge:
             why = (
                 "stopped after a failed tool"

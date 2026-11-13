@@ -14,6 +14,7 @@ from kestrel.__about__ import __app_name__, __version__
 from kestrel.agents.loader import AgentError, load_agent
 from kestrel.cli import agent_run, output
 from kestrel.cli.agent_run import start_run
+from kestrel.cli.ladder import RungSpec, parse_rung
 from kestrel.cli.output import console, describe_usage, err_console, print_reports
 from kestrel.cli.trace import print_run_list, print_trace
 from kestrel.core.config import (
@@ -178,6 +179,7 @@ def run(
         open_provider=output.open_provider,
         model=model_name,
         env=os.environ,
+        uppers=_agent_rungs(chosen.model, model_name, config, provider_name),
         show_thinking=show_thinking,
         think=None if think else False,
     )
@@ -265,4 +267,15 @@ def _pick_provider_or_exit(config: KestrelConfig, name: str | None) -> tuple[str
         return chosen, config.provider(chosen)
     except ConfigError as exc:
         err_console.print(f"[red]Config error:[/red] {escape(str(exc))}")
+        raise typer.Exit(2) from None
+
+
+def _agent_rungs(
+    models: list[str], first: str, config: KestrelConfig, provider: str
+) -> list[RungSpec]:
+    """The agent file's ladder above the model the run starts on."""
+    try:
+        return [parse_rung(m, config, provider) for m in models[1:] if m != first]
+    except ValueError as exc:
+        err_console.print(f"[red]Ladder:[/red] {escape(str(exc))}")
         raise typer.Exit(2) from None

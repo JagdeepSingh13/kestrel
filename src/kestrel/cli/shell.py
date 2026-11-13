@@ -20,6 +20,7 @@ from kestrel.__about__ import __version__
 from kestrel.agents.schema import AgentConfig
 from kestrel.cli.agent_run import start_run
 from kestrel.cli.frontend import BottomBox
+from kestrel.cli.ladder import parse_rung
 from kestrel.cli.output import err_console
 from kestrel.core.config import ConfigError, KestrelConfig, ProviderConfig
 from kestrel.core.context import ContextManager
@@ -48,6 +49,10 @@ class Session:
     laptop, thinking can take a minute per step (owner decision, M4)."""
     conversation: ContextManager = field(default_factory=lambda: ContextManager(None))
     """Every turn so far, tool calls and results included. Trimmed when sent, never here."""
+    ladder: list[str] = field(default_factory=list[str])
+    """Models above `model` to step up to (`/ladder`); empty: the agent file's."""
+    up: int = 0
+    """Rungs up to start the next message on (`/up`)."""
     seen_files: dict[Path, FileStamp] = field(default_factory=dict[Path, FileStamp])
     """Files the model has read in this conversation (an edit needs a fresh read)."""
 
@@ -154,6 +159,11 @@ class Shell:
         except ConfigError as exc:
             err_console.print(f"[red]{escape(str(exc))}[/red]")
             return
+        try:
+            uppers = [parse_rung(n, self.config, name) for n in self.ladder_names()]
+        except ValueError as exc:
+            err_console.print(f"[red]Ladder:[/red] {escape(str(exc))}")
+            return
         result = start_run(
             text,
             agent=agent,
@@ -167,10 +177,20 @@ class Shell:
             think=None if self.session.think else False,
             conversation=self.session.conversation,
             seen_files=self.session.seen_files,
+            uppers=uppers,
+            start=self.session.up,
             box=self.box,
         )
+        self.session.up = 0  # /up is for one message
         if result is None or result.stopped_reason is StopReason.error:
             err_console.print("[dim]That turn was not kept.[/dim]")
+
+    def ladder_names(self) -> list[str]:
+        """The rungs above the current model: `/ladder`'s, else the agent file's."""
+        if self.session.ladder:
+            return list(self.session.ladder)
+        models = self.session.agent.model
+        return [m for m in models[1:] if m != self.session.model] if len(models) > 1 else []
 
     def run_async[T](self, work: Coroutine[object, object, T]) -> T:
         """Run one piece of async work to completion (commands use this too)."""

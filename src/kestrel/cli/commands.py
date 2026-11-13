@@ -3,10 +3,12 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
+import httpx
 from rich.markup import escape
 
 from kestrel.agents.loader import AgentError, list_agents, load_agent
 from kestrel.cli import agent_run
+from kestrel.cli.ladder import parse_rung
 from kestrel.cli.output import console, describe_profile, err_console, print_reports
 from kestrel.cli.report import ReportError, build_case, write_case
 from kestrel.cli.shell import Shell
@@ -15,6 +17,7 @@ from kestrel.core.config import ConfigError, default_data_dir
 from kestrel.core.events import find_run, runs_dir
 from kestrel.core.types import ProviderError
 from kestrel.providers.discovery import discover
+from kestrel.providers.openrouter import is_openrouter, openrouter_models
 from kestrel.providers.profiles import THINK_STYLES, ProfileCache, backend_kind, cache_path
 from kestrel.safety.redact import Redactor
 from kestrel.tools.builtin import BUILTIN_TOOLS
@@ -77,6 +80,10 @@ def _model(shell: Shell, arg: str) -> bool:
             )
         return True
 
+    config = shell.config.provider(shell.session.provider)
+    if is_openrouter(config.base_url):
+        return _openrouter_models(shell, config.base_url)
+
     async def list_models() -> list[str]:
         async with shell.provider() as provider:
             return await provider.list_models()
@@ -91,6 +98,66 @@ def _model(shell: Shell, arg: str) -> bool:
         err_console.print(f" {marker} {escape(name)}")
     if not shell.model_names:
         err_console.print("The backend lists no models.")
+    return True
+
+
+def _openrouter_models(shell: Shell, base_url: str) -> bool:
+    """OpenRouter has hundreds of models: show the free ones that take tools."""
+    try:
+        models = shell.run_async(openrouter_models(base_url))
+    except (httpx.HTTPError, ValueError) as exc:
+        err_console.print(f"[red]Error:[/red] could not list OpenRouter models: {escape(str(exc))}")
+        return True
+    shell.model_names = [m.id for m in models]
+    free = [m for m in models if m.free]
+    err_console.print(
+        f"{len(models)} OpenRouter models take tools; the {len(free)} free ones "
+        "(20 requests a minute, 50 a day):"
+    )
+    for m in free:
+        marker = "*" if m.id == shell.session.model else " "
+        window = f"{m.window // 1024}K" if m.window else "?"
+        err_console.print(f" {marker} {escape(m.id):<50} {window}")
+    err_console.print("[dim]Any other id from openrouter.ai/models works too (paid).[/dim]")
+    return True
+
+
+def _ladder(shell: Shell, arg: str) -> bool:
+    session = shell.session
+    if arg == "off":
+        session.ladder = []
+        err_console.print("Ladder off: only the current model.")
+        return True
+    if arg:
+        first, *rest = arg.split()
+        try:
+            for name in rest:
+                parse_rung(name, shell.config, session.provider)
+        except ValueError as exc:
+            err_console.print(f"[red]{escape(str(exc))}[/red]")
+            return True
+        session.model = first
+        session.ladder = rest
+    uppers = shell.ladder_names()
+    rungs = " then ".join([session.model or "(no model)", *uppers])
+    err_console.print(f"Ladder: {escape(rungs)}")
+    if not uppers:
+        err_console.print("[dim]Only one rung. Set more with /ladder MODEL MODEL ...[/dim]")
+    else:
+        err_console.print(
+            "[dim]A stuck step goes one rung up, then back down after one good step "
+            "(at most 2 step-ups per run). Cloud rungs need the agent's allow_cloud and "
+            "your yes.[/dim]"
+        )
+    return True
+
+
+def _up(shell: Shell, arg: str) -> bool:
+    if not shell.ladder_names():
+        err_console.print("No rung above the current model. Set one with /ladder.")
+        return True
+    shell.session.up = 1
+    err_console.print("Your next message starts one rung up.")
     return True
 
 
@@ -286,6 +353,8 @@ COMMANDS: dict[str, Command] = {
     "help": Command(_help, "/help", "show this list"),
     "model": Command(_model, "/model [name]", "list models, or switch (keeps the conversation)"),
     "provider": Command(_provider, "/provider [name]", "list backends, or switch"),
+    "ladder": Command(_ladder, "/ladder [models|off]", "show or set the models to step up to"),
+    "up": Command(_up, "/up", "start the next message on the next model up"),
     "think": Command(_think, "/think [on|off|show|hide]", "let the model think; show it"),
     "profile": Command(_profile, "/profile [probe]", "what Kestrel knows about this model"),
     "agent": Command(_agent, "/agent [name]", "show or switch the agent (keeps the conversation)"),
