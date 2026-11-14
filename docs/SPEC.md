@@ -464,6 +464,7 @@ Sources: CMU, "Better Harnesses, Smaller Models" (arXiv 2607.08938): most gains 
   - Tools: `repo_map` (`tools/code.py`), `run_tests` (`tools/checks.py`: `find_test_command`, `shorten`), `git_status` and `git_diff` (`tools/git.py`); table in 8.3. No separate `search_code`: `search_files` already gives `path:line:` and skips noise folders (now also `.pytest_cache`, `.tox`, `dist`, `build`, `target`). File tools refuse writes inside `.git/` in any letter case.
   - Built-in `coder` agent: repo_map, run_tests, read, edit, run_tests again, answer only from a passing run. No core loop change: a failing `run_tests` is a failed call, so the after-failure nudge and the watchdog already see it.
   - Fixture: `tests/fixtures/coder/calc` (a `mean` that divides by `len - 1`), copied into the workspace to try it.
+  - Live check (2026-11-14, qwen3:8b): fixed the `calc` fixture in 6 steps (repo_map, run_tests, read_file, edit_file, run_tests, answer), every run and edit approved, success claimed only after the passing run. The first try failed: the model copied an example path from the prompt (`src/...`) three times and the watchdog stopped it; the example is gone and a missing-file error now suggests files of the same name.
   - Later: lint (`run_check`), auto-detection for npm, cargo and go (they can download), regex search, outlines for other languages, `/undo`, git write tools, `kestrel run --in NAME`; an "unverified" nudge only if live runs show the model claiming a fix without a passing test run.
 
 ### M6: Memory + context upgrades
