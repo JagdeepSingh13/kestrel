@@ -4,10 +4,10 @@ The loop asks it which model to use each step (`core.types.Ladder`). Rungs above
 first are opened only when a run first steps up to them:
 - a local rung is probed then (that also loads the model); a model without tool calls
   is skipped;
-- an OpenRouter rung needs `allow_cloud: true` on the agent, an API key in the
-  environment, and your yes before the step is sent. It then sees only the system
-  prompt, the task, the failing step and the handoff note, with secrets removed
-  (`CloudView`), never the older conversation.
+- an OpenRouter rung needs cloud allowed (`/cloud on`, or `allow_cloud: true` on the
+  agent), an API key in the environment, and your yes before each step is sent. It
+  then sees only the system prompt, the task, the failing step and the handoff note,
+  with secrets removed (`CloudView`), never the older conversation.
 After one good step on a higher rung the run steps back down; after 2 step-ups it stays
 up. A "no" to a cloud step stops the run.
 """
@@ -141,6 +141,7 @@ class ShellLadder:
         self.at = 0
         self.ups = 0
         self.cloud_always = False
+        self.beginning = False
         self.remote: dict[str, RemoteModel] = {}
         """OpenRouter's facts per cloud rung (free or paid, window)."""
         self.emit = emit
@@ -149,10 +150,13 @@ class ShellLadder:
 
     async def begin(self) -> None:
         """Move to the starting rung (after `/up`), opening it."""
+        self.beginning = True
         for _ in range(self.start):
-            rung = await self.step_up("asked", "/up")
+            rung = await self.step_up("asked", "/up or /retry up")
             if rung is None:
+                _warn(f"staying on {self.current().name} for this message")
                 break
+        self.beginning = False
         self.start = self.at
         self.ups = 0  # /up is your choice, not a step-up the cap should count
 
@@ -202,10 +206,11 @@ class ShellLadder:
             f"Send this stuck step to {spec.model} on {spec.provider} ({price})?",
             [
                 f"stuck: {reason} ({detail})",
-                "sent: the instructions, your task, the failing step, a short note, and",
-                "the cloud model's own steps until it hands back; not sent: the rest of",
-                "the conversation. Secret values from your environment are removed; file",
-                "contents in the failing step are sent as they are.",
+                "sent: the instructions, your message (with the answer you rejected, after",
+                "/retry up), the failing step, a short note, and the cloud model's own",
+                "steps until it hands back; not sent: the rest of the conversation. Secret",
+                "values from your environment are removed; file contents in those steps",
+                "are sent as they are.",
             ],
         )
         if self.emit is not None:
@@ -219,7 +224,7 @@ class ShellLadder:
                 },
             )
         if answer == "no":
-            _warn("cloud step declined: the run stops here")
+            _warn("cloud step declined" + ("" if self.beginning else ": the run stops here"))
             return False
         self.cloud_always = answer == "always"
         return True
@@ -240,7 +245,9 @@ class ShellLadder:
     async def _open_cloud(self, spec: RungSpec) -> Rung | None:
         """Checks and opens a cloud rung; nothing is sent to the model here."""
         if not self.allow_cloud:
-            _warn(f"{spec.label} is a cloud model; this agent does not allow cloud (skipped)")
+            _warn(
+                f"{spec.label} is a cloud model and cloud is off (/cloud on to allow it); skipped"
+            )
             return None
         if spec.config.api_key(self.env) is None:
             _warn(f"{spec.label}: set {spec.config.api_key_env or 'an API key'} to use it")

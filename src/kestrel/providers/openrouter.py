@@ -12,6 +12,8 @@ import httpx
 
 from kestrel.core.types import JSONValue
 
+OPENROUTER_URL = "https://openrouter.ai/api/v1"
+
 
 @dataclass(frozen=True)
 class RemoteModel:

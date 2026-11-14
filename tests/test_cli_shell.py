@@ -362,3 +362,91 @@ def test_only_links_the_user_typed_count_as_theirs() -> None:
         "https://mine.example/a",
         "https://now.example/e",
     }
+
+
+def test_retry_sends_the_last_message_again_with_the_rejected_answer() -> None:
+    fake = FakeProvider([FakeProvider.text("the total is 120000"), FakeProvider.text("151600")])
+    shell, _ = make_shell(["total revenue?", "/retry"], fake)
+    shell.run()
+    resent = fake.calls[1].messages[-1].content or ""
+    assert resent.startswith("total revenue?") and "the total is 120000" in resent
+    texts = history_text(shell)
+    assert "the total is 120000" not in texts  # the rejected turn is gone
+    assert texts[-1] == "151600"
+
+
+def test_retry_up_needs_a_model_above(capsys: pytest.CaptureFixture[str]) -> None:
+    fake = FakeProvider([FakeProvider.text("x")])
+    shell, _ = make_shell(["hi", "/retry up"], fake)
+    shell.run()
+    assert "No model above the current one" in capsys.readouterr().err
+    assert len(fake.calls) == 1
+
+
+def test_cloud_setup_picks_a_free_model_and_turns_cloud_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    import os
+
+    from kestrel.cli import commands
+    from kestrel.providers.openrouter import RemoteModel
+
+    async def models(base_url: str) -> list[RemoteModel]:
+        return [
+            RemoteModel("a/small:free", 32_000, True, True),
+            RemoteModel("b/big:free", 128_000, True, True),
+            RemoteModel("c/paid", 200_000, True, False),
+        ]
+
+    monkeypatch.setattr(commands, "openrouter_models", models)
+    env = {"KESTREL_DATA_DIR": os.environ["KESTREL_DATA_DIR"], "OPENROUTER_API_KEY": "k" * 20}
+    shell, _ = make_shell(["/cloud setup"], FakeProvider(), model="qwen3:8b", env=env)
+    shell.run()
+    assert shell.session.ladder == ["openrouter:b/big:free"] and shell.session.cloud
+    assert shell.prompt().startswith("qwen3:8b ↑ big:free (cloud on)")
+    shell.session.cloud = False
+    assert "(cloud off)" in shell.prompt()
+
+
+def test_a_retry_that_fails_keeps_the_earlier_turn() -> None:
+    from kestrel.core.types import BackendUnreachableError
+
+    fake = FakeProvider(
+        [FakeProvider.text("first answer"), BackendUnreachableError("http://localhost:11434")]
+    )
+    shell, _ = make_shell(["q1", "/retry"], fake)
+    shell.run()
+    assert history_text(shell)[-2:] == ["q1", "first answer"]
+
+
+def test_cloud_on_does_not_let_the_whole_chat_run_on_a_cloud_backend(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fake = FakeProvider([FakeProvider.text("x")])
+    shell, _ = make_shell(["/cloud on", "hi"], fake)
+    shell.config.providers["remote"] = ProviderConfig(base_url="https://cloud.example/v1")
+    shell.session.provider = "remote"
+    shell.run()
+    assert "may not use a remote backend" in capsys.readouterr().err
+    assert fake.calls == []
+
+
+def test_escape_in_the_cloud_model_menu_cancels(monkeypatch: pytest.MonkeyPatch) -> None:
+    import os
+    from collections.abc import Sequence
+
+    from kestrel.cli import commands
+    from kestrel.providers.openrouter import RemoteModel
+
+    async def models(base_url: str) -> list[RemoteModel]:
+        return [RemoteModel("a/m:free", 32_000, True, True)]
+
+    class EscapeBox:
+        async def choose(self, question: str, options: Sequence[tuple[str, str]]) -> str:
+            return options[-1][0]  # what Esc picks
+
+    monkeypatch.setattr(commands, "openrouter_models", models)
+    env = {"KESTREL_DATA_DIR": os.environ["KESTREL_DATA_DIR"], "OPENROUTER_API_KEY": "k" * 20}
+    shell, _ = make_shell(["/cloud setup"], FakeProvider(), env=env)
+    shell.box = EscapeBox()  # type: ignore[assignment]
+    shell.run()
+    assert shell.session.ladder == [] and not shell.session.cloud
+    assert "openrouter" not in shell.config.providers

@@ -11,13 +11,13 @@ from kestrel.cli import agent_run
 from kestrel.cli.ladder import ladder_home, looks_remote, parse_rung
 from kestrel.cli.output import console, describe_profile, err_console, print_reports
 from kestrel.cli.report import ReportError, build_case, write_case
-from kestrel.cli.shell import Shell
+from kestrel.cli.shell import RETRY_MARK, Shell
 from kestrel.cli.trace import print_prompt, print_run_list, print_trace
-from kestrel.core.config import ConfigError, default_data_dir
+from kestrel.core.config import ConfigError, ProviderConfig, default_data_dir
 from kestrel.core.events import find_run, runs_dir
 from kestrel.core.types import ProviderError
 from kestrel.providers.discovery import discover
-from kestrel.providers.openrouter import is_openrouter, openrouter_models
+from kestrel.providers.openrouter import OPENROUTER_URL, is_openrouter, openrouter_models
 from kestrel.providers.profiles import THINK_STYLES, ProfileCache, backend_kind, cache_path
 from kestrel.safety.redact import Redactor
 from kestrel.tools.builtin import BUILTIN_TOOLS
@@ -159,8 +159,8 @@ def _ladder(shell: Shell, arg: str) -> bool:
     else:
         err_console.print(
             "[dim]A stuck step goes one rung up, then back down after one good step "
-            "(at most 2 step-ups per run). Cloud rungs need the agent's allow_cloud and "
-            "your yes.[/dim]"
+            "(at most 2 step-ups per run). Cloud rungs need cloud on (/cloud on) and "
+            "your yes for each step.[/dim]"
         )
     return True
 
@@ -172,6 +172,143 @@ def _where(name: str, shell: Shell, home: str) -> str:
     except ValueError:
         return name
     return spec.label if spec.remote else f"{spec.model} ({spec.provider})"
+
+
+def _retry(shell: Shell, arg: str) -> bool:
+    """Send your last message again, on the same model or (`up`) the next one up."""
+    up = arg.strip() == "up"
+    if arg.strip() not in ("", "up"):
+        err_console.print("Use /retry (same model) or /retry up (the next model up).")
+        return True
+    if up and not shell.ladder_names():
+        err_console.print(
+            "No model above the current one. Add one with /cloud setup (a free cloud model) "
+            "or /ladder MODEL MODEL."
+        )
+        return True
+    history = shell.session.conversation.history
+    before, seen_before = list(history), dict(shell.session.seen_files)
+    turn = shell.take_back_last_turn()
+    if turn is None:
+        err_console.print("Nothing to retry yet.")
+        return True
+    task, answer = turn
+    cut = len(history)
+    said = " ".join(answer.split())[:600] or "(no answer)"
+    text = (
+        f"{task}{RETRY_MARK} because the user judged the previous answer wrong or not good "
+        f'enough. That answer was: "{said}". Do not repeat it; check facts with tools.)'
+    )
+    shell.session.up = 1 if up else 0
+    where = shell.ladder_names()[0] if up else (shell.session.model or "the same model")
+    err_console.print(f"[dim]Retrying on {escape(where)}: {escape(task[:80])}[/dim]")
+    shell.send(text)
+    shell.session.up = 0
+    if len(history) <= cut:  # the retry did not run or was not kept: keep the old turn
+        history[:] = before
+        shell.session.seen_files.clear()
+        shell.session.seen_files.update(seen_before)
+        err_console.print("[dim]The retry did not finish; your earlier turn is kept.[/dim]")
+    return True
+
+
+def _cloud(shell: Shell, arg: str) -> bool:
+    """Cloud models for this session: setup, on, off, or status."""
+    word, _, rest = arg.strip().partition(" ")
+    session = shell.session
+    if word == "on":
+        session.cloud = True
+        if not _cloud_rung(shell):
+            err_console.print("Cloud on, but no cloud model is on the ladder: /cloud setup.")
+        else:
+            err_console.print(
+                "Cloud on: a stuck step (or /retry up) may go to the cloud model, after your yes."
+            )
+        return True
+    if word == "off":
+        session.cloud = False
+        err_console.print("Cloud off: the ladder will not send steps to cloud models.")
+        return True
+    if word == "setup":
+        return _cloud_setup(shell, rest.strip())
+    rung = _cloud_rung(shell)
+    state = "on" if session.cloud or session.agent.allow_cloud else "off"
+    err_console.print(f"Cloud {state}; cloud model: {escape(rung or 'none (/cloud setup)')}")
+    return True
+
+
+def _cloud_rung(shell: Shell) -> str | None:
+    for name in shell.ladder_names():
+        head = name.partition(":")[0]
+        if head in shell.config.providers and shell.config.providers[head].is_remote:
+            return name
+    return None
+
+
+def _cloud_setup(shell: Shell, wanted: str) -> bool:
+    config = shell.config
+    name = next(
+        (n for n, c in config.providers.items() if c.is_remote and is_openrouter(c.base_url)),
+        None,
+    )
+    provider = (
+        config.providers[name]
+        if name is not None
+        else ProviderConfig(base_url=OPENROUTER_URL, api_key_env="OPENROUTER_API_KEY")
+    )
+    if provider.api_key(shell.env) is None:
+        err_console.print(
+            f"[yellow]No key found.[/yellow] Quit, run export {provider.api_key_env}=<your key> "
+            "in this terminal, start kestrel again, then /cloud setup."
+        )
+        return True
+    try:
+        models = shell.run_async(openrouter_models(provider.base_url))
+    except (httpx.HTTPError, ValueError) as exc:
+        err_console.print(f"[red]Could not list OpenRouter models:[/red] {escape(str(exc))}")
+        return True
+    if wanted:
+        chosen = next((m for m in models if m.id == wanted), None)
+        if chosen is None:
+            err_console.print(
+                f"[red]{escape(wanted)} is not an OpenRouter model that takes tools.[/red]"
+            )
+            return True
+    else:
+        free = sorted((m for m in models if m.free), key=lambda m: -(m.window or 0))[:9]
+        if not free:
+            err_console.print("OpenRouter lists no free models with tools right now.")
+            return True
+        chosen = free[0]
+        if shell.box is not None:
+            options = [(m.id, f"{m.id}  ({(m.window or 0) // 1024}K)") for m in free]
+            options.append(("", "Cancel"))  # Esc and Ctrl-C pick the last option
+            picked = shell.run_async(shell.box.choose("Pick a free cloud model:", options))
+            if not picked:
+                err_console.print("Cancelled; nothing changed.")
+                return True
+            chosen = next(m for m in free if m.id == picked)
+    if name is None:  # for this session only; the config file is yours to change
+        name = "openrouter"
+        while name in config.providers:
+            name += "-cloud"
+        config.providers[name] = provider
+        err_console.print(
+            "[dim]Using OpenRouter for this session. To keep it, add to your config file:\n"
+            f'  [providers.{name}]\n  base_url = "{OPENROUTER_URL}"\n'
+            '  api_key_env = "OPENROUTER_API_KEY"[/dim]'
+        )
+    shell.session.ladder = [f"{name}:{chosen.id}"]
+    shell.session.cloud = True
+    home = ladder_home(config, shell.session.agent.provider)
+    local = shell.session.model or "(no model: /model NAME)"
+    err_console.print(
+        f"Cloud ready: {escape(local)} ({escape(home)}) then {escape(name)}:{escape(chosen.id)}"
+        f" ({'free' if chosen.free else 'paid'}).\n"
+        "[dim]A stuck step goes up after your yes; /retry up sends your last message there; "
+        "/cloud off turns it off.[/dim]"
+    )
+    return True
 
 
 def _up(shell: Shell, arg: str) -> bool:
@@ -366,8 +503,16 @@ def _report_failure(shell: Shell, arg: str) -> bool:
 
 
 def _doctor(shell: Shell, arg: str) -> bool:
-    reports = shell.run_async(discover(shell.config.providers, env=shell.env))
+    providers = shell.config.providers
+    skipped = [] if shell.session.cloud else [n for n, c in providers.items() if c.is_remote]
+    checked = {n: c for n, c in providers.items() if n not in skipped}
+    reports = shell.run_async(discover(checked, env=shell.env))
     print_reports(reports, err_console)
+    if skipped:
+        err_console.print(
+            f"[dim]Not contacted (cloud is off): {escape(', '.join(skipped))}. /cloud on "
+            "to include them.[/dim]"
+        )
     return True
 
 
@@ -377,6 +522,8 @@ COMMANDS: dict[str, Command] = {
     "provider": Command(_provider, "/provider [name]", "list backends, or switch"),
     "ladder": Command(_ladder, "/ladder [models|off]", "show or set the models to step up to"),
     "up": Command(_up, "/up", "start the next message on the next model up"),
+    "retry": Command(_retry, "/retry [up]", "send your last message again (up: on a bigger model)"),
+    "cloud": Command(_cloud, "/cloud [setup|on|off]", "use a free cloud model when stuck"),
     "think": Command(_think, "/think [on|off|show|hide]", "let the model think; show it"),
     "profile": Command(_profile, "/profile [probe]", "what Kestrel knows about this model"),
     "agent": Command(_agent, "/agent [name]", "show or switch the agent (keeps the conversation)"),

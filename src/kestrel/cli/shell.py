@@ -23,8 +23,8 @@ from kestrel.cli.frontend import BottomBox
 from kestrel.cli.ladder import ladder_home, parse_rung
 from kestrel.cli.output import err_console
 from kestrel.core.config import ConfigError, KestrelConfig, ProviderConfig
-from kestrel.core.context import ContextManager
-from kestrel.core.types import Message, Provider, ProviderError, StopReason
+from kestrel.core.context import NOTE_PREFIX, ContextManager
+from kestrel.core.types import Message, Provider, ProviderError, Role, StopReason
 from kestrel.safety.paths import Workspace
 from kestrel.tools.registry import FileStamp
 
@@ -52,7 +52,9 @@ class Session:
     ladder: list[str] = field(default_factory=list[str])
     """Models above `model` to step up to (`/ladder`); empty: the agent file's."""
     up: int = 0
-    """Rungs up to start the next message on (`/up`)."""
+    """Rungs up to start the next message on (`/up`, `/retry up`)."""
+    cloud: bool = False
+    """`/cloud on`: cloud models may be used this session (each cloud step still asks)."""
     seen_files: dict[Path, FileStamp] = field(default_factory=dict[Path, FileStamp])
     """Files the model has read in this conversation (an edit needs a fresh read)."""
 
@@ -60,6 +62,10 @@ class Session:
     def history(self) -> list[Message]:
         """The conversation's messages."""
         return self.conversation.history
+
+
+RETRY_MARK = "\n\n(Kestrel: you are answering this again"
+"""Start of the note `/retry` adds to the message it sends again."""
 
 
 class Shell:
@@ -140,9 +146,46 @@ class Shell:
         used = session.conversation.build().est_tokens if session.history else 0
         small = " (backend loaded it small: /profile)" if window < wanted else ""
         return (
-            f"{session.model or 'no model'} · agent {session.agent.name} · "
+            f"{self.ladder_status()} · agent {session.agent.name} · "
             f"context {min(100, round(100 * used / window))}% of {window // 1024}K{small} · /help"
         )
+
+    def ladder_status(self) -> str:
+        """`qwen3:8b ↑ ernie-5.5-flash-preview:free (cloud on)`: where a stuck step goes."""
+        model = self.session.model or "no model"
+        uppers = self.ladder_names()
+        if not uppers:
+            return model
+        top = uppers[-1]
+        head, _, rest = top.partition(":")
+        provider = self.config.providers.get(head) if rest else None
+        shown = (rest if provider is not None else top).rsplit("/", 1)[-1]
+        if provider is None or not provider.is_remote:
+            return f"{model} ↑ {shown}"
+        cloud_ok = self.session.cloud or self.session.agent.allow_cloud
+        return f"{model} ↑ {shown} ({'cloud on' if cloud_ok else 'cloud off'})"
+
+    def take_back_last_turn(self) -> tuple[str, str] | None:
+        """Remove the last message you sent and everything after it from the conversation;
+        return (that message, the answer it got). None if there is nothing to retry."""
+        history = self.session.conversation.history
+        task_at = max(
+            (
+                i
+                for i, m in enumerate(history)
+                if m.role is Role.user and not (m.content or "").startswith(NOTE_PREFIX)
+            ),
+            default=None,
+        )
+        if task_at is None:
+            return None
+        task = (history[task_at].content or "").split(RETRY_MARK, 1)[0].rstrip()
+        answers = [m for m in history[task_at:] if m.role is Role.assistant and m.content]
+        final = [m for m in answers if not m.tool_calls]  # the real answer, not "let me look"
+        chosen = (final or answers)[-1].content if (final or answers) else ""
+        answer = chosen or ""
+        del history[task_at:]
+        return task, answer or ""
 
     def send(self, text: str) -> None:
         """Give one message to the agent, with the conversation so far and its tools."""
@@ -179,6 +222,7 @@ class Shell:
             seen_files=self.session.seen_files,
             uppers=uppers,
             start=self.session.up,
+            cloud=self.session.cloud,
             box=self.box,
         )
         self.session.up = 0  # /up is for one message

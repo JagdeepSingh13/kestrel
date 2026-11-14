@@ -67,6 +67,7 @@ def start_run(
     seen_files: dict[Path, FileStamp] | None = None,
     uppers: Sequence[RungSpec] = (),
     start: int = 0,
+    cloud: bool = False,
 ) -> RunResult | None:
     """Run `task` with `agent` to the end. Returns None if it could not start or the user
     pressed Ctrl-C.
@@ -76,12 +77,17 @@ def start_run(
     `think=False` (the default) asks the model not to think first; None leaves it be.
     `seen_files` remembers which files the model has read, across a shell conversation.
     `uppers` are the ladder's rungs above `model` (M4.5); `start` > 0 begins that many
-    rungs up (`/up`).
+    rungs up (`/up`). `cloud` is the shell's `/cloud on`: cloud models are allowed for
+    this session even if the agent file does not say `allow_cloud`.
     """
+    # /cloud on only opens the ladder's cloud rung (asked step by step); running the
+    # whole conversation on a remote backend still needs the agent file's allow_cloud.
+    allow_cloud = agent.allow_cloud or cloud
     if provider_config.is_remote and not agent.allow_cloud:
         err_console.print(
             f"[red]Agent {escape(agent.name)} may not use a remote backend[/red] "
-            f"({escape(provider_config.base_url)}). Set allow_cloud: true in its file to allow it."
+            f"({escape(provider_config.base_url)}). Switch back with /provider, or set "
+            "allow_cloud: true in its file. (/cloud on is for stuck steps only.)"
         )
         return None
     cache = ProfileCache(cache_path(env))
@@ -196,7 +202,7 @@ def start_run(
                 load_profile=load_profile_async,
                 cache=cache,
                 env=dict(env),
-                allow_cloud=agent.allow_cloud,
+                allow_cloud=allow_cloud,
                 approve=frontend.approve,
                 agent_window=agent.context.window,
                 start=start,
