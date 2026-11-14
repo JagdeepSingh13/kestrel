@@ -20,7 +20,7 @@ from kestrel.__about__ import __version__
 from kestrel.agents.schema import AgentConfig
 from kestrel.cli.agent_run import start_run
 from kestrel.cli.frontend import BottomBox
-from kestrel.cli.ladder import parse_rung
+from kestrel.cli.ladder import ladder_home, parse_rung
 from kestrel.cli.output import err_console
 from kestrel.core.config import ConfigError, KestrelConfig, ProviderConfig
 from kestrel.core.context import ContextManager
@@ -155,14 +155,14 @@ class Shell:
         agent = self.session.agent
         name = agent.provider or self.session.provider
         try:
+            home = ladder_home(self.config, agent.provider)
+            uppers = [parse_rung(n, self.config, home) for n in self.ladder_names()]
+            if uppers:  # with a ladder, every model name says where it runs
+                first = parse_rung(model, self.config, home)
+                name, model = first.provider, first.model
             provider_config = self.config.provider(name)
-        except ConfigError as exc:
+        except (ConfigError, ValueError) as exc:
             err_console.print(f"[red]{escape(str(exc))}[/red]")
-            return
-        try:
-            uppers = [parse_rung(n, self.config, name) for n in self.ladder_names()]
-        except ValueError as exc:
-            err_console.print(f"[red]Ladder:[/red] {escape(str(exc))}")
             return
         result = start_run(
             text,

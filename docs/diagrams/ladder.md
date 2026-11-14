@@ -10,7 +10,7 @@ Every step runs on the smallest model. When the watchdog says the run is stuck, 
 - `run_agent` keeps working with one `provider` and `model`: they become a one-rung ladder.
 - `cli/ladder.py`: the real ladder. Opens each rung's provider lazily, probes a local rung on its first use (a model without tools is skipped with a warning), asks you before a cloud step, builds the cloud payload and redacts it.
 - `providers/openrouter.py`: one GET of OpenRouter's model list (models with tools), only on `/model` or the first cloud use; gives the window, tool support and free or paid. Cached with the profiles. OpenRouter is not a built-in provider (`/doctor` would contact it): add `[providers.openrouter]` with `base_url = "https://openrouter.ai/api/v1"` and `api_key_env = "OPENROUTER_API_KEY"` to your config.
-- Agent files: `model: [qwen3:4b, qwen3:8b, "openrouter:google/gemma-4-26b-a4b-it:free"]`. A prefix that names a configured provider picks it; anything else uses the agent's provider (`qwen3:8b` keeps working).
+- Agent files: `model: [qwen3:4b, qwen3:8b, "openrouter:google/gemma-4-26b-a4b-it:free"]`. A prefix that names a configured provider picks it; a name without one runs on your local default backend, whatever provider the shell is on (`qwen3:8b` keeps working). `/ladder` shows `qwen3:8b (ollama) then openrouter:...` and refuses `baidu/ernie...:free` without the `openrouter:` prefix.
 - Shell: `/ladder` shows it, `/ladder A B C` sets it for the session, `/up` starts the next message one rung higher.
 
 ## How a step-up runs

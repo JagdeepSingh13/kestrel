@@ -14,7 +14,7 @@ from kestrel.__about__ import __app_name__, __version__
 from kestrel.agents.loader import AgentError, load_agent
 from kestrel.cli import agent_run, output
 from kestrel.cli.agent_run import start_run
-from kestrel.cli.ladder import RungSpec, parse_rung
+from kestrel.cli.ladder import RungSpec, ladder_home, parse_rung
 from kestrel.cli.output import console, describe_usage, err_console, print_reports
 from kestrel.cli.trace import print_run_list, print_trace
 from kestrel.core.config import (
@@ -275,7 +275,8 @@ def _agent_rungs(
 ) -> list[RungSpec]:
     """The agent file's ladder above the model the run starts on."""
     try:
-        return [parse_rung(m, config, provider) for m in models[1:] if m != first]
+        home = ladder_home(config, provider if not config.provider(provider).is_remote else None)
+        return [parse_rung(m, config, home) for m in models[1:] if m != first]
     except ValueError as exc:
         err_console.print(f"[red]Ladder:[/red] {escape(str(exc))}")
         raise typer.Exit(2) from None

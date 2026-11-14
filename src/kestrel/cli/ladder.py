@@ -73,9 +73,29 @@ class RungSpec:
         return f"{self.provider}:{self.model}" if self.remote else self.model
 
 
+def ladder_home(config: KestrelConfig, agent_provider: str | None) -> str:
+    """Where a ladder model without a prefix runs: the agent's own provider if it is on
+    this machine, else the configured default. Never the shell's current provider: a
+    `/model` look at OpenRouter must not move `qwen3:8b` there."""
+    if agent_provider and not config.provider(agent_provider).is_remote:
+        return agent_provider
+    return config.default_provider
+
+
+def looks_remote(name: str, config: KestrelConfig) -> str | None:
+    """For a name without a prefix that looks like a cloud model id (`vendor/model`),
+    the prefixed name you probably meant, if a remote provider is configured."""
+    remote = next((n for n, c in config.providers.items() if c.is_remote), None)
+    head = name.partition(":")[0]
+    if remote is None or head in config.providers or "/" not in name:
+        return None
+    return f"{remote}:{name}"
+
+
 def parse_rung(text: str, config: KestrelConfig, default_provider: str) -> RungSpec:
     """`provider:model` when the part before the first `:` names a configured provider,
-    else a model on `default_provider` (so `qwen3:8b` stays one model name)."""
+    else a model on `default_provider` (so `qwen3:8b` stays one model name). Ladder
+    callers pass `ladder_home(...)` as the default."""
     head, sep, rest = text.partition(":")
     if sep and head in config.providers and rest:
         return RungSpec(head, config.providers[head], rest)

@@ -186,3 +186,15 @@ def test_a_cloud_rate_limit_says_who_limited_it() -> None:
     body = '{"error": {"message": "Provider returned error", "metadata": {"raw": "' + raw + '"}}}'
     text = str(_plain(BackendHTTPError(429, body)))
     assert "not by your account" in text and "rate-limited upstream" in text
+
+
+def test_a_name_without_prefix_runs_locally_whatever_the_shell_is_on() -> None:
+    from kestrel.cli.ladder import ladder_home, looks_remote
+
+    cfg = config()
+    assert ladder_home(cfg, None) == "ollama"
+    assert ladder_home(cfg, "cloud") == "ollama"  # an agent's remote provider is not home
+    assert parse_rung("qwen3:8b", cfg, ladder_home(cfg, None)).provider == "ollama"
+    assert looks_remote("baidu/ernie-5.5:free", cfg) == "cloud:baidu/ernie-5.5:free"
+    assert looks_remote("qwen3:8b", cfg) is None
+    assert looks_remote("cloud:baidu/ernie", cfg) is None

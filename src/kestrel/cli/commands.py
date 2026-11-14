@@ -8,7 +8,7 @@ from rich.markup import escape
 
 from kestrel.agents.loader import AgentError, list_agents, load_agent
 from kestrel.cli import agent_run
-from kestrel.cli.ladder import parse_rung
+from kestrel.cli.ladder import ladder_home, looks_remote, parse_rung
 from kestrel.cli.output import console, describe_profile, err_console, print_reports
 from kestrel.cli.report import ReportError, build_case, write_case
 from kestrel.cli.shell import Shell
@@ -131,16 +131,29 @@ def _ladder(shell: Shell, arg: str) -> bool:
     if arg:
         first, *rest = arg.split()
         try:
-            for name in rest:
-                parse_rung(name, shell.config, session.provider)
-        except ValueError as exc:
+            home = ladder_home(shell.config, session.agent.provider)
+            for name in [first, *rest]:
+                parse_rung(name, shell.config, home)
+        except (ConfigError, ValueError) as exc:
             err_console.print(f"[red]{escape(str(exc))}[/red]")
             return True
+        for name in [first, *rest]:
+            if (meant := looks_remote(name, shell.config)) is not None:
+                err_console.print(
+                    f"[red]{escape(name)} has no provider prefix, so it would run on "
+                    f"{escape(home)}.[/red] For the cloud write {escape(meant)}"
+                )
+                return True
         session.model = first
         session.ladder = rest
     uppers = shell.ladder_names()
-    rungs = " then ".join([session.model or "(no model)", *uppers])
-    err_console.print(f"Ladder: {escape(rungs)}")
+    home = ladder_home(shell.config, session.agent.provider)
+    shown = (
+        [_where(n, shell, home) for n in [session.model or "(no model)", *uppers]]
+        if uppers
+        else [session.model or "(no model)"]
+    )
+    err_console.print(f"Ladder: {escape(' then '.join(shown))}")
     if not uppers:
         err_console.print("[dim]Only one rung. Set more with /ladder MODEL MODEL ...[/dim]")
     else:
@@ -150,6 +163,15 @@ def _ladder(shell: Shell, arg: str) -> bool:
             "your yes.[/dim]"
         )
     return True
+
+
+def _where(name: str, shell: Shell, home: str) -> str:
+    """`qwen3:8b (ollama)`: each rung with the backend it runs on."""
+    try:
+        spec = parse_rung(name, shell.config, home)
+    except ValueError:
+        return name
+    return spec.label if spec.remote else f"{spec.model} ({spec.provider})"
 
 
 def _up(shell: Shell, arg: str) -> bool:

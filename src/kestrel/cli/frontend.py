@@ -153,7 +153,13 @@ class CliFrontend:
                 )
             case EventType.error:
                 self.stop()
-                err_console.print(f"[red]⏺ Error:[/red] {escape(_str(data.get('message')))}")
+                message = _str(data.get("message"))
+                err_console.print(f"[red]⏺ Error:[/red] {escape(message)}")
+                if "valid model" in message or "model not found" in message.lower():
+                    err_console.print(
+                        "[dim]  The backend does not know that model: check /provider "
+                        "(which backend) and /model (which models it has).[/dim]"
+                    )
             case EventType.run_end:
                 self.stop()
                 err_console.print(_run_summary(event), highlight=False)
