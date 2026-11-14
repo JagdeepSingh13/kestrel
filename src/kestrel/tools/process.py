@@ -19,6 +19,7 @@ import subprocess
 import sys
 import uuid
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Annotated
 
 from pydantic import Field
@@ -88,10 +89,26 @@ async def python_exec(
 
 
 async def _run(command: str | None, argv: list[str] | None, ctx: ToolContext, seconds: int) -> str:
-    """Start the process in its own group, collect capped output, kill it if too slow."""
+    code, text = await run_process(
+        command, argv, cwd=ctx.workspace.root, env=safe_env(ctx.env), seconds=seconds
+    )
+    return f"exit code {code}\n{text}".rstrip()
+
+
+async def run_process(
+    command: str | None,
+    argv: list[str] | None,
+    *,
+    cwd: Path,
+    env: Mapping[str, str],
+    seconds: int,
+) -> tuple[int, str]:
+    """Run a shell `command` or an `argv` list in its own process group: the exit code and
+    the output (capped: its start and end), killed after `seconds` (`ToolError`).
+    `env` is passed as given: remove secrets first (`safe_env`)."""
     common: dict[str, object] = {
-        "cwd": ctx.workspace.root,
-        "env": safe_env(ctx.env),
+        "cwd": cwd,
+        "env": dict(env),
         "stdin": subprocess.DEVNULL,
         "stdout": subprocess.PIPE,
         "stderr": subprocess.STDOUT,
@@ -136,7 +153,7 @@ async def _run(command: str | None, argv: list[str] | None, ctx: ToolContext, se
         cut = total - len(head) - len(tail)
         marker = f"\n[... {cut} bytes cut from the middle{stopped} ...]\n"
         text = start + marker + tail.decode("utf-8", errors="replace")
-    return f"exit code {proc.returncode}\n{text}".rstrip()
+    return proc.returncode if proc.returncode is not None else -1, text
 
 
 def _kill(proc: asyncio.subprocess.Process) -> None:

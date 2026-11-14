@@ -1,0 +1,53 @@
+EFEFF..
+======================================================================
+ERROR: test_a (tests.test_stats.TestMore.test_a)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/ROOT/tests/test_stats.py", line 21, in test_a
+    self.assertEqual(mean([1]), 1)
+                     ^^^^^^^^^
+  File "/ROOT/calc/stats.py", line 10, in mean
+    return total(values) / (count(values) - 1)
+           ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~
+ZeroDivisionError: float division by zero
+
+======================================================================
+ERROR: test_c (tests.test_stats.TestMore.test_c)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/ROOT/tests/test_stats.py", line 27, in test_c
+    self.assertEqual(middle([]), 0)
+                     ^^^^^^^^^^
+  File "/ROOT/calc/stats.py", line 19, in middle
+    return (ordered[half - 1] + ordered[half]) / 2
+            ~~~~~~~^^^^^^^^^^
+IndexError: list index out of range
+
+======================================================================
+FAIL: test_b (tests.test_stats.TestMore.test_b)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/ROOT/tests/test_stats.py", line 24, in test_b
+    self.assertEqual(mean([1, 1]), 1)
+AssertionError: 2.0 != 1
+
+======================================================================
+FAIL: test_d (tests.test_stats.TestMore.test_d)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/ROOT/tests/test_stats.py", line 30, in test_d
+    self.assertEqual(mean([5, 5, 5, 5]), 5)
+AssertionError: 6.666666666666667 != 5
+
+======================================================================
+FAIL: test_mean (tests.test_stats.TestStats.test_mean)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/ROOT/tests/test_stats.py", line 8, in test_mean
+    self.assertEqual(mean([2, 4, 6]), 4)
+AssertionError: 6.0 != 4
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.000s
+
+FAILED (failures=3, errors=2)

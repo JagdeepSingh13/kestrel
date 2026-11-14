@@ -192,6 +192,9 @@ def describe(event: Event, *, full: bool = False) -> str:
             return f"{d.get('signal')}: {text(d.get('detail'))}"
         case EventType.web:
             return describe_web(d)
+        case EventType.test_run:
+            head = f"{text(d.get('command'))}: exit {d.get('exit_code')} in {d.get('seconds')}s"
+            return f"{head}\n{text(d.get('output'))}"
         case EventType.mcp_start:
             tools = d.get("tools")
             count = len(tools) if isinstance(tools, list) else 0

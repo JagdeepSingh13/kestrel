@@ -74,6 +74,8 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Repos the coder agent works on: their tests fail on purpose.
+norecursedirs = ["tests/fixtures"]
 # -ra: summary of skips/failures. --strict-markers: typo in a marker name is an error.
 # -m "not live": skip real-model tests by default; run them with `pytest -m live`.
 addopts = ["-ra", "--strict-markers", "-m", "not live"]

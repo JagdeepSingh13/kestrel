@@ -34,6 +34,7 @@ from kestrel.safety.paths import Workspace
 from kestrel.safety.permissions import Permissions
 from kestrel.safety.redact import Redactor
 from kestrel.tools.builtin import BUILTIN_TOOLS
+from kestrel.tools.checks import find_test_command, run_tests_with
 from kestrel.tools.mcp import McpHub, McpStartError, command_line, mcp_tools
 from kestrel.tools.registry import FileStamp, Tool, ToolContext, ToolError, ToolRegistry
 from kestrel.tools.research import urls_in
@@ -131,7 +132,7 @@ def start_run(
         writer.close()
         return None
     tools = ToolRegistry(
-        [*(BUILTIN_TOOLS[name] for name in agent.tools), *extra],
+        [*(_builtin(name, agent, workspace) for name in agent.tools), *extra],
         ToolContext(
             workspace=workspace,
             env=env,
@@ -347,6 +348,14 @@ def today_note(today: date) -> str:
         f"Today is {today:%A}, {today.isoformat()}. Your training data is older than this: "
         "when a year or date is needed and the user gave none, use today's, and say so."
     )
+
+
+def _builtin(name: str, agent: AgentConfig, workspace: Workspace) -> Tool:
+    """A built-in tool for this run; `run_tests` gets its command now, so the confirm
+    prompt and the model both see what it runs."""
+    if name == "run_tests":
+        return run_tests_with(find_test_command(workspace.root, agent.test_command), workspace.root)
+    return BUILTIN_TOOLS[name]
 
 
 def outside_paths_note(root: Path) -> str:

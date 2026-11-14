@@ -1,0 +1,13 @@
+F..
+======================================================================
+FAIL: test_mean (tests.test_stats.TestStats.test_mean)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/ROOT/tests/test_stats.py", line 8, in test_mean
+    self.assertEqual(mean([2, 4, 6]), 4)
+AssertionError: 6.0 != 4
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.000s
+
+FAILED (failures=1)

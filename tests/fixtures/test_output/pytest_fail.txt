@@ -1,0 +1,10 @@
+
+F..                                                                      [100%]
+=================================== FAILURES ===================================
+_____________________________ TestStats.test_mean ______________________________
+tests/test_stats.py:8: in test_mean
+    self.assertEqual(mean([2, 4, 6]), 4)
+E   AssertionError: 6.0 != 4
+=========================== short test summary info ============================
+FAILED tests/test_stats.py::TestStats::test_mean - AssertionError: 6.0 != 4
+1 failed, 2 passed in 0.01s

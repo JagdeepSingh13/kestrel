@@ -1,0 +1,22 @@
+E
+======================================================================
+ERROR: tests.test_stats (unittest.loader._FailedTest.tests.test_stats)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: tests.test_stats
+Traceback (most recent call last):
+  File "/Users/jsingh/.local/share/uv/python/cpython-3.12.16-macos-aarch64-none/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jsingh/.local/share/uv/python/cpython-3.12.16-macos-aarch64-none/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/ROOT/tests/test_stats.py", line 3, in <module>
+    from calc.stats import mean, middle
+  File "/ROOT/calc/stats.py", line 20
+    def mean(values:
+            ^
+SyntaxError: '(' was never closed
+
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+FAILED (errors=1)

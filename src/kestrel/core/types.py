@@ -178,6 +178,9 @@ class EventType(StrEnum):
     loop_warning = "loop_warning"
     web = "web"
     """A web search, fetch (or block), or research summary from inside a tool (M4.1)."""
+    test_run = "test_run"
+    """A `run_tests` call (M5.5): command, exit code, seconds and the full output (the
+    model got a short version)."""
     mcp_start = "mcp_start"
     """An MCP server was started for this run's agent (M5): server, command, tools."""
     step_up = "step_up"

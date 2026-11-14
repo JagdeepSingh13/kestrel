@@ -179,7 +179,7 @@ class CliFrontend:
         self.stop()
         err_console.print(
             Panel(
-                confirm_preview(call),
+                confirm_preview(call, spec),
                 title=f"[bold]{escape(call.name)}[/bold] wants to run",
                 title_align="left",
                 border_style="yellow",
@@ -393,9 +393,12 @@ def describe_web(data: JSONObject) -> str:
     return str(kind)
 
 
-def confirm_preview(call: ToolCall) -> RenderableType:
+def confirm_preview(call: ToolCall, spec: ToolSpec | None = None) -> RenderableType:
     """Exactly what will run: the command, the code, or the file about to be written."""
     args = call.arguments
+    if call.name == "run_tests" and spec is not None and " Runs: " in spec.description:
+        command = spec.description.rsplit(" Runs: ", 1)[1]
+        return Syntax(_clip(command), "bash", theme="ansi_dark", background_color="default")
     question = args.get("question")
     if call.name == "research" and isinstance(question, str):
         return Text.assemble(

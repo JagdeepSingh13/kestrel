@@ -1,5 +1,7 @@
 """What an agent file may contain (spec section 10)."""
 
+import os
+import shlex
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -42,6 +44,16 @@ class AgentConfig(_Strict):
     system: str | None = None
     """The agent's instructions. Empty: Kestrel's default system prompt."""
     tools: list[str] = Field(default_factory=list[str])
+    test_command: str | None = None
+    """What `run_tests` runs, e.g. `npm test` (M5.5). Without it: pytest or unittest."""
+
+    @field_validator("test_command")
+    @classmethod
+    def _command_splits(cls, value: str | None) -> str | None:
+        if value is not None and not shlex.split(value, posix=os.name != "nt"):
+            raise ValueError("test_command is empty")  # bad quoting: shlex's ValueError
+        return value
+
     mcp: dict[str, list[str]] = Field(default_factory=dict[str, list[str]])
     """MCP tools by server (M5): `{fs: [read_text_file, list_directory], git: ["*"]}`.
     Servers are defined in your config only; they appear as `fs__read_text_file`."""

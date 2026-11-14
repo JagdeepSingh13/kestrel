@@ -1,0 +1,38 @@
+
+F..FFFF                                                                  [100%]
+=================================== FAILURES ===================================
+_____________________________ TestStats.test_mean ______________________________
+tests/test_stats.py:8: in test_mean
+    self.assertEqual(mean([2, 4, 6]), 4)
+E   AssertionError: 6.0 != 4
+_______________________________ TestMore.test_a ________________________________
+tests/test_stats.py:21: in test_a
+    self.assertEqual(mean([1]), 1)
+                     ^^^^^^^^^
+calc/stats.py:10: in mean
+    return total(values) / (count(values) - 1)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   ZeroDivisionError: float division by zero
+_______________________________ TestMore.test_b ________________________________
+tests/test_stats.py:24: in test_b
+    self.assertEqual(mean([1, 1]), 1)
+E   AssertionError: 2.0 != 1
+_______________________________ TestMore.test_c ________________________________
+tests/test_stats.py:27: in test_c
+    self.assertEqual(middle([]), 0)
+                     ^^^^^^^^^^
+calc/stats.py:19: in middle
+    return (ordered[half - 1] + ordered[half]) / 2
+            ^^^^^^^^^^^^^^^^^
+E   IndexError: list index out of range
+_______________________________ TestMore.test_d ________________________________
+tests/test_stats.py:30: in test_d
+    self.assertEqual(mean([5, 5, 5, 5]), 5)
+E   AssertionError: 6.666666666666667 != 5
+=========================== short test summary info ============================
+FAILED tests/test_stats.py::TestStats::test_mean - AssertionError: 6.0 != 4
+FAILED tests/test_stats.py::TestMore::test_a - ZeroDivisionError: float divis...
+FAILED tests/test_stats.py::TestMore::test_b - AssertionError: 2.0 != 1
+FAILED tests/test_stats.py::TestMore::test_c - IndexError: list index out of ...
+FAILED tests/test_stats.py::TestMore::test_d - AssertionError: 6.666666666666...
+5 failed, 2 passed in 0.01s
