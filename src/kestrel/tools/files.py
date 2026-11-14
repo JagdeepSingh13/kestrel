@@ -21,7 +21,23 @@ MAX_LIST_ENTRIES = 300
 MAX_MATCHES = 50
 SHOWN_AROUND = 2
 """Lines shown before and after a change."""
-SKIPPED_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", ".mypy_cache"})
+SKIPPED_DIRS = frozenset(
+    {
+        ".git",
+        ".venv",
+        "venv",
+        "node_modules",
+        "__pycache__",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".tox",
+        "dist",
+        "build",
+        "target",
+    }
+)
+"""Not opened by list_dir, search_files or repo_map: tools, caches and build output."""
 """Listed, but never opened: they are huge and rarely what the model wants."""
 
 
@@ -91,6 +107,17 @@ def _walk(folder: Path, depth: int, indent: str, out: list[str]) -> None:
             out.append(f"{indent}{entry.name}  ({entry.stat().st_size} bytes)")
 
 
+def _writable(ctx: ToolContext, path: str) -> Path:
+    """`path` resolved for writing: never inside a `.git` folder (a file there, like a
+    hook, can make git run a program)."""
+    file = ctx.workspace.resolve(path)
+    parts = file.relative_to(ctx.workspace.root).parts
+    # Any case: on macOS and Windows ".GIT" is the same folder (and "GIT~1" on Windows).
+    if any(p.lower() == ".git" or p.upper().startswith("GIT~") for p in parts):
+        raise ToolError(f"{path} is inside .git/, which file tools do not change")
+    return file
+
+
 def _read_first(ctx: ToolContext, args: BaseModel) -> str | None:
     """Changing an existing file needs a read of its current text in this conversation,
     so the model works from what is there, not from memory. Checked before asking you."""
@@ -135,7 +162,7 @@ def write_file(
 ) -> str:
     """Write a text file inside the workspace. Creates folders as needed. Replacing an
     existing file needs overwrite=true (and the user's approval)."""
-    file = ctx.workspace.resolve(path)
+    file = _writable(ctx, path)
     if file.is_dir():
         raise ToolError(f"{path} is a folder")
     existed = file.exists()
@@ -163,7 +190,7 @@ def append_file(
 ) -> str:
     """Add text at the end of a file (created if missing), on a new line. Keeps what is
     already there."""
-    file = ctx.workspace.resolve(path)
+    file = _writable(ctx, path)
     if file.is_dir():
         raise ToolError(f"{path} is a folder")
     if not text.strip():
@@ -203,7 +230,7 @@ def edit_file(
 ) -> str:
     """Replace one exact piece of text in a file. Copy old_text from read_file output;
     include enough lines that it appears only once."""
-    file = ctx.workspace.resolve(path)
+    file = _writable(ctx, path)
     if not file.is_file():
         raise ToolError(f"{path} is not a file")
     raw = file.read_bytes()

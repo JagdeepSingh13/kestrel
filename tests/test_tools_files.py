@@ -217,3 +217,17 @@ async def test_reindent_keeps_shallower_lines_shallow_and_never_mixes(ws: Path) 
     }
     await call(ws, "edit_file", deeper)
     assert (ws / "d.py").read_text(encoding="utf-8") == "def h():\n\tif y:\n\t\treturn x\n"
+
+
+async def test_files_inside_git_cannot_be_written(ws: Path) -> None:
+    hook: JSONObject = {"path": ".git/hooks/pre-commit", "content": "#!/bin/sh\n"}
+    result = await result_of(ws, "write_file", hook)
+    assert result.is_error and "inside .git/" in result.content
+    assert not (ws / ".git" / "hooks" / "pre-commit").exists()
+    result = await result_of(ws, "append_file", {"path": ".git/config", "content": "x"})
+    assert result.is_error and (ws / ".git" / "config").read_text() == "[core]\n"
+
+
+async def test_git_folder_in_another_case_is_still_refused(ws: Path) -> None:
+    result = await result_of(ws, "append_file", {"path": ".GIT/config", "content": "x"})
+    assert result.is_error and (ws / ".git" / "config").read_text() == "[core]\n"
