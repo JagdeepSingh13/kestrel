@@ -81,6 +81,10 @@ class CliFrontend:
         self._printed_thinking = False
         self._answer = ""
         self._thinking = ""
+        self._reply = ""
+        """The latest reply's text (empty if it had none)."""
+        self._before_nudge: str | None = None
+        """The answer that was nudged, until the next one is printed."""
 
     def on_event(self, event: Event) -> None:
         """Render one event."""
@@ -93,6 +97,7 @@ class CliFrontend:
             case EventType.model_delta:
                 self._delta(_str(data.get("text")), _str(data.get("reasoning")))
             case EventType.model_response:
+                self._reply = self._answer
                 self.stop()  # with the box, this prints the finished answer
                 if self._printed_text and self.box is None:
                     console.print()
@@ -100,6 +105,7 @@ class CliFrontend:
                     err_console.print()
             case EventType.tool_call:
                 self.stop()
+                self._before_nudge = None  # it went on to act: a later answer is new
                 name, args = _str(data.get("name")), data.get("arguments")
                 err_console.print(
                     Text.assemble("⏺ ", (name, "bold"), f"({describe_args(args)})"),
@@ -119,6 +125,7 @@ class CliFrontend:
                 err_console.print(Text("  ! warned: " + _str(data.get("detail")), style="yellow"))
             case EventType.nudge:
                 self._stop_spinner()
+                self._before_nudge = self._reply
                 why = (
                     "its tool failed and it stopped"
                     if data.get("kind") == "after_failure"
@@ -251,8 +258,11 @@ class CliFrontend:
                 err_console.print(Text("∴ " + self._thinking.strip(), style="dim italic"))
                 self._thinking = ""
             if self._answer:
-                console.print(_bulleted(Markdown(self._answer)))
-                self._answer = ""
+                if _same(self._answer, self._before_nudge):
+                    err_console.print(Text("  (the same answer again)", style="dim"))
+                else:
+                    console.print(_bulleted(Markdown(self._answer)))
+                self._answer, self._before_nudge = "", None
 
     def _stop_spinner(self) -> None:
         if self.box is not None:
@@ -293,6 +303,10 @@ class CliFrontend:
                 err_console.print("\n")
             self._printed_text = True
             _raw(console, text)  # plain text as it arrives
+
+
+def _same(answer: str, before: str | None) -> bool:
+    return before is not None and " ".join(answer.split()) == " ".join(before.split())
 
 
 def _bulleted(body: RenderableType) -> Table:

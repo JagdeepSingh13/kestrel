@@ -143,8 +143,11 @@ def start_run(
         ),
     )
     context = conversation or ContextManager(None)
-    context.system_prompt = (
-        f"{agent.system or DEFAULT_SYSTEM_PROMPT}\n\n{today_note(date.today())}\n\n{UNTRUSTED_RULE}"
+    notes = [today_note(date.today())]
+    if extra:
+        notes.append(outside_paths_note(workspace.root))
+    context.system_prompt = "\n\n".join(
+        [agent.system or DEFAULT_SYSTEM_PROMPT, *notes, UNTRUSTED_RULE]
     )
     context.window = window
     context.max_tool_result_tokens = agent.context.max_tool_result_tokens
@@ -343,6 +346,15 @@ def today_note(today: date) -> str:
     return (
         f"Today is {today:%A}, {today.isoformat()}. Your training data is older than this: "
         "when a year or date is needed and the user gave none, use today's, and say so."
+    )
+
+
+def outside_paths_note(root: Path) -> str:
+    """MCP servers know nothing of Kestrel's relative paths; small models guess
+    "/workspace". Give them the real folder."""
+    return (
+        f"The workspace folder is {root}. Tools named server__tool come from outside "
+        f"servers: give them full paths inside it, like {root / 'notes.txt'}."
     )
 
 

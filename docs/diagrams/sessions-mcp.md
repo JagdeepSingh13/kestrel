@@ -30,6 +30,7 @@ env_pass = ["GITHUB_TOKEN"]                     # by name; values never in the f
 ```
 
 - Agents pick tools by name: `mcp: {fs: [read_text_file, list_directory], git: ["*"]}`. They appear to the model as `fs__read_text_file`. More than 12 tools in total warns; more than 24 is refused (small models choose badly from long lists).
+- The system prompt gets the workspace's full path, because servers want full paths (the model guessed `/workspace` without it).
 - Each tool's description and schema are trimmed for small windows (about 200 tokens per tool (two filesystem tools measured about 400)).
 - Results: text joined; images noted as omitted; errors become error results. Everything from a server, errors included, is wrapped as untrusted (`mcp:fs/read_text_file`). Default permission: confirm, except tools in the server's `allow` list.
 - A server's own messages go to `<data dir>/mcp/<name>.log`, not the screen. HTTP servers off this machine count as cloud and need the agent's `allow_cloud`.
