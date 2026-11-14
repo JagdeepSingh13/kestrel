@@ -198,3 +198,28 @@ def test_a_name_without_prefix_runs_locally_whatever_the_shell_is_on() -> None:
     assert looks_remote("baidu/ernie-5.5:free", cfg) == "cloud:baidu/ernie-5.5:free"
     assert looks_remote("qwen3:8b", cfg) is None
     assert looks_remote("cloud:baidu/ernie", cfg) is None
+
+
+async def test_the_question_says_stuck_only_when_something_is_stuck(tmp_path: object) -> None:
+    asked: list[str] = []
+
+    async def approve(question: str, lines: list[str]) -> Literal["yes", "no", "always"]:
+        asked.append(question)
+        return "yes"
+
+    async with contextlib.AsyncExitStack() as stack:
+        lad = ladder(
+            stack,
+            [RungSpec("cloud", CLOUD, "m:free")],
+            cloud=True,
+            approve=Answers(),
+            tmp=str(tmp_path),
+        )
+        lad.approve = approve
+        lad.start = 1
+        await lad.begin()  # /up
+        lad.after_step(ok=True)
+        lad.at, lad.start = 0, 0
+        await lad.step_up("repeat", "read_file called 4 times")
+    assert asked[0].startswith("Send your message to m:free")
+    assert asked[1].startswith("Send this stuck step to m:free")

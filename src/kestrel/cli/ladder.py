@@ -202,17 +202,26 @@ class ShellLadder:
             return True
         info = self.remote.get(spec.label)
         price = "unknown price" if info is None else "free" if info.free else "paid"
-        answer = await self.approve(
-            f"Send this stuck step to {spec.model} on {spec.provider} ({price})?",
-            [
-                f"stuck: {reason} ({detail})",
-                "sent: the instructions, your message (with the answer you rejected, after",
-                "/retry up), the failing step, a short note, and the cloud model's own",
-                "steps until it hands back; not sent: the rest of the conversation. Secret",
-                "values from your environment are removed; file contents in those steps",
-                "are sent as they are.",
-            ],
-        )
+        privacy = [
+            "not sent: the rest of the conversation. Secret values from your environment",
+            "are removed; file contents in these steps are sent as they are.",
+        ]
+        if self.beginning:  # you asked for it (/up, /retry up): nothing is stuck
+            question = f"Send your message to {spec.model} on {spec.provider} ({price})?"
+            lines = [
+                "sent: the instructions, your message (and the answer you rejected, after",
+                "/retry up), and the cloud model's own steps for this message;",
+                *privacy,
+            ]
+        else:
+            question = f"Send this stuck step to {spec.model} on {spec.provider} ({price})?"
+            lines = [
+                f"stuck: {reason.replace('_', ' ')} ({detail})",
+                "sent: the instructions, your message, the failing step, a short note, and",
+                "the cloud model's own steps until it hands back;",
+                *privacy,
+            ]
+        answer = await self.approve(question, lines)
         if self.emit is not None:
             self.emit(
                 "permission",
