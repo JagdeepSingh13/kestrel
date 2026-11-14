@@ -132,7 +132,7 @@ async def test_a_failing_run_is_an_untrusted_error_and_the_log_gets_everything(
 
 def test_finding_the_command_runs_nothing_in_the_repo(tmp_path: Path) -> None:
     marker = tmp_path / "ran"
-    fake = tmp_path / ".venv" / "bin" / "python"
+    fake = tmp_path / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     fake.parent.mkdir(parents=True)
     fake.write_text(f"#!/bin/sh\ntouch {marker}\n")
     fake.chmod(0o755)
