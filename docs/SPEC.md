@@ -361,11 +361,11 @@ Each milestone ends with: passing tests, ruff + pyright clean, README section up
 - `agents/schema.py`, loader, built-in `default` agent.
 - Tools: `read_file`, `list_dir`, `write_file`, `run_shell`, `python_exec`, `ask_user`.
 - `safety/permissions.py` (allow/confirm/deny, CLI prompt for confirm), `safety/paths.py` (jail), `safety/redact.py`.
-- `kestrel run "task" --agent default` (workspace is always `<project>/workspace/`, see decisions below)
+- `kestrel run "task" --agent default` (the workspace is one folder, see decisions below)
 - **Done when:** path-escape tests (`../`, absolute paths, symlinks) all rejected; confirm flow works; demo: "count lines in all .py files and write summary to report.md" succeeds on qwen3:8b.
 - **Plan (2026-11-11), six pieces, each walked through before the next:** (1) path jail, (2) tool registry + `@tool`, (3) file tools, (4) permissions + confirm, (5) `run_shell`, `python_exec`, `ask_user`, (6) agent YAML + shell `/agent`, `/agents`, `/workspace` (shows the folder), `/tools` + untrusted wrapping. Diagrams: `docs/diagrams/tools-and-safety.md`.
 - **Status: done (v0.0.3).** Live demo on qwen3:8b with the `counter` agent: correct counts (19, 81, 60, total 160) in 4 steps, 157 s; it asked `read_file` for one line per file to get the "N lines total" header. Finding for M4: the report was written with literal `\n` text, because the model double-escaped newlines inside the JSON arguments (a double-encoded string, section 5.2 step 2).
-- **Decisions (2026-11-11):** no OS sandbox in M3 for `run_shell`/`python_exec` (confirm by default, workspace cwd, timeout, output cap, secret env vars removed; README says plainly it is not a sandbox; real sandbox in backlog). Confirm answer "a" allows that tool for the rest of the run only, never saved. Subprocesses get the environment minus vars named like `*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASSWORD*`. Workspace (changed by owner, 2026-11-11, for safety): agents only ever use one folder, `workspace/` inside the Kestrel project folder (created on first use, ignored by git). For now there is no way to point agents anywhere else; `/workspace` only shows the path. `python_exec` uses Kestrel's own interpreter with `-I` and a temp dir inside the workspace.
+- **Decisions (2026-11-11):** no OS sandbox in M3 for `run_shell`/`python_exec` (confirm by default, workspace cwd, timeout, output cap, secret env vars removed; README says plainly it is not a sandbox; real sandbox in backlog). Confirm answer "a" allows that tool for the rest of the run only, never saved. Subprocesses get the environment minus vars named like `*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASSWORD*`. Workspace (changed by owner, 2026-11-11, for safety): agents only ever use one folder, `workspace/` inside the Kestrel project folder (created on first use, ignored by git). `/workspace` shows the path. (Moved by owner, 2026-11-14, M5.5: the folder is `~/Documents/kestrel-workspace`, or `workspace = "..."` in config.toml; outside the Kestrel checkout so a repo in it never sits inside Kestrel's git repo. A folder that is the disk root, the home folder or above it is refused.) `python_exec` uses Kestrel's own interpreter with `-I` and a temp dir inside the workspace.
 
 ### M3.5: Shell as an agent (Claude Code style)
 - Every message typed in the shell is one agent turn with the current agent's tools; the model decides when to use them. `/run` is removed. The conversation (tool calls and results included) carries over between messages, trimmed by the context manager; the latest user message is the pinned task. `/clear` forgets it; `/agent` keeps it but swaps prompt, tools and permissions.
@@ -574,6 +574,7 @@ Uses: `kestrel trace`, replay tests (feed recorded `model_response`s into FakePr
 default_agent = "default"
 default_provider = "ollama"          # used by `kestrel ask` when --provider is not given
 default_model = "qwen3:8b"           # used when --model is not given (optional)
+workspace = "~/Documents/kestrel-workspace"   # the agents' only folder (this is the default)
 
 [providers.ollama]
 base_url = "http://localhost:11434/v1"

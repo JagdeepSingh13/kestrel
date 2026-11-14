@@ -21,6 +21,10 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from kestrel.core.types import JSONObject
 
+DEFAULT_WORKSPACE = "~/Documents/kestrel-workspace"
+"""The agents' only folder unless config.toml says `workspace = "..."` (owner, 2026-11-14:
+outside the Kestrel checkout, so a repo in it never sits inside Kestrel's own git repo)."""
+
 LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 
@@ -105,6 +109,8 @@ class KestrelConfig(_Strict):
     default_agent: str = "default"
     default_provider: str = "ollama"
     default_model: str | None = None
+    workspace: str = DEFAULT_WORKSPACE
+    """The only folder agents may use; created on first use."""
     providers: dict[str, ProviderConfig] = Field(default_factory=lambda: dict(BUILTIN_PROVIDERS))
     tools: dict[str, JSONObject] = Field(default_factory=dict[str, JSONObject])
     """Per-tool settings (M4+). Kept as plain JSON until those tools exist."""

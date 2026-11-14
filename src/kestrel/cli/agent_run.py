@@ -15,7 +15,7 @@ from kestrel.agents.schema import AgentConfig
 from kestrel.cli.frontend import BottomBox, CliFrontend
 from kestrel.cli.ladder import RungSpec, ShellLadder
 from kestrel.cli.output import err_console, window_fix
-from kestrel.core.config import ProviderConfig
+from kestrel.core.config import KestrelConfig, ProviderConfig
 from kestrel.core.context import NOTE_PREFIX, UNTRUSTED_RULE, ContextManager
 from kestrel.core.events import EventBus, JsonlWriter, new_run_id, runs_dir
 from kestrel.core.loop import DEFAULT_SYSTEM_PROMPT, Budgets, run_agent
@@ -46,9 +46,9 @@ async def probe_profile(name: str, base_url: str, model: str, known: Profile | N
     return await probe(name, base_url, model, known=known)
 
 
-def default_workspace() -> Workspace:
-    """The agents' only folder (`<project>/workspace`). Tests replace this."""
-    return Workspace.default()
+def default_workspace(config: KestrelConfig) -> Workspace:
+    """The agents' only folder (`workspace` in config.toml). Tests replace this."""
+    return Workspace.open(config.workspace)
 
 
 def start_run(

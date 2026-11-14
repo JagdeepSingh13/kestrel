@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from kestrel.cli import agent_run, output
 from kestrel.cli import app as cli
-from kestrel.core.config import ProviderConfig
+from kestrel.core.config import KestrelConfig, ProviderConfig
 from kestrel.core.events import read_events
 from kestrel.core.types import EventType, Provider
 from kestrel.providers.fake import FakeProvider
@@ -30,7 +30,11 @@ def setup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, fake: FakeProvider) -
     monkeypatch.setattr(output, "open_provider", fake_open)
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    monkeypatch.setattr(agent_run, "default_workspace", lambda: Workspace(workspace))
+
+    def in_tmp(config: KestrelConfig) -> Workspace:
+        return Workspace(workspace)
+
+    monkeypatch.setattr(agent_run, "default_workspace", in_tmp)
     return tmp_path / "data" / "runs"
 
 

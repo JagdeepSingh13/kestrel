@@ -97,28 +97,38 @@ def test_relative_shows_paths_as_the_model_should_see_them(ws: Workspace) -> Non
     assert ws.relative(ws.root) == "."
 
 
-def fake_project(tmp_path: Path) -> Path:
-    project = tmp_path / "kestrel"
-    (project / "src" / "kestrel" / "safety").mkdir(parents=True)
-    (project / "pyproject.toml").write_text('[project]\nname = "kestrel"\n', encoding="utf-8")
-    return project
-
-
-def test_default_workspace_is_the_workspace_folder_in_the_project(tmp_path: Path) -> None:
-    project = fake_project(tmp_path)
-    ws = Workspace.default(start=project / "src" / "kestrel" / "safety" / "paths.py")
-    assert ws.root == (project / "workspace").resolve()
-    assert ws.root.is_dir()  # created on first use
+def test_open_creates_the_folder(tmp_path: Path) -> None:
+    ws = Workspace.open(tmp_path / "a" / "kestrel-workspace")
+    assert ws.root.is_dir()
     with pytest.raises(PathNotAllowedError):
-        ws.resolve("../pyproject.toml")  # Kestrel's own code is outside the agents' folder
+        ws.resolve("../secret.txt")
 
 
-def test_default_workspace_needs_the_project(tmp_path: Path) -> None:
-    with pytest.raises(PathNotAllowedError, match="cannot find the Kestrel project"):
-        Workspace.default(start=tmp_path)
+def test_open_refuses_home_above_home_root_and_relative_folders(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "home" / "me"
+    home.mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    (tmp_path / "link").symlink_to(home)
+    for folder in ["~", str(home.parent), "/", "relative/folder", str(tmp_path / "link")]:
+        with pytest.raises(PathNotAllowedError):
+            Workspace.open(folder)
+    assert (
+        Workspace.open("~/Documents/kestrel-workspace").root
+        == (home / "Documents" / "kestrel-workspace").resolve()
+    )
 
 
-def test_real_checkout_has_its_workspace_folder_inside() -> None:
-    ws = Workspace.default()
-    assert ws.root.name == "workspace"
-    assert (ws.root.parent / "pyproject.toml").is_file()
+def test_open_refuses_home_typed_in_another_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "Home"
+    home.mkdir()
+    if not (tmp_path / "home").exists():
+        pytest.skip("case-sensitive file system")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    with pytest.raises(PathNotAllowedError):
+        Workspace.open(str(tmp_path / "home"))

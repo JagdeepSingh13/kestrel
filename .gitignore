@@ -31,6 +31,7 @@ htmlcov/
 .DS_Store
 
 # The agents' only folder (files they create while running)
+# The agents' folder before M5.5 (now ~/Documents/kestrel-workspace).
 /workspace/
 
 # Editable Excalidraw drawings: generated locally by docs/diagrams/build, not published

@@ -27,6 +27,7 @@ from kestrel.core.config import (
 from kestrel.core.events import find_run, runs_dir
 from kestrel.core.types import Message, ModelResponse, ProviderError, Role, StopReason
 from kestrel.providers.discovery import Status, discover
+from kestrel.safety.paths import PathNotAllowedError, Workspace
 from kestrel.tools.mcp import McpHub
 
 app = typer.Typer(name=__app_name__, help="Local-first agent harness for small local models.")
@@ -179,10 +180,11 @@ def run(
     provider_name, provider_config, model_name = _resolve_or_exit(
         provider or chosen.provider, model or (chosen.model[0] if chosen.model else None)
     )
+    workspace = _workspace_or_exit(config)
     hub = (
         McpHub(
             config.mcp_servers,
-            workspace=agent_run.default_workspace().root,
+            workspace=workspace.root,
             env=os.environ,
             log_dir=default_data_dir(os.environ) / "mcp",
         )
@@ -193,7 +195,7 @@ def run(
         result = start_run(
             task,
             agent=chosen,
-            workspace=agent_run.default_workspace(),
+            workspace=workspace,
             provider_name=provider_name,
             provider_config=provider_config,
             open_provider=output.open_provider,
@@ -253,7 +255,7 @@ def _start_shell(model: str | None, provider: str | None, resume: str | None = N
         session,
         open_provider=output.open_provider,
         env=os.environ,
-        workspace=agent_run.default_workspace(),
+        workspace=_workspace_or_exit(config),
     )
     if resume is not None:
         from kestrel.cli.commands import run_command
@@ -279,6 +281,14 @@ def _resolve_or_exit(provider: str | None, model: str | None) -> tuple[str, Prov
             "your prompt leaves this machine."
         )
     return provider_name, provider_config, model_name
+
+
+def _workspace_or_exit(config: KestrelConfig) -> Workspace:
+    try:
+        return agent_run.default_workspace(config)
+    except (PathNotAllowedError, OSError) as exc:
+        err_console.print(f"[red]Workspace:[/red] {escape(str(exc))}")
+        raise typer.Exit(2) from None
 
 
 def _load_config_or_exit() -> KestrelConfig:

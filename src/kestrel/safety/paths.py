@@ -9,10 +9,8 @@ Known limit: a symlink could be swapped between this check and the file being op
 the workspace while a run is going; out of scope for M3.
 """
 
+import os
 from pathlib import Path
-
-WORKSPACE_FOLDER = "workspace"
-"""Name of the only folder agents may use (owner decision, 2026-11-11)."""
 
 
 class PathNotAllowedError(Exception):
@@ -59,21 +57,25 @@ class Workspace:
         return real
 
     @classmethod
-    def default(cls, start: Path | None = None) -> "Workspace":
-        """The agents' folder: `<project>/workspace`, created if missing.
-
-        For now this is the only workspace there is (no way to point agents elsewhere).
-        `<project>` is the Kestrel checkout this code runs from: the nearest folder above
-        it holding a `pyproject.toml` for `kestrel`. `start` exists for tests.
-        """
-        project = find_project_root(start or Path(__file__))
-        if project is None:
+    def open(cls, folder: str | Path) -> "Workspace":
+        """The workspace at `folder` (`~` allowed), created if missing. Refuses a folder
+        that would hand agents the whole disk or home folder."""
+        path = Path(folder).expanduser()
+        if not path.is_absolute():
+            raise PathNotAllowedError(f"workspace {folder!r} must be a full path")
+        real = path.resolve()
+        home = Path.home().resolve()
+        # samefile, not ==: on macOS and Windows "/users/me" is the home folder too.
+        if real.exists() and any(
+            above.exists() and os.path.samefile(above, real)
+            for above in [home, *home.parents, Path(real.anchor)]
+        ):
             raise PathNotAllowedError(
-                "cannot find the Kestrel project folder to create the agents' workspace in"
+                f"workspace {folder!r} would give agents your whole home folder or disk; "
+                "pick a folder of its own"
             )
-        folder = project / WORKSPACE_FOLDER
-        folder.mkdir(exist_ok=True)
-        return cls(folder)
+        real.mkdir(parents=True, exist_ok=True)
+        return cls(real)
 
     def relative(self, path: Path) -> str:
         """`path` as the model should see it: relative, with forward slashes."""
