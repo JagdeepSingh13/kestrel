@@ -85,6 +85,11 @@ class Tool:
         return self.spec.name
 
 
+class OutsideError(Exception):
+    """A failure reported by something outside Kestrel (an MCP server): an error result
+    whose text is still treated as untrusted data."""
+
+
 class ToolError(Exception):
     """Raised by a tool for a failure the model should see and fix (bad path, no match).
     The result is marked as an error, so the watchdog counts it and it is not wrapped as
@@ -187,6 +192,8 @@ class ToolRegistry:
             return _error(call, f"{call.name} took longer than {found.timeout:g}s and was stopped")
         except (PathNotAllowedError, ToolError) as exc:
             return _error(call, str(exc))
+        except OutsideError as exc:
+            return ToolResult(call_id=call.id, content=f"ERROR: {exc}", is_error=True, outside=True)
         except Exception as exc:  # a broken tool must not take the run down
             return _error(call, f"{call.name} failed: {type(exc).__name__}: {exc}")
         text = output if isinstance(output, str) else str(output)

@@ -122,6 +122,7 @@ async def run_agent(
     clock: Callable[[], float] = time.monotonic,
     think: bool | None = None,
     ladder: Ladder | None = None,
+    labels: JSONObject | None = None,
 ) -> RunResult:
     """Run one task to the end and return what happened.
 
@@ -185,6 +186,7 @@ async def run_agent(
             "tool_specs": [s.model_dump(mode="json") for s in specs],
             "max_steps": budgets.max_steps,
             "window": context.window,
+            **(labels or {}),  # e.g. the shell session this run belongs to (M5)
         },
     )
     context.add(Message(role=Role.user, content=task))
@@ -281,7 +283,7 @@ async def run_agent(
             result = await _run_tool(toolbox, call, bus, step, clock, gate, specs)
             content = (
                 result.content
-                if result.is_error  # Kestrel's own message, not outside data
+                if result.is_error and not result.outside  # Kestrel's own message
                 else wrap_untrusted(_source(call), result.content)
             )
             if repaired.dropped:

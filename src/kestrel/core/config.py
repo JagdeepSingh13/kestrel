@@ -10,13 +10,14 @@ the file; a provider names the environment variable that holds its key (`api_key
 """
 
 import os
+import re
 import sys
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from kestrel.core.types import JSONObject
 
@@ -66,6 +67,38 @@ BUILTIN_PROVIDERS: dict[str, ProviderConfig] = {
 }
 
 
+class McpServerConfig(_Strict):
+    """One MCP server: a command to start (stdio), or a URL (HTTP)."""
+
+    command: str | None = None
+    args: list[str] = Field(default_factory=list[str])
+    """`{workspace}` is replaced by the workspace folder."""
+    url: str | None = None
+    env_pass: list[str] = Field(default_factory=list[str])
+    """Environment variables passed to the server, by name (values never in the file)."""
+    allow: list[str] = Field(default_factory=list[str])
+    """Tools that run without asking (your config is trusted); the rest ask first."""
+    timeout: float = Field(default=30.0, gt=0, le=600)
+    """Seconds per tool call."""
+
+    @model_validator(mode="after")
+    def _one_way_in(self) -> "McpServerConfig":
+        if (self.command is None) == (self.url is None):
+            raise ValueError("give either command (a program to start) or url, not both")
+        return self
+
+    @property
+    def is_remote(self) -> bool:
+        """True for an HTTP server off this machine."""
+        if self.url is None:
+            return False
+        host = urlsplit(self.url).hostname or ""
+        return host not in LOOPBACK_HOSTS
+
+
+MCP_SERVER_NAME = r"^[a-z0-9-]{1,16}$"
+
+
 class KestrelConfig(_Strict):
     """Everything read from `config.toml`, merged over built-in defaults."""
 
@@ -75,8 +108,16 @@ class KestrelConfig(_Strict):
     providers: dict[str, ProviderConfig] = Field(default_factory=lambda: dict(BUILTIN_PROVIDERS))
     tools: dict[str, JSONObject] = Field(default_factory=dict[str, JSONObject])
     """Per-tool settings (M4+). Kept as plain JSON until those tools exist."""
-    mcp_servers: list[JSONObject] = Field(default_factory=list[JSONObject])
-    """MCP server definitions (M5). Kept as plain JSON until then."""
+    mcp_servers: dict[str, McpServerConfig] = Field(default_factory=dict[str, McpServerConfig])
+    """MCP servers (M5), by name. Only defined here, never in agent files."""
+
+    @field_validator("mcp_servers")
+    @classmethod
+    def _server_names(cls, value: dict[str, McpServerConfig]) -> dict[str, McpServerConfig]:
+        bad = [name for name in value if not re.fullmatch(MCP_SERVER_NAME, name)]
+        if bad:
+            raise ValueError(f"MCP server names must be 1 to 16 of a-z, 0-9 and -: {bad}")
+        return value
 
     def provider(self, name: str | None = None) -> ProviderConfig:
         """Look up a provider by name (default: `default_provider`)."""

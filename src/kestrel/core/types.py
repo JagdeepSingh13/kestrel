@@ -178,6 +178,8 @@ class EventType(StrEnum):
     loop_warning = "loop_warning"
     web = "web"
     """A web search, fetch (or block), or research summary from inside a tool (M4.1)."""
+    mcp_start = "mcp_start"
+    """An MCP server was started for this run's agent (M5): server, command, tools."""
     step_up = "step_up"
     """A stuck step went to a bigger model (M4.5): from, to, reason, detail."""
     step_down = "step_down"
@@ -223,6 +225,9 @@ class ToolResult(_Model):
     call_id: str
     content: str
     is_error: bool = False
+    outside: bool = False
+    """An error whose text came from outside Kestrel (an MCP server): still wrapped as
+    untrusted data, unlike Kestrel's own error messages (M5)."""
 
 
 class RunResult(_Model):

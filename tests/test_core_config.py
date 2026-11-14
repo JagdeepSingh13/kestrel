@@ -81,14 +81,15 @@ def test_spec_example_sections_are_accepted(tmp_path: Path) -> None:
 backend = "searxng"
 searxng_url = "http://localhost:8888"
 
-[[mcp_servers]]
-name = "fs"
-command = ["npx", "-y", "@modelcontextprotocol/server-filesystem", "."]
+[mcp_servers.fs]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "{workspace}"]
+allow = ["read_text_file", "list_directory"]
 """,
     )
     config = load_config(path, env={})
     assert config.tools["web_search"]["backend"] == "searxng"
-    assert config.mcp_servers[0]["name"] == "fs"
+    assert config.mcp_servers["fs"].command == "npx"
 
 
 def test_unknown_provider_lists_known_ones() -> None:
