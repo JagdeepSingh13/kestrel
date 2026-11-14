@@ -1149,6 +1149,62 @@ def ladder() -> Diagram:
     return d
 
 
+def sessions_mcp() -> Diagram:
+    """M5: saved sessions and MCP tools around the shell."""
+    d = Diagram("sessions-mcp", clean=True)
+    d.text(0, -70, "Saved sessions and MCP tools", size=34, color="#1e1e1e")
+    d.card(
+        "session",
+        0,
+        0,
+        340,
+        200,
+        "Session file",
+        "one per conversation, in a\nlocal database; saved after\neach answer, secrets removed;\n/resume picks one up",
+    )
+    d.card(
+        "shell",
+        440,
+        0,
+        340,
+        200,
+        "Shell and agent loop",
+        "each message is a turn;\nthe agent lists which MCP\ntools it may use, by name",
+    )
+    d.card(
+        "hub",
+        880,
+        0,
+        340,
+        200,
+        "MCP hub",
+        "keeps the servers running\nbetween messages, in the\nbackground; starts only the\nones the agent uses",
+    )
+    d.card(
+        "log",
+        440,
+        310,
+        340,
+        180,
+        "Run logs",
+        "each run carries its session\nid: /trace session lists a\nconversation's runs",
+    )
+    d.card(
+        "servers",
+        880,
+        310,
+        340,
+        200,
+        "MCP servers",
+        "defined only in your config\n(e.g. filesystem, git);\ntheir output is untrusted;\nasks first unless allowed",
+    )
+    d.arrow("shell", "session", "save")
+    d.arrow("shell", "hub", "tool call")
+    d.arrow("hub", "servers", "stdio or HTTP")
+    d.arrow("shell", "log", "events")
+    return d
+
+
 def all_diagrams() -> list[Diagram]:
     return [
         harness(),
@@ -1167,6 +1223,7 @@ def all_diagrams() -> list[Diagram]:
         repair_steps(),
         research(),
         ladder(),
+        sessions_mcp(),
     ]
 
 

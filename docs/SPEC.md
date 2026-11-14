@@ -2,11 +2,13 @@
 
 Local-first, model-agnostic agent harness for small models.
 
-Status: draft v1.0. Owner edits this file; Claude Code proposes changes via PR.
+Status: draft v1.1. Owner edits this file; Claude Code proposes changes via PR.
 
 v0.2 (2026-11-11): applied the milestone changes agreed in the project handoff (section 1 identity + pillars, 5.5 constrained decoding, M4/M7 changes, new M7.5/M8.5/M9.5, backlog) and logged spec gaps in section 14.
 
 v0.3 (2026-11-11): all spec gaps decided (section 14), open decisions tagged with their milestone; sections 8.3, 10, 11 updated to match.
+
+v1.1 (2026-11-14): M5 built: saved, resumable sessions (SQLite) and MCP tools from configured servers.
 
 v1.0 (2026-11-14): M4.5 built: the model ladder (step up only when stuck, back down after one good step), with an OpenRouter rung behind allow_cloud and your yes.
 
@@ -321,9 +323,9 @@ Decorator builds `ToolSpec` from signature + docstring (pydantic model from type
 | `ask_user` | M3 | allow | lets agent ask a clarifying question via frontend |
 
 ### 8.4 MCP (M5)
-- Config lists MCP servers (stdio command or HTTP URL).
-- On agent start, connect, list tools, convert to `ToolSpec` with namespaced names (`server__tool`).
-- Permission for MCP tools defaults to `confirm` unless overridden in agent YAML.
+- Config lists MCP servers by name (`[mcp_servers.NAME]`: `command` + `args` for stdio, or `url`; `env_pass` names, `allow` list, `timeout`); agent files only name them (`mcp: {fs: [read_text_file], git: ["*"]}`).
+- Servers start the first time an agent that uses them runs, in one background event loop for the whole shell (`McpHub`); tools become `ToolSpec`s named `server__tool`, descriptions cut to one short paragraph, schemas cleaned (`$ref` inlined, noise keys dropped).
+- Permission for MCP tools is `confirm`, except tools in the server's `allow` list (the config is trusted). Output and errors from a server are untrusted data.
 
 ---
 
@@ -433,10 +435,15 @@ Sources: CMU, "Better Harnesses, Smaller Models" (arXiv 2607.08938): most gains 
 
 ### M5: Interactive chat + MCP client
 - `kestrel chat --agent X`: multi-turn session, `/agent`, `/model`, `/tools`, `/trace`, `/exit` slash commands.
-- Session persistence (SQLite) and `kestrel chat --resume <id>`.
+- Session persistence (SQLite) and `kestrel chat --resume <id>` (built: `kestrel --resume`, `/resume`).
 - Session id: every run started from one shell conversation carries the session id, so `/trace` can list a session's runs (trace levels: step, run, session).
 - MCP client: stdio + HTTP servers from config.
 - **Done when:** filesystem MCP server and one third-party MCP server work end to end.
+- **Built (2026-11-14).** Owner decisions: sessions in SQLite (not JSONL), `mcp==2.3.0` (its second HTTP stack stays inside `tools/mcp.py`), Node installed for the filesystem server.
+  - Sessions (`memory/sessions.py`, `<data dir>/sessions.db`: `sessions`, `messages`, `runs`): the conversation is saved after every kept turn (and after `/retry`), secrets removed like run logs; a session row has workspace, title (first message), agent, provider, model, ladder. Not saved: cloud on/off, `/up`, files read. `run_start` carries `session_id`. Shell: `/sessions`, `/resume [id|last]` (a menu without an id; Esc cancels), `/clear` starts a new session (the old one stays), `/trace session [id]` lists a session's runs; `kestrel --resume ID|last` and `kestrel chat --resume`.
+  - MCP (`tools/mcp.py`): `McpHub` (one background loop; one owner task per server; calls cross with `run_coroutine_threadsafe`, Esc cancels), server stderr to `<data dir>/mcp/NAME.log`, `{workspace}` in args, `env_pass` by name (the SDK otherwise passes only HOME, PATH and similar), remote HTTP servers need the agent's `allow_cloud`. `ToolResult.outside` marks an error whose text came from a server, so it is still wrapped as untrusted. An agent with more than 12 tools gets a warning, more than 24 is refused. Event `mcp_start` (server, command, tools). Shell: `/mcp`, `/mcp tools [NAME]`, `/mcp restart NAME`; `/tools` lists the agent's MCP tools. `kestrel run` starts and stops its own hub.
+  - Checked: the official filesystem server (`@modelcontextprotocol/server-filesystem`, via npx) lists and reads the workspace and refuses `/etc/passwd`; two of its tools cost about 400 tokens per prompt. Live check with a model and a third-party server: pending.
+  - Not now: MCP resources, prompts, sampling, roots, OAuth; a warning when a server's tool descriptions change; search across sessions.
 
 ### M5.5: Coder agent (software development, tentative)
 - Built-in `coder` agent YAML plus code tools:
@@ -551,7 +558,7 @@ One JSON object per line:
 
 Events store full tool arguments, full results and verbatim model output; results over 64KB go to a side file referenced by path (gap 13). Every line is redacted before writing (gaps 6, 11).
 
-Event types: `run_start`, `profile` (what was known about the model, M4), `model_request` (with the exact messages sent, M4), `model_response`, `repair`, `tool_call`, `permission`, `tool_result`, `context_trim`, `loop_warning`, `stuck` (M4), `nudge` (M4.2), `web` (M4.1), `step_up`, `step_down` (M4.5), `error`, `final`, `run_end`.
+Event types: `run_start`, `profile` (what was known about the model, M4), `model_request` (with the exact messages sent, M4), `model_response`, `repair`, `tool_call`, `permission`, `tool_result`, `context_trim`, `loop_warning`, `stuck` (M4), `nudge` (M4.2), `web` (M4.1), `step_up`, `step_down` (M4.5), `mcp_start` (M5), `error`, `final`, `run_end`.
 
 `run_end.data` includes `stopped_reason` (`final|max_steps|budget|loop|cancelled|error`), totals for steps, tokens, repairs, wall time.
 
@@ -581,9 +588,10 @@ api_key_env = "OPENROUTER_API_KEY"   # never store keys in file
 [tools.research]                     # backlog: SearXNG instead of DuckDuckGo
 searxng_url = "http://localhost:8888"
 
-[[mcp_servers]]
-name = "fs"
-command = ["npx", "-y", "@modelcontextprotocol/server-filesystem", "."]
+[mcp_servers.fs]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "{workspace}"]
+allow = ["read_text_file", "list_directory"]
 ```
 
 Env overrides: `KESTREL_CONFIG`, `KESTREL_DATA_DIR`. Without `KESTREL_CONFIG`, non-Windows systems honour `XDG_CONFIG_HOME`.

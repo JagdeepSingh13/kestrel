@@ -6,7 +6,7 @@
 
 A model can only think and decide. Kestrel is everything around it: what goes in, what it may do, what gets checked, and what gets recorded. It is built for 3B to 14B models on an ordinary 16GB laptop, works with any OpenAI-compatible backend (Ollama, LM Studio, llama.cpp, mlx-lm, vLLM), and defines agents as small YAML files instead of code.
 
-> **Status: early development (v0.0.9).** Working today: the `kestrel` shell, where every message goes to an agent with real tools (read, search, write, append and edit files; shell; Python) confined to one folder; web research with sources (the `researcher` agent); repair of small models' broken tool calls; a watchdog that stops runs going in circles; model profiles (real window, thinking off); confirmation before risky actions; and a full log of every run; and the model ladder (a stuck step goes to a bigger model, optionally OpenRouter with your OK). Next: sessions and MCP tools. See the [roadmap](#roadmap).
+> **Status: early development (v0.1.0).** Working today: the `kestrel` shell, where every message goes to an agent with real tools (read, search, write, append and edit files; shell; Python) confined to one folder; web research with sources (the `researcher` agent); repair of small models' broken tool calls; a watchdog that stops runs going in circles; model profiles (real window, thinking off); confirmation before risky actions; and a full log of every run; and the model ladder (a stuck step goes to a bigger model, optionally OpenRouter with your OK). Next: the coder agent (tentative). See the [roadmap](#roadmap).
 
 ![An agent is a model, a harness and context](docs/diagrams/img/three-parts.svg)
 
@@ -79,6 +79,13 @@ Every reply goes through repair before anything runs:
 - **You decide too.** When an answer is wrong, `/retry up` sends your message again to the bigger model, with the answer you rejected, so it does not repeat it.
 - **One-command cloud setup.** With `OPENROUTER_API_KEY` set in your terminal, `/cloud setup` lists the free models that can use tools, lets you pick one, and puts it on the ladder for this session; `/cloud off` turns it off. The line under the input box shows where a stuck step would go: `qwen3:8b ↑ ernie-5.5-flash-preview:free (cloud on)`.
 - **Set it per agent or per session:** `model: [qwen3:8b, "openrouter:google/gemma-4-26b-a4b-it:free"]` in an agent file, or `/ladder qwen3:8b openrouter:...` in the shell; `/up` puts your next message on the bigger model. `/trace` shows which model did each step and why.
+
+### Saved conversations and MCP tools
+![Saved sessions and MCP tools](docs/diagrams/img/sessions-mcp.svg)
+
+- **Every conversation is saved** after each answer, with secrets removed, so you can close the shell and continue later: `/sessions` lists them, `/resume` picks one up. After resuming, the model reads a file again before changing it.
+- **Tools from MCP servers.** Servers you list in your config (a filesystem server, git, anything that speaks MCP) start when an agent that uses them runs, and keep running while the shell is open. An agent names exactly the tools it may use, so a small model is not buried in tools; past 12 Kestrel warns, past 24 it refuses.
+- **Same safety rules.** MCP tools ask before running unless your config allows them; what they return is untrusted data; servers get no secrets from your environment unless you pass them by name; a server on another machine counts as cloud.
 
 ### Research: answers from the web, with sources
 ![Web research as one tool](docs/diagrams/img/research.svg)
@@ -166,7 +173,9 @@ Every message goes to the current agent, which decides itself whether it needs a
 | `/agents`, `/agent NAME` | list agents, or switch (keeps the conversation) |
 | `/tools` | the agent's tools and permissions |
 | `/workspace` | the only folder agents may use |
-| `/clear` | forget the conversation |
+| `/clear` | start a new conversation (the old one stays saved) |
+| `/sessions`, `/resume [id\|last]` | list saved conversations; pick one up (`kestrel --resume last` from a terminal) |
+| `/mcp [tools\|restart] [name]` | MCP servers from your config, their tools; restart one |
 | `/doctor` | check which backends are running |
 | `/exit` | leave (also `/quit`, Ctrl-D) |
 
@@ -198,7 +207,7 @@ From a normal terminal, `kestrel run "task" --agent NAME`, `kestrel trace last`,
 | M4.3 | Lessons from harness research: countdown, nudge after failures, output keeps both ends, looser edit matching | done |
 | M4.1 | Web research as one tool: search, read, summarize with sources | done |
 | M4.5 | Step up only when stuck: model ladder (local models, plus an optional OpenRouter model for the hardest steps, with your OK) | done |
-| M5 | Sessions, MCP tools | |
+| M5 | Saved sessions, MCP tools | done |
 | M5.5 | Coder agent: repo map, small edits, run tests (tentative) | |
 | M6+ | Memory, tests from runs (`/keep`), autotune, recipes | |
 

@@ -1,0 +1,381 @@
+[
+ {
+  "type": "text",
+  "x": 0,
+  "y": -70,
+  "text": "Saved sessions and MCP tools",
+  "fontSize": 34,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "session",
+  "x": 0,
+  "y": 0,
+  "width": 340,
+  "height": 200,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 14,
+  "text": "Session file",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 56,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 68,
+  "text": "one per conversation, in a\nlocal database; saved after\neach answer, secrets removed;\n/resume picks one up",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "shell",
+  "x": 440,
+  "y": 0,
+  "width": 340,
+  "height": 200,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 458,
+  "y": 14,
+  "text": "Shell and agent loop",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 458,
+  "y": 56,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 458,
+  "y": 68,
+  "text": "each message is a turn;\nthe agent lists which MCP\ntools it may use, by name",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "hub",
+  "x": 880,
+  "y": 0,
+  "width": 340,
+  "height": 200,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 898,
+  "y": 14,
+  "text": "MCP hub",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 898,
+  "y": 56,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 898,
+  "y": 68,
+  "text": "keeps the servers running\nbetween messages, in the\nbackground; starts only the\nones the agent uses",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "log",
+  "x": 440,
+  "y": 310,
+  "width": 340,
+  "height": 180,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 458,
+  "y": 324,
+  "text": "Run logs",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 458,
+  "y": 366,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 458,
+  "y": 378,
+  "text": "each run carries its session\nid: /trace session lists a\nconversation's runs",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "servers",
+  "x": 880,
+  "y": 310,
+  "width": 340,
+  "height": 200,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 898,
+  "y": 324,
+  "text": "MCP servers",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 898,
+  "y": 366,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 898,
+  "y": 378,
+  "text": "defined only in your config\n(e.g. filesystem, git);\ntheir output is untrusted;\nasks first unless allowed",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 437,
+  "y": 100.0,
+  "width": -94,
+  "height": 1,
+  "start": {
+   "id": "shell"
+  },
+  "end": {
+   "id": "session"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 370.0,
+  "y": 68.0,
+  "text": "save",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 783,
+  "y": 100.0,
+  "width": 94,
+  "height": 1,
+  "start": {
+   "id": "shell"
+  },
+  "end": {
+   "id": "hub"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 785.0,
+  "y": 68.0,
+  "text": "tool call",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 1050.0,
+  "y": 203,
+  "width": 1,
+  "height": 104,
+  "start": {
+   "id": "hub"
+  },
+  "end": {
+   "id": "servers"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 1062.0,
+  "y": 243.0,
+  "text": "stdio or HTTP",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 610.0,
+  "y": 203,
+  "width": 1,
+  "height": 104,
+  "start": {
+   "id": "shell"
+  },
+  "end": {
+   "id": "log"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 622.0,
+  "y": 243.0,
+  "text": "events",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ }
+]
