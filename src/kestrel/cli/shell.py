@@ -6,6 +6,8 @@ tools, and decides itself whether to use them. Lines starting with `/` are comma
 """
 
 import asyncio
+import contextlib
+import sqlite3
 from collections.abc import Callable, Coroutine, Mapping
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
@@ -22,10 +24,13 @@ from kestrel.cli.agent_run import start_run
 from kestrel.cli.frontend import BottomBox
 from kestrel.cli.ladder import ladder_home, parse_rung
 from kestrel.cli.output import err_console
-from kestrel.core.config import ConfigError, KestrelConfig, ProviderConfig
+from kestrel.core.config import ConfigError, KestrelConfig, ProviderConfig, default_data_dir
 from kestrel.core.context import NOTE_PREFIX, ContextManager
 from kestrel.core.types import Message, Provider, ProviderError, Role, StopReason
+from kestrel.memory.sessions import SessionInfo, SessionStore, new_session_id, sessions_db
 from kestrel.safety.paths import Workspace
+from kestrel.safety.redact import Redactor
+from kestrel.tools.mcp import McpHub
 from kestrel.tools.registry import FileStamp
 
 type ReadLine = Callable[[str], str]
@@ -55,6 +60,8 @@ class Session:
     """Rungs up to start the next message on (`/up`, `/retry up`)."""
     cloud: bool = False
     """`/cloud on`: cloud models may be used this session (each cloud step still asks)."""
+    session_id: str | None = None
+    """The saved session this conversation is (M5); created by its first kept turn."""
     seen_files: dict[Path, FileStamp] = field(default_factory=dict[Path, FileStamp])
     """Files the model has read in this conversation (an edit needs a fresh read)."""
 
@@ -95,6 +102,21 @@ class Shell:
         """The only folder agents may touch (owner decision: fixed for now)."""
         self.box: BottomBox | None = None
         """The input box fixed at the bottom of the terminal (`cli.tui`), when running."""
+        self.sessions = SessionStore(sessions_db(default_data_dir(env)), Redactor(env).text)
+        """Where conversations are saved after every kept turn (M5)."""
+        self._mcp: McpHub | None = None
+
+    @property
+    def mcp(self) -> McpHub:
+        """The MCP servers of this shell, started as agents need them (M5)."""
+        if self._mcp is None:
+            self._mcp = McpHub(
+                self.config.mcp_servers,
+                workspace=self.workspace.root,
+                env=self.env,
+                log_dir=default_data_dir(self.env) / "mcp",
+            )
+        return self._mcp
 
     def run(self) -> None:
         """Loop until `/exit` or Ctrl-D, reading lines with `read_line` (tests, no terminal).
@@ -133,7 +155,9 @@ class Shell:
         return True
 
     def finish(self) -> None:
-        """Say goodbye."""
+        """Stop MCP servers, say goodbye."""
+        if self._mcp is not None:
+            self._mcp.close()
         err_console.print("[dim]Bye.[/dim]")
 
     def prompt(self) -> str:
@@ -207,6 +231,9 @@ class Shell:
         except (ConfigError, ValueError) as exc:
             err_console.print(f"[red]{escape(str(exc))}[/red]")
             return
+        before = len(self.session.history)
+        if self.session.session_id is None:
+            self.session.session_id = new_session_id()
         result = start_run(
             text,
             agent=agent,
@@ -223,11 +250,76 @@ class Shell:
             uppers=uppers,
             start=self.session.up,
             cloud=self.session.cloud,
+            session_id=self.session.session_id,
+            mcp_hub=self.mcp if self.session.agent.mcp else None,
             box=self.box,
         )
         self.session.up = 0  # /up is for one message
+        kept = len(self.session.history) > before
+        if kept:
+            self.save_session(result.run_id if result else None)
+        elif result is not None and self.session.session_id:
+            with contextlib.suppress(sqlite3.Error):  # saving is a convenience
+                self.sessions.add_run(self.session.session_id, result.run_id)
         if result is None or result.stopped_reason is StopReason.error:
             err_console.print("[dim]That turn was not kept.[/dim]")
+
+    def resume(self, info: SessionInfo, messages: list[Message]) -> None:
+        """Continue a saved conversation: its messages, agent, model and ladder."""
+        from kestrel.agents.loader import AgentError, load_agent  # agents imports cli
+
+        session = self.session
+        session.conversation.clear()
+        session.conversation.history.extend(messages)
+        session.session_id = info.id
+        session.seen_files.clear()  # files must be read again before an edit
+        try:
+            session.agent = load_agent(info.agent, self.env)
+        except AgentError as exc:
+            err_console.print(
+                f"[yellow]Could not load agent {escape(info.agent)} ({escape(str(exc))}); "
+                f"keeping {escape(session.agent.name)}.[/yellow]"
+            )
+        if (
+            info.provider in self.config.providers
+            and not self.config.providers[info.provider].is_remote
+        ):
+            session.provider = info.provider
+        session.model = info.model or session.model
+        session.ladder = list(info.ladder)
+        if info.workspace != str(self.workspace.root):
+            err_console.print(
+                f"[yellow]That session used another workspace ({escape(info.workspace)}).[/yellow]"
+            )
+        err_console.print(
+            f"Resumed {info.id}: {escape(info.title)} ({info.messages} messages, agent "
+            f"{escape(session.agent.name)}, {escape(session.model or 'no model')})."
+        )
+        last = next(
+            (m.content for m in reversed(messages) if m.role is Role.assistant and m.content), None
+        )
+        if last:
+            err_console.print(f"[dim]Last answer: {escape(' '.join(last.split())[:200])}[/dim]")
+
+    def save_session(self, run_id: str | None = None) -> None:
+        """Save the conversation as it is now (after a kept turn, a retry, a resume)."""
+        session = self.session
+        if not session.history:
+            return
+        session.session_id = session.session_id or new_session_id()
+        try:
+            self.sessions.save(
+                session.session_id,
+                workspace=str(self.workspace.root),
+                agent=session.agent.name,
+                provider=session.provider,
+                model=session.model or "",
+                ladder=list(session.ladder),
+                messages=list(session.history),
+                run_id=run_id,
+            )
+        except sqlite3.Error as exc:  # saving is a convenience; the chat goes on
+            err_console.print(f"[yellow]Could not save the session:[/yellow] {escape(str(exc))}")
 
     def ladder_names(self) -> list[str]:
         """The rungs above the current model: `/ladder`'s, else the agent file's."""

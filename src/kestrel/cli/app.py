@@ -21,14 +21,20 @@ from kestrel.core.config import (
     ConfigError,
     KestrelConfig,
     ProviderConfig,
+    default_data_dir,
     load_config,
 )
 from kestrel.core.events import find_run, runs_dir
 from kestrel.core.types import Message, ModelResponse, ProviderError, Role, StopReason
 from kestrel.providers.discovery import Status, discover
+from kestrel.tools.mcp import McpHub
 
 app = typer.Typer(name=__app_name__, help="Local-first agent harness for small local models.")
 
+ResumeOption = Annotated[
+    str | None,
+    typer.Option("--resume", help="Continue a saved conversation: its id, or 'last'."),
+]
 ModelOption = Annotated[
     str | None,
     typer.Option("--model", "-m", help="Model name. Default: default_model in config."),
@@ -59,6 +65,7 @@ def main(
             is_eager=True,
         ),
     ] = False,
+    resume: ResumeOption = None,
 ) -> None:
     """Kestrel: local-first agent harness for small local models.
 
@@ -67,15 +74,17 @@ def main(
     if ctx.invoked_subcommand is not None:
         return
     if sys.stdin.isatty() and sys.stdout.isatty():
-        _start_shell(model=None, provider=None)
+        _start_shell(model=None, provider=None, resume=resume)
     else:
         console.print(ctx.get_help())
 
 
 @app.command()
-def chat(model: ModelOption = None, provider: ProviderOption = None) -> None:
+def chat(
+    model: ModelOption = None, provider: ProviderOption = None, resume: ResumeOption = None
+) -> None:
     """Open the interactive shell: talk to a model, use /commands."""
-    _start_shell(model=model, provider=provider)
+    _start_shell(model=model, provider=provider, resume=resume)
 
 
 @app.command()
@@ -170,19 +179,34 @@ def run(
     provider_name, provider_config, model_name = _resolve_or_exit(
         provider or chosen.provider, model or (chosen.model[0] if chosen.model else None)
     )
-    result = start_run(
-        task,
-        agent=chosen,
-        workspace=agent_run.default_workspace(),
-        provider_name=provider_name,
-        provider_config=provider_config,
-        open_provider=output.open_provider,
-        model=model_name,
-        env=os.environ,
-        uppers=_agent_rungs(chosen.model, model_name, config, provider_name),
-        show_thinking=show_thinking,
-        think=None if think else False,
+    hub = (
+        McpHub(
+            config.mcp_servers,
+            workspace=agent_run.default_workspace().root,
+            env=os.environ,
+            log_dir=default_data_dir(os.environ) / "mcp",
+        )
+        if chosen.mcp
+        else None
     )
+    try:
+        result = start_run(
+            task,
+            agent=chosen,
+            workspace=agent_run.default_workspace(),
+            provider_name=provider_name,
+            provider_config=provider_config,
+            open_provider=output.open_provider,
+            model=model_name,
+            env=os.environ,
+            uppers=_agent_rungs(chosen.model, model_name, config, provider_name),
+            mcp_hub=hub,
+            show_thinking=show_thinking,
+            think=None if think else False,
+        )
+    finally:
+        if hub is not None:
+            hub.close()
     if result is None:
         raise typer.Exit(130)
     if result.stopped_reason is not StopReason.final:
@@ -208,7 +232,7 @@ def trace(
     print_trace(path, console, full=full)
 
 
-def _start_shell(model: str | None, provider: str | None) -> None:
+def _start_shell(model: str | None, provider: str | None, resume: str | None = None) -> None:
     from kestrel.cli.prompt import input_history
     from kestrel.cli.shell import Session, Shell
     from kestrel.cli.tui import Tui
@@ -231,6 +255,10 @@ def _start_shell(model: str | None, provider: str | None) -> None:
         env=os.environ,
         workspace=agent_run.default_workspace(),
     )
+    if resume is not None:
+        from kestrel.cli.commands import run_command
+
+        run_command(shell, f"/resume {resume}")
     Tui(shell, input_history()).run()
 
 

@@ -42,6 +42,9 @@ class AgentConfig(_Strict):
     system: str | None = None
     """The agent's instructions. Empty: Kestrel's default system prompt."""
     tools: list[str] = Field(default_factory=list[str])
+    mcp: dict[str, list[str]] = Field(default_factory=dict[str, list[str]])
+    """MCP tools by server (M5): `{fs: [read_text_file, list_directory], git: ["*"]}`.
+    Servers are defined in your config only; they appear as `fs__read_text_file`."""
     permissions: dict[str, Literal["allow", "confirm", "deny"]] = Field(
         default_factory=dict[str, Literal["allow", "confirm", "deny"]]
     )

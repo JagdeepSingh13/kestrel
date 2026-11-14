@@ -450,3 +450,25 @@ def test_escape_in_the_cloud_model_menu_cancels(monkeypatch: pytest.MonkeyPatch)
     shell.run()
     assert shell.session.ladder == [] and not shell.session.cloud
     assert "openrouter" not in shell.config.providers
+
+
+def test_a_conversation_is_saved_and_can_be_resumed() -> None:
+    fake = FakeProvider([FakeProvider.text("hi there"), FakeProvider.text("still here")])
+    shell, _ = make_shell(["hello", "/clear"], fake)
+    shell.run()
+    assert shell.session.session_id is None and shell.session.history == []
+    later, _ = make_shell(["/resume last", "and now?"], fake)
+    later.run()
+    assert history_text(later)[:2] == ["hello", "hi there"]
+    assert history_text(later)[-1] == "still here"
+    saved = later.sessions.load(later.session.session_id or "")
+    assert saved is not None and saved[0].messages == 4  # the resumed session grew
+
+
+def test_a_turn_that_was_not_kept_is_not_saved() -> None:
+    from kestrel.core.types import BackendUnreachableError
+
+    fake = FakeProvider([BackendUnreachableError("http://localhost:11434")])
+    shell, _ = make_shell(["hello"], fake)
+    shell.run()
+    assert shell.sessions.recent() == []

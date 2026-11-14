@@ -34,7 +34,8 @@ from kestrel.safety.paths import Workspace
 from kestrel.safety.permissions import Permissions
 from kestrel.safety.redact import Redactor
 from kestrel.tools.builtin import BUILTIN_TOOLS
-from kestrel.tools.registry import FileStamp, ToolContext, ToolRegistry
+from kestrel.tools.mcp import McpHub, McpStartError, command_line, mcp_tools
+from kestrel.tools.registry import FileStamp, Tool, ToolContext, ToolError, ToolRegistry
 from kestrel.tools.research import urls_in
 
 type OpenProvider = Callable[[str, ProviderConfig], AbstractAsyncContextManager[Provider]]
@@ -68,6 +69,8 @@ def start_run(
     uppers: Sequence[RungSpec] = (),
     start: int = 0,
     cloud: bool = False,
+    session_id: str | None = None,
+    mcp_hub: McpHub | None = None,
 ) -> RunResult | None:
     """Run `task` with `agent` to the end. Returns None if it could not start or the user
     pressed Ctrl-C.
@@ -123,8 +126,12 @@ def start_run(
     def emit(kind: str, data: JSONObject) -> None:
         bus.emit(EventType(kind), step_now[0], data)
 
+    extra = _mcp_tools(agent, mcp_hub, bus)
+    if extra is None:
+        writer.close()
+        return None
     tools = ToolRegistry(
-        [BUILTIN_TOOLS[name] for name in agent.tools],
+        [*(BUILTIN_TOOLS[name] for name in agent.tools), *extra],
         ToolContext(
             workspace=workspace,
             env=env,
@@ -212,6 +219,7 @@ def start_run(
             return await run_agent(
                 task,
                 ladder=ladder,
+                labels={"session_id": session_id} if session_id else None,
                 toolbox=tools,
                 bus=bus,
                 context=context,
@@ -247,6 +255,74 @@ _probed: set[tuple[str, str]] = set()
 """(backend, model) pairs asked this session: once per session keeps profiles fresh
 (a re-pulled model, a restarted backend) without asking on every turn."""
 _warned_windows: set[tuple[str, int]] = set()
+
+
+MANY_TOOLS = 12
+"""More tools than this and a small model often picks the wrong one: a warning."""
+TOO_MANY_TOOLS = 24
+
+
+def _mcp_tools(agent: AgentConfig, hub: McpHub | None, bus: EventBus) -> list[Tool] | None:
+    """The agent's MCP tools, starting their servers if needed; None if the run cannot
+    start (a missing or failing server, too many tools)."""
+    if not agent.mcp:
+        return []
+    if hub is None:
+        err_console.print("[red]MCP tools are not available here.[/red]")
+        return None
+    found: list[Tool] = []
+    for server, wanted in agent.mcp.items():
+        config = hub.servers.get(server)
+        if config is None:
+            known = ", ".join(hub.servers) or "none configured"
+            err_console.print(
+                f"[red]Agent {escape(agent.name)} wants MCP server {escape(server)}, which "
+                f"is not in your config[/red] (servers: {escape(known)})."
+            )
+            return None
+        if config.is_remote and not agent.allow_cloud:
+            err_console.print(
+                f"[red]MCP server {escape(server)} is remote ({escape(config.url or '')}); "
+                f"agent {escape(agent.name)} needs allow_cloud: true.[/red]"
+            )
+            return None
+        first = server not in hub.running()
+        if first:
+            err_console.print(
+                f"[dim]Starting MCP server {escape(server)} (up to 2 minutes the first "
+                f"time; Esc cannot stop it): "
+                f"{escape(command_line(server, config, hub.workspace))}[/dim]"
+            )
+        try:
+            listed = hub.tools(server)
+            tools = mcp_tools(hub, server, wanted, listed)
+        except (McpStartError, ToolError) as exc:
+            err_console.print(f"[red]{escape(str(exc))}[/red]")
+            return None
+        if first:
+            bus.emit(
+                EventType.mcp_start,
+                0,
+                {
+                    "server": server,
+                    "command": command_line(server, config, hub.workspace),
+                    "tools": [t.name for t in listed],
+                },
+            )
+        found += tools
+    total = len(agent.tools) + len(found)
+    if total > TOO_MANY_TOOLS:
+        err_console.print(
+            f"[red]Agent {escape(agent.name)} would have {total} tools; at most "
+            f"{TOO_MANY_TOOLS}. List fewer MCP tools by name in its file.[/red]"
+        )
+        return None
+    if total > MANY_TOOLS:
+        err_console.print(
+            f"[yellow]{total} tools: small models choose better from fewer. Consider "
+            "listing only the MCP tools this agent needs.[/yellow]"
+        )
+    return found
 
 
 def _user_urls(task: str, conversation: ContextManager | None) -> set[str]:

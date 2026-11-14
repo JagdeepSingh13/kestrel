@@ -1,10 +1,12 @@
 """Slash commands for the interactive shell. Add a command: write a handler, add a row."""
 
+import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
 
 import httpx
 from rich.markup import escape
+from rich.table import Table
 
 from kestrel.agents.loader import AgentError, list_agents, load_agent
 from kestrel.cli import agent_run
@@ -21,6 +23,7 @@ from kestrel.providers.openrouter import OPENROUTER_URL, is_openrouter, openrout
 from kestrel.providers.profiles import THINK_STYLES, ProfileCache, backend_kind, cache_path
 from kestrel.safety.redact import Redactor
 from kestrel.tools.builtin import BUILTIN_TOOLS
+from kestrel.tools.mcp import McpStartError, command_line, tool_name
 
 type Handler = Callable[[Shell, str], bool]
 """Gets the shell and the text after the command name. Returns False to leave the shell."""
@@ -66,7 +69,121 @@ def _exit(shell: Shell, arg: str) -> bool:
 def _clear(shell: Shell, arg: str) -> bool:
     shell.session.conversation.clear()
     shell.session.seen_files.clear()  # forgotten with the conversation that held them
-    err_console.print("Conversation cleared.")
+    shell.session.session_id = None  # the next message starts a new saved session
+    err_console.print("Conversation cleared. The old one stays saved (/sessions).")
+    return True
+
+
+def _mcp(shell: Shell, arg: str) -> bool:
+    """MCP servers: list, their tools, restart one."""
+    word, _, rest = arg.strip().partition(" ")
+    servers = shell.config.mcp_servers
+    if not servers:
+        err_console.print(
+            "No MCP servers configured. Add one to your config file, for example:\n"
+            '[dim]  [mcp_servers.fs]\n  command = "npx"\n'
+            '  args = ["-y", "@modelcontextprotocol/server-filesystem", "{workspace}"][/dim]'
+        )
+        return True
+    hub = shell.mcp
+    if word in ("tools", "restart"):
+        name = rest.strip() or (next(iter(servers)) if len(servers) == 1 else "")
+        if name not in servers:
+            err_console.print(f"Which server? One of: {escape(', '.join(servers))}")
+            return True
+        if name not in hub.running() or word == "restart":
+            err_console.print(
+                f"[dim]Starting {escape(name)}: "
+                f"{escape(command_line(name, servers[name], hub.workspace))}[/dim]"
+            )
+        try:
+            listed = hub.restart(name) if word == "restart" else hub.tools(name)
+        except McpStartError as exc:
+            err_console.print(f"[red]{escape(str(exc))}[/red]")
+            return True
+        allow = set(servers[name].allow)
+        for t in listed:
+            mark = "allowed" if t.name in allow else "asks first"
+            first = " ".join((t.description or "").split())[:90]
+            err_console.print(
+                f"  {escape(tool_name(name, t.name)):<36} [dim]{mark} · {escape(first)}[/dim]"
+            )
+        err_console.print(
+            f"[dim]An agent uses them with  mcp: {{{escape(name)}: [tool, ...]}}  "
+            "in its file.[/dim]"
+        )
+        return True
+    agent_uses = shell.session.agent.mcp
+    for name, config in servers.items():
+        state = "running" if name in hub.running() else "not started"
+        used = " · used by this agent" if name in agent_uses else ""
+        where = "remote" if config.is_remote else "local"
+        err_console.print(
+            f"  {escape(name):<10} {state}, {where}{used}  "
+            f"[dim]{escape(command_line(name, config, hub.workspace))}[/dim]"
+        )
+    err_console.print("[dim]/mcp tools NAME lists a server's tools; /mcp restart NAME.[/dim]")
+    return True
+
+
+def _sessions(shell: Shell, arg: str) -> bool:
+    try:
+        recent = shell.sessions.recent(20)
+    except sqlite3.Error as exc:
+        err_console.print(f"[red]Could not read saved sessions:[/red] {escape(str(exc))}")
+        return True
+    if not recent:
+        err_console.print("No saved sessions yet. Each conversation is saved after every turn.")
+        return True
+    table = Table(title="Saved sessions (newest first)")
+    for column in ("Id", "Updated", "Msgs", "Agent", "First message"):
+        table.add_column(column, overflow="fold")
+    for info in recent:
+        mark = " *" if info.id == shell.session.session_id else ""
+        table.add_row(
+            info.id + mark,
+            info.updated[:16].replace("T", " "),
+            str(info.messages),
+            escape(info.agent),
+            escape(info.title),
+        )
+    err_console.print(table)
+    err_console.print("[dim]/resume ID (or /resume last) picks one up.[/dim]")
+    return True
+
+
+def _resume(shell: Shell, arg: str) -> bool:
+    try:
+        return _resume_from(shell, arg.strip())
+    except (sqlite3.Error, ValueError) as exc:
+        err_console.print(f"[red]Could not resume that session:[/red] {escape(str(exc))}")
+        return True
+
+
+def _resume_from(shell: Shell, wanted: str) -> bool:
+    recent = shell.sessions.recent(9)
+    if not recent:
+        err_console.print("No saved sessions yet.")
+        return True
+    if not wanted and shell.box is not None:
+        options = [(i.id, f"{i.updated[:16].replace('T', ' ')}  {i.title[:50]}") for i in recent]
+        options.append(("", "Cancel"))  # Esc picks the last option
+        wanted = shell.run_async(shell.box.choose("Resume which session?", options))
+        if not wanted:
+            return True
+    if wanted in ("", "last"):
+        wanted = recent[0].id
+    matches = [i.id for i in shell.sessions.recent(1000) if i.id.startswith(wanted)]
+    if len(matches) != 1:
+        err_console.print(
+            f"No single saved session matches {escape(wanted)!r}. /sessions lists them."
+        )
+        return True
+    loaded = shell.sessions.load(matches[0])
+    if loaded is None:
+        return True
+    info, messages = loaded
+    shell.resume(info, messages)
     return True
 
 
@@ -209,6 +326,7 @@ def _retry(shell: Shell, arg: str) -> bool:
         shell.session.seen_files.clear()
         shell.session.seen_files.update(seen_before)
         err_console.print("[dim]The retry did not finish; your earlier turn is kept.[/dim]")
+        shell.save_session()
     return True
 
 
@@ -433,6 +551,12 @@ def _tools(shell: Shell, arg: str) -> bool:
         err_console.print(
             f"  [bold]{name:<12}[/bold] [dim]{escape(level):<22}[/dim] {escape(spec.description)}"
         )
+    for server, wanted in agent.mcp.items():
+        allow = shell.config.mcp_servers[server].allow if server in shell.config.mcp_servers else []
+        for name in wanted:
+            level = "allow (config)" if name in allow else "confirm"
+            shown = tool_name(server, name) if name != "*" else f"{server}__* (all its tools)"
+            err_console.print(f"  [bold]{escape(shown)}[/bold] [dim]{level}[/dim]")
     return True
 
 
@@ -458,6 +582,14 @@ def _trace(shell: Shell, arg: str) -> bool:
     directory = runs_dir(shell.env)
     if words == ["list"]:
         print_run_list(directory, console)
+        return True
+    if words[:1] == ["session"]:
+        sid = words[1] if len(words) > 1 else shell.session.session_id
+        runs = shell.sessions.runs(sid) if sid else []
+        if not runs:
+            err_console.print("No runs saved for that session yet.")
+            return True
+        print_run_list(directory, console, only=runs, title=f"Runs of session {sid}")
         return True
     wanted = words[0] if words else "last"
     path = find_run(directory, wanted)
@@ -536,7 +668,10 @@ COMMANDS: dict[str, Command] = {
     "report-failure": Command(
         _report_failure, "/report-failure [id]", "save a bad step as a test case (--step N)"
     ),
-    "clear": Command(_clear, "/clear", "forget the conversation"),
+    "clear": Command(_clear, "/clear", "start a new conversation (the old one stays saved)"),
+    "sessions": Command(_sessions, "/sessions", "list saved conversations"),
+    "mcp": Command(_mcp, "/mcp [tools|restart] [name]", "MCP servers and their tools"),
+    "resume": Command(_resume, "/resume [id|last]", "pick up a saved conversation"),
     "doctor": Command(_doctor, "/doctor", "check which backends are running"),
     "exit": Command(_exit, "/exit", "leave (also /quit, Ctrl-D)"),
     "quit": Command(_exit, "/quit", "leave", hidden=True),

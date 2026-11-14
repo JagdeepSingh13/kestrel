@@ -114,13 +114,23 @@ def _int(value: JSONValue) -> int:
     return value if isinstance(value, int) else 0
 
 
-def print_run_list(directory: Path, out: Console, limit: int = 10) -> None:
-    """The newest runs, newest first."""
-    logs = sorted(directory.glob("*.jsonl"), reverse=True)[:limit] if directory.is_dir() else []
+def print_run_list(
+    directory: Path,
+    out: Console,
+    limit: int = 10,
+    *,
+    only: list[str] | None = None,
+    title: str = "Recent runs",
+) -> None:
+    """The newest runs, newest first (`only`: just these run ids, all of them)."""
+    if only is not None:
+        logs = [p for p in (directory / f"{r}.jsonl" for r in reversed(only)) if p.is_file()]
+    else:
+        logs = sorted(directory.glob("*.jsonl"), reverse=True)[:limit] if directory.is_dir() else []
     if not logs:
         out.print('No runs yet. Start one with `kestrel run "task" --model M`.')
         return
-    table = Table(title="Recent runs")
+    table = Table(title=title)
     table.add_column("Run id")
     table.add_column("Task", overflow="fold")
     for log in logs:
@@ -182,6 +192,10 @@ def describe(event: Event, *, full: bool = False) -> str:
             return f"{d.get('signal')}: {text(d.get('detail'))}"
         case EventType.web:
             return describe_web(d)
+        case EventType.mcp_start:
+            tools = d.get("tools")
+            count = len(tools) if isinstance(tools, list) else 0
+            return f"started MCP server {d.get('server')} ({count} tools): {text(d.get('command'))}"
         case EventType.step_up:
             return f"{d.get('from')} to {d.get('to')}: {d.get('reason')} ({text(d.get('detail'))})"
         case EventType.step_down:
