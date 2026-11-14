@@ -65,7 +65,7 @@ def test_builtin_and_project_agents_are_found(tmp_path: Path) -> None:
     assert found["default"] == "built-in"
     assert Path(found["counter"]).parts[-2:] == ("agents", "counter.yaml")
     with pytest.raises(
-        AgentError, match=r"No agent named 'ghost'\. Known agents: counter, default"
+        AgentError, match=r"No agent named 'ghost'\. Known agents: coder, counter, default"
     ):
         load_agent("ghost", env)
 
