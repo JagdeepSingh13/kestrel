@@ -75,7 +75,9 @@ Every reply goes through repair before anything runs:
 - **Small first.** Every step runs on the smallest model you set. When the watchdog says it is stuck (repeating itself, no progress, failing calls, repairs used up), that one step goes to the next, bigger model with a short note on what failed. Warnings and nudges come first; they never step up.
 - **Back down.** After one good step the run returns to the small model. At most two step-ups per run, so it never bounces back and forth.
 - **Thinking where it pays.** The bigger model may think while it has the run; steps on the small model stay fast.
-- **Cloud only with your yes.** The top rung may be an OpenRouter model (free ones included). The agent must allow cloud, and Kestrel asks you before each step that goes to the cloud. It sends only the instructions, your task, the failing step and the note (plus the cloud model's own steps until it hands back), never the rest of the conversation. Secret values from your environment are removed; file contents in the failing step are sent as they are. Saying no stops the run, and your answer is in the run log.
+- **Cloud only with your yes.** The top rung may be an OpenRouter model (free ones included). Cloud must be on (`/cloud on` for the session, or `allow_cloud` in an agent file), and Kestrel asks you before each step that goes to the cloud. It sends only the instructions, your task, the failing step and the note (plus the cloud model's own steps until it hands back), never the rest of the conversation. Secret values from your environment are removed; file contents in the failing step are sent as they are. Saying no stops the run, and your answer is in the run log.
+- **You decide too.** When an answer is wrong, `/retry up` sends your message again to the bigger model, with the answer you rejected, so it does not repeat it.
+- **One-command cloud setup.** With `OPENROUTER_API_KEY` set in your terminal, `/cloud setup` lists the free models that can use tools, lets you pick one, and puts it on the ladder for this session; `/cloud off` turns it off. The line under the input box shows where a stuck step would go: `qwen3:8b ↑ ernie-5.5-flash-preview:free (cloud on)`.
 - **Set it per agent or per session:** `model: [qwen3:8b, "openrouter:google/gemma-4-26b-a4b-it:free"]` in an agent file, or `/ladder qwen3:8b openrouter:...` in the shell; `/up` puts your next message on the bigger model. `/trace` shows which model did each step and why.
 
 ### Research: answers from the web, with sources
@@ -154,6 +156,9 @@ Every message goes to the current agent, which decides itself whether it needs a
 | `/help` | list commands |
 | `/model [name]` | list models, or switch (keeps the conversation) |
 | `/provider [name]` | list backends, or switch |
+| `/retry [up]` | send your last message again; `up` sends it to the bigger model, with the answer you rejected |
+| `/cloud [setup\|on\|off]` | set up a free cloud model (OpenRouter) for stuck steps; turn cloud use on or off for this session |
+| `/ladder [models\|off]`, `/up` | show or set the models to step up to; start the next message one model up |
 | `/think [on\|off\|show\|hide]` | let the model think first (off by default), and show or hide it |
 | `/profile [probe]` | what Kestrel knows about the model: tools, thinking, real window |
 | `/trace [id] [--full]` | a run step by step (`/trace list` for recent runs, `--prompt N` for exactly what the model saw) |
