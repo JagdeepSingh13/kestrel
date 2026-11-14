@@ -1,0 +1,381 @@
+[
+ {
+  "type": "text",
+  "x": 0,
+  "y": -70,
+  "text": "The coder agent",
+  "fontSize": 34,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "repo",
+  "x": 0,
+  "y": 0,
+  "width": 340,
+  "height": 220,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 14,
+  "text": "Your repo",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 18,
+  "y": 56,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 18,
+  "y": 68,
+  "text": "copied or cloned into the\nworkspace; /workspace NAME\nnarrows the jail to it, so\npaths are the repo's own",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "agent",
+  "x": 440,
+  "y": 0,
+  "width": 340,
+  "height": 220,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 458,
+  "y": 14,
+  "text": "Coder agent",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 458,
+  "y": 56,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 458,
+  "y": 68,
+  "text": "map, read, edit, test,\nread failures, fix; done\nwhen the tests pass or\nthe steps run out",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "tools",
+  "x": 880,
+  "y": 0,
+  "width": 340,
+  "height": 220,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 898,
+  "y": 14,
+  "text": "Code tools",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 898,
+  "y": 56,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 898,
+  "y": 68,
+  "text": "repo map (outline that fits\nthe window); git status and\ndiff, read-only; edits ask\nfirst, as now",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "tests",
+  "x": 440,
+  "y": 330,
+  "width": 340,
+  "height": 220,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 458,
+  "y": 344,
+  "text": "Test runner",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 458,
+  "y": 386,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 458,
+  "y": 398,
+  "text": "command from the agent\nfile, or Python found on its\nown; asks first; the model\nsees only the failures",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "rectangle",
+  "id": "log",
+  "x": 880,
+  "y": 330,
+  "width": 340,
+  "height": 220,
+  "backgroundColor": "#ffffff",
+  "fillStyle": "solid",
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 898,
+  "y": 344,
+  "text": "Run log",
+  "fontSize": 26,
+  "strokeColor": "#1e1e1e",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "line",
+  "x": 898,
+  "y": 386,
+  "width": 304,
+  "height": 0,
+  "points": [
+   [
+    0,
+    0
+   ],
+   [
+    304,
+    0
+   ]
+  ],
+  "strokeStyle": "dotted",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 898,
+  "y": 398,
+  "text": "every edit and the full\ntest output are kept, so\nthe short version can be\nchecked against it",
+  "fontSize": 19,
+  "strokeColor": "#343a40",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 343,
+  "y": 110.0,
+  "width": 94,
+  "height": 1,
+  "start": {
+   "id": "repo"
+  },
+  "end": {
+   "id": "agent"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 370.0,
+  "y": 78.0,
+  "text": "jail",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 783,
+  "y": 110.0,
+  "width": 94,
+  "height": 1,
+  "start": {
+   "id": "agent"
+  },
+  "end": {
+   "id": "tools"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 805.0,
+  "y": 78.0,
+  "text": "calls",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 610.0,
+  "y": 223,
+  "width": 1,
+  "height": 104,
+  "start": {
+   "id": "agent"
+  },
+  "end": {
+   "id": "tests"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 622.0,
+  "y": 263.0,
+  "text": "run tests",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "arrow",
+  "x": 783,
+  "y": 440.0,
+  "width": 94,
+  "height": 1,
+  "start": {
+   "id": "tests"
+  },
+  "end": {
+   "id": "log"
+  },
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "fontFamily": 2
+ },
+ {
+  "type": "text",
+  "x": 780.0,
+  "y": 408.0,
+  "text": "raw output",
+  "fontSize": 18,
+  "strokeColor": "#495057",
+  "roughness": 0,
+  "fontFamily": 2
+ }
+]

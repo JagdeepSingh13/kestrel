@@ -2,11 +2,13 @@
 
 Local-first, model-agnostic agent harness for small models.
 
-Status: draft v1.1. Owner edits this file; Claude Code proposes changes via PR.
+Status: draft v1.2. Owner edits this file; Claude Code proposes changes via PR.
 
 v0.2 (2026-11-11): applied the milestone changes agreed in the project handoff (section 1 identity + pillars, 5.5 constrained decoding, M4/M7 changes, new M7.5/M8.5/M9.5, backlog) and logged spec gaps in section 14.
 
 v0.3 (2026-11-11): all spec gaps decided (section 14), open decisions tagged with their milestone; sections 8.3, 10, 11 updated to match.
+
+v1.2 (2026-11-14): M5.5 built: the coder agent (repo map, test runner with short output, read-only git) and `/workspace NAME`; the workspace moves out of the project.
 
 v1.1 (2026-11-14): M5 built: saved, resumable sessions (SQLite) and MCP tools from configured servers.
 
@@ -321,6 +323,9 @@ Decorator builds `ToolSpec` from signature + docstring (pydantic model from type
 | `python_exec` | M3 | confirm | subprocess with `-I`, timeout, temp dir in workspace |
 | `research` | M4.1 | confirm | one question in; DuckDuckGo search, the top 3 pages through the guarded fetch, a summary by the same model with [n] citations, sources listed by Kestrel; only opens search results and links the user typed; result untrusted |
 | `ask_user` | M3 | allow | lets agent ask a clarifying question via frontend |
+| `repo_map` | M5.5 | allow | outline of a folder in about 1,200 tokens: Python files through `ast` (top-level functions with argument names, classes with method names), others by name; plainer in steps when too long; `(syntax error line N)` for a file that does not parse |
+| `run_tests` | M5.5 | confirm | command from the agent's `test_command`, else the repo's `.venv` Python (or Kestrel's) with pytest or unittest, picked by reading files only; the confirm shows the command; the model gets counts, 3 failures and the rest by name (2,000 chars); a failed run is an untrusted error; event `test_run` has the full output |
+| `git_status`, `git_diff` | M5.5 | allow | read-only; fsmonitor, hooks, external diff, textconv and attribute filters off (git 2.40+); never climbs out of the workspace; `GIT_*` variables dropped |
 
 ### 8.4 MCP (M5)
 - Config lists MCP servers by name (`[mcp_servers.NAME]`: `command` + `args` for stdio, or `url`; `env_pass` names, `allow` list, `timeout`); agent files only name them (`mcp: {fs: [read_text_file], git: ["*"]}`).
@@ -442,10 +447,10 @@ Sources: CMU, "Better Harnesses, Smaller Models" (arXiv 2607.08938): most gains 
 - **Built (2026-11-14).** Owner decisions: sessions in SQLite (not JSONL), `mcp==2.3.0` (its second HTTP stack stays inside `tools/mcp.py`), Node installed for the filesystem server.
   - Sessions (`memory/sessions.py`, `<data dir>/sessions.db`: `sessions`, `messages`, `runs`): the conversation is saved after every kept turn (and after `/retry`), secrets removed like run logs; a session row has workspace, title (first message), agent, provider, model, ladder. Not saved: cloud on/off, `/up`, files read. `run_start` carries `session_id`. Shell: `/sessions`, `/resume [id|last]` (a menu without an id; Esc cancels), `/clear` starts a new session (the old one stays), `/trace session [id]` lists a session's runs; `kestrel --resume ID|last` and `kestrel chat --resume`.
   - MCP (`tools/mcp.py`): `McpHub` (one background loop; one owner task per server; calls cross with `run_coroutine_threadsafe`, Esc cancels), server stderr to `<data dir>/mcp/NAME.log`, `{workspace}` in args, `env_pass` by name (the SDK otherwise passes only HOME, PATH and similar), remote HTTP servers need the agent's `allow_cloud`. `ToolResult.outside` marks an error whose text came from a server, so it is still wrapped as untrusted. An agent with more than 12 tools gets a warning, more than 24 is refused. Event `mcp_start` (server, command, tools). Shell: `/mcp`, `/mcp tools [NAME]`, `/mcp restart NAME`; `/tools` lists the agent's MCP tools. `kestrel run` starts and stops its own hub. An agent with MCP tools also gets the workspace's full path in its system prompt (servers do not know Kestrel's relative paths; qwen3:8b guessed `/workspace`), so an approved cloud step sends that path too. In the shell, an answer repeated word for word after a nudge is not printed twice.
-  - Checked: the official filesystem server (`@modelcontextprotocol/server-filesystem`, via npx) lists and reads the workspace and refuses `/etc/passwd`; two of its tools cost about 400 tokens per prompt. Live check with a model and a third-party server: pending.
+  - Checked: the official filesystem server (`@modelcontextprotocol/server-filesystem`, via npx) lists and reads the workspace and refuses `/etc/passwd`; two of its tools cost about 400 tokens per prompt. Live check with qwen3:8b in the shell passed (2026-11-14).
   - Not now: MCP resources, prompts, sampling, roots, OAuth; a warning when a server's tool descriptions change; search across sessions.
 
-### M5.5: Coder agent (software development, tentative)
+### M5.5: Coder agent (software development)
 - Built-in `coder` agent YAML plus code tools:
   - `repo_map`: compact outline of the repo (files, top-level symbols) that fits an 8K window.
   - `search_code`: text/regex search with file and line results.
@@ -454,6 +459,12 @@ Sources: CMU, "Better Harnesses, Smaller Models" (arXiv 2607.08938): most gains 
   - `git_status` / `git_diff`: read-only git view. No commits or pushes by the agent unless explicitly allowed.
 - Loop: read, edit, test, read failures, fix, until tests pass or budget hit.
 - **Done when:** on qwen3:8b, the coder agent fixes a failing test in a small fixture repo end to end, with every edit confirmed and logged.
+- **Built (2026-11-14).** Owner decisions: the workspace moves to `~/Documents/kestrel-workspace` (config `workspace`), so a repo in it never sits inside Kestrel's own git repo; `/workspace NAME` narrows the jail to one folder in it; `run_tests` asks first; only Python is found automatically (`test_command` for the rest); git is built in and read-only, not the MCP git server.
+  - `/workspace NAME` (`Shell.narrow`): agents use only that folder, paths start there, the status line shows `in NAME`; files must be read again before an edit; running MCP servers restart in the new folder; sessions save the folder and `/resume` returns to it. `/workspace` alone goes back.
+  - Tools: `repo_map` (`tools/code.py`), `run_tests` (`tools/checks.py`: `find_test_command`, `shorten`), `git_status` and `git_diff` (`tools/git.py`); table in 8.3. No separate `search_code`: `search_files` already gives `path:line:` and skips noise folders (now also `.pytest_cache`, `.tox`, `dist`, `build`, `target`). File tools refuse writes inside `.git/` in any letter case.
+  - Built-in `coder` agent: repo_map, run_tests, read, edit, run_tests again, answer only from a passing run. No core loop change: a failing `run_tests` is a failed call, so the after-failure nudge and the watchdog already see it.
+  - Fixture: `tests/fixtures/coder/calc` (a `mean` that divides by `len - 1`), copied into the workspace to try it.
+  - Later: lint (`run_check`), auto-detection for npm, cargo and go (they can download), regex search, outlines for other languages, `/undo`, git write tools, `kestrel run --in NAME`; an "unverified" nudge only if live runs show the model claiming a fix without a passing test run.
 
 ### M6: Memory + context upgrades
 - Summarization of dropped turns.
@@ -558,7 +569,7 @@ One JSON object per line:
 
 Events store full tool arguments, full results and verbatim model output; results over 64KB go to a side file referenced by path (gap 13). Every line is redacted before writing (gaps 6, 11).
 
-Event types: `run_start`, `profile` (what was known about the model, M4), `model_request` (with the exact messages sent, M4), `model_response`, `repair`, `tool_call`, `permission`, `tool_result`, `context_trim`, `loop_warning`, `stuck` (M4), `nudge` (M4.2), `web` (M4.1), `step_up`, `step_down` (M4.5), `mcp_start` (M5), `error`, `final`, `run_end`.
+Event types: `run_start`, `profile` (what was known about the model, M4), `model_request` (with the exact messages sent, M4), `model_response`, `repair`, `tool_call`, `permission`, `tool_result`, `context_trim`, `loop_warning`, `stuck` (M4), `nudge` (M4.2), `web` (M4.1), `step_up`, `step_down` (M4.5), `mcp_start` (M5), `test_run` (M5.5), `error`, `final`, `run_end`.
 
 `run_end.data` includes `stopped_reason` (`final|max_steps|budget|loop|cancelled|error`), totals for steps, tokens, repairs, wall time.
 

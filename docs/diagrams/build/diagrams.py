@@ -1205,6 +1205,62 @@ def sessions_mcp() -> Diagram:
     return d
 
 
+def coder() -> Diagram:
+    """M5.5: the coder agent, its repo folder and its tools ."""
+    d = Diagram("coder", clean=True)
+    d.text(0, -70, "The coder agent", size=34, color="#1e1e1e")
+    d.card(
+        "repo",
+        0,
+        0,
+        340,
+        220,
+        "Your repo",
+        "copied or cloned into the\nworkspace; /workspace NAME\nnarrows the jail to it, so\npaths are the repo's own",
+    )
+    d.card(
+        "agent",
+        440,
+        0,
+        340,
+        220,
+        "Coder agent",
+        "map, read, edit, test,\nread failures, fix; done\nwhen the tests pass or\nthe steps run out",
+    )
+    d.card(
+        "tools",
+        880,
+        0,
+        340,
+        220,
+        "Code tools",
+        "repo map (outline that fits\nthe window); git status and\ndiff, read-only; edits ask\nfirst, as now",
+    )
+    d.card(
+        "tests",
+        440,
+        330,
+        340,
+        220,
+        "Test runner",
+        "command from the agent\nfile, or Python found on its\nown; asks first; the model\nsees only the failures",
+    )
+    d.card(
+        "log",
+        880,
+        330,
+        340,
+        220,
+        "Run log",
+        "every edit and the full\ntest output are kept, so\nthe short version can be\nchecked against it",
+    )
+    d.arrow("repo", "agent", "jail")
+    d.arrow("agent", "tools", "calls")
+    d.arrow("agent", "tests", "run tests")
+    d.arrow("tests", "log", "raw output")
+    return d
+
+
 def all_diagrams() -> list[Diagram]:
     return [
         harness(),
@@ -1224,6 +1280,7 @@ def all_diagrams() -> list[Diagram]:
         research(),
         ladder(),
         sessions_mcp(),
+        coder(),
     ]
 
 

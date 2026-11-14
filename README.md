@@ -65,7 +65,7 @@ Every reply goes through repair before anything runs:
 - **Read before changing.** Editing or overwriting a file only works after the model has read its current text in this conversation. Otherwise it is told to read it first, before you are asked anything, so you never approve an edit that cannot work.
 - **It knows today's date.** Small models assume it is still the year they were trained in; each message tells them the real date.
 - **Changes show what changed.** Appending to or editing a file replies with the changed lines, numbered, and writing one reports its line count, so the model can check its own work without another step. Line endings and the file's encoding are kept as they were.
-- More tools come from MCP servers (later), switched on per agent, so each agent sees only the tools its job needs.
+- More tools come from MCP servers, switched on per agent, so each agent sees only the tools its job needs.
 - A tool is a plain Python function; Kestrel describes it to the model from its name, docstring and argument types.
 - Commands are not a sandbox: they start inside the workspace, stop after a time limit, have their output capped, and cannot see environment variables named like `*KEY*`, `*TOKEN*`, `*SECRET*` or `*PASSWORD*`. A command can still name a path outside the folder, which is why they always ask first.
 
@@ -86,6 +86,14 @@ Every reply goes through repair before anything runs:
 - **Every conversation is saved** after each answer, with secrets removed, so you can close the shell and continue later: `/sessions` lists them, `/resume` picks one up. After resuming, the model reads a file again before changing it.
 - **Tools from MCP servers.** Servers you list in your config (a filesystem server, git, anything that speaks MCP) start when an agent that uses them runs, and keep running while the shell is open. An agent names exactly the tools it may use, so a small model is not buried in tools; past 12 Kestrel warns, past 24 it refuses.
 - **Same safety rules.** MCP tools ask before running unless your config allows them; what they return is untrusted data; servers get no secrets from your environment unless you pass them by name; a server on another machine counts as cloud.
+
+### The coder agent: fix failing tests
+![The coder agent](docs/diagrams/img/coder.svg)
+
+- **One repo at a time.** Copy or clone a repo into the workspace and type `/workspace NAME`: agents then use only that folder, and paths are the repo's own. `/workspace` goes back.
+- **Map, test, read, edit, test.** The coder agent first gets an outline of the repo (files, functions and their arguments, classes and their methods) that fits a small window, then runs the tests, reads what failed, makes the smallest edit and runs the tests again. It may only say "fixed" after a passing run.
+- **Short test output.** A test run can print hundreds of lines; the model gets one line of counts and at most three failures (file and line, the code, the error), with the rest by name. The full output stays in the run log.
+- **You approve what runs.** The test command comes from the agent file or is found for Python by reading the repo's files, never written by the model, and you see it before it runs. Edits ask first, as always. Git is read-only (what changed, and the changed lines), with the repo's own git settings unable to start programs.
 
 ### Research: answers from the web, with sources
 ![Web research as one tool](docs/diagrams/img/research.svg)
@@ -172,7 +180,7 @@ Every message goes to the current agent, which decides itself whether it needs a
 | `/report-failure [id]` | save a bad step as a test case, secrets removed (`--step N`) |
 | `/agents`, `/agent NAME` | list agents, or switch (keeps the conversation) |
 | `/tools` | the agent's tools and permissions |
-| `/workspace` | the only folder agents may use |
+| `/workspace [NAME]` | the agents' folder; `NAME` limits them to one folder in it (a repo) |
 | `/clear` | start a new conversation (the old one stays saved) |
 | `/sessions`, `/resume [id\|last]` | list saved conversations; pick one up (`kestrel --resume last` from a terminal) |
 | `/mcp [tools\|restart] [name]` | MCP servers from your config, their tools; restart one |
@@ -208,7 +216,7 @@ From a normal terminal, `kestrel run "task" --agent NAME`, `kestrel trace last`,
 | M4.1 | Web research as one tool: search, read, summarize with sources | done |
 | M4.5 | Step up only when stuck: model ladder (local models, plus an optional OpenRouter model for the hardest steps, with your OK) | done |
 | M5 | Saved sessions, MCP tools | done |
-| M5.5 | Coder agent: repo map, small edits, run tests (tentative) | |
+| M5.5 | Coder agent: repo map, short test output, read-only git, one repo at a time | done |
 | M6+ | Memory, tests from runs (`/keep`), autotune, recipes | |
 
 Full design: [docs/SPEC.md](docs/SPEC.md). Words used in this project: [GLOSSARY.md](GLOSSARY.md).
