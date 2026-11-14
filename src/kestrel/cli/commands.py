@@ -3,6 +3,7 @@
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import httpx
 from rich.markup import escape
@@ -21,6 +22,7 @@ from kestrel.core.types import ProviderError
 from kestrel.providers.discovery import discover
 from kestrel.providers.openrouter import OPENROUTER_URL, is_openrouter, openrouter_models
 from kestrel.providers.profiles import THINK_STYLES, ProfileCache, backend_kind, cache_path
+from kestrel.safety.paths import PathNotAllowedError
 from kestrel.safety.redact import Redactor
 from kestrel.tools.builtin import BUILTIN_TOOLS
 from kestrel.tools.mcp import McpStartError, command_line, tool_name
@@ -561,9 +563,32 @@ def _tools(shell: Shell, arg: str) -> bool:
 
 
 def _workspace(shell: Shell, arg: str) -> bool:
-    err_console.print(f"Agents can only use this folder: {shell.workspace.root}")
-    if arg:
-        err_console.print("[dim]Changing it is turned off for now, for safety.[/dim]")
+    """Show the agents' folder; `/workspace NAME` narrows it to a folder inside the
+    workspace (a repo you copied there), `/workspace` alone goes back to all of it."""
+    name = arg.strip()
+    if name in ("/", "~", ".."):
+        name = ""
+    elif Path(name).expanduser().is_absolute():  # a full path inside the workspace is fine
+        full = Path(name).expanduser().resolve()
+        name = shell.top.relative(full) if full.is_relative_to(shell.top.root) else name
+    try:
+        shell.narrow(name)
+    except PathNotAllowedError as exc:
+        err_console.print(f"[red]{escape(str(exc))}[/red]")
+        folders = sorted(
+            p.name for p in shell.top.root.iterdir() if p.is_dir() and not p.name.startswith(".")
+        )
+        if folders:
+            err_console.print(f"[dim]Folders in the workspace: {escape(', '.join(folders))}[/dim]")
+        return True
+    if shell.workspace.root == shell.top.root:
+        err_console.print(f"Agents use the whole workspace: {shell.top.root}")
+        err_console.print("[dim]/workspace NAME limits them to one folder in it (a repo).[/dim]")
+    else:
+        err_console.print(
+            f"Agents now use only {shell.workspace.root}; paths start there. "
+            "Files must be read again before an edit. /workspace goes back."
+        )
     return True
 
 
@@ -661,7 +686,9 @@ COMMANDS: dict[str, Command] = {
     "agent": Command(_agent, "/agent [name]", "show or switch the agent (keeps the conversation)"),
     "agents": Command(_agents, "/agents", "list available agents"),
     "tools": Command(_tools, "/tools", "the agent's tools and their permissions"),
-    "workspace": Command(_workspace, "/workspace", "the only folder agents may use"),
+    "workspace": Command(
+        _workspace, "/workspace [NAME]", "agents' folder; NAME: just one folder in it"
+    ),
     "trace": Command(
         _trace, "/trace [id] [--full]", "show a run step by step (/trace list, --prompt N)"
     ),

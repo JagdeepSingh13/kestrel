@@ -23,7 +23,7 @@ from kestrel.core.types import (
     ToolSpec,
 )
 from kestrel.providers.fake import FakeProvider
-from kestrel.safety.paths import Workspace
+from kestrel.safety.paths import PathNotAllowedError, Workspace
 
 type Line = str | type[BaseException]
 
@@ -278,7 +278,7 @@ def test_agent_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
     assert "default" in err and "counter" in err  # /agents
     assert shell.session.agent.name == "counter"
     assert "write_file" in err and "overwrite: confirm" in err  # /tools
-    assert "Changing it is turned off" in err  # /workspace refuses to move
+    assert "elsewhere is not a folder in the workspace" in err  # /workspace NAME must exist
     assert "No agent named 'nope'" in err
 
 
@@ -472,3 +472,28 @@ def test_a_turn_that_was_not_kept_is_not_saved() -> None:
     shell, _ = make_shell(["hello"], fake)
     shell.run()
     assert shell.sessions.recent() == []
+
+
+def test_workspace_name_narrows_the_agents_folder_and_resume_restores_it(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fake = FakeProvider([FakeProvider.text("ok"), FakeProvider.text("again")])
+    shell, _ = make_shell(["/workspace calc", "hello", "/workspace ../..", "/clear"], fake)
+    top = shell.top.root
+    (top / "calc").mkdir(exist_ok=True)
+    (top / "outside-link").symlink_to(top.parent)
+    shell.run()
+    assert shell.workspace.root == top / "calc"  # "../.." was refused
+    assert "outside the workspace" in capsys.readouterr().err
+    assert "in calc" in shell.prompt()
+    with pytest.raises(PathNotAllowedError):
+        shell.narrow("outside-link")
+    shell.narrow("")
+    assert shell.workspace is shell.top and " in " not in shell.prompt()
+
+    later, _ = make_shell(["/resume last", "/workspace"], fake)
+    later.run()
+    assert later.workspace.root == later.top.root  # /workspace alone: all of it again
+    later_again, _ = make_shell(["/resume last"], fake)
+    later_again.run()
+    assert later_again.workspace.root == top / "calc"  # the saved folder came back

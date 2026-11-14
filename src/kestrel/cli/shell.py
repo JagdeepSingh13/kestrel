@@ -28,7 +28,7 @@ from kestrel.core.config import ConfigError, KestrelConfig, ProviderConfig, defa
 from kestrel.core.context import NOTE_PREFIX, ContextManager
 from kestrel.core.types import Message, Provider, ProviderError, Role, StopReason
 from kestrel.memory.sessions import SessionInfo, SessionStore, new_session_id, sessions_db
-from kestrel.safety.paths import Workspace
+from kestrel.safety.paths import PathNotAllowedError, Workspace
 from kestrel.safety.redact import Redactor
 from kestrel.tools.mcp import McpHub
 from kestrel.tools.registry import FileStamp
@@ -98,8 +98,10 @@ class Shell:
         self.read_line = read_line
         """Set before `run()`; the terminal version needs the shell for Tab completion."""
         self.open_provider = open_provider
+        self.top = workspace
+        """The workspace from config: agents never get anything outside it."""
         self.workspace = workspace
-        """The only folder agents may touch (owner decision: fixed for now)."""
+        """The folder agents use now: `top`, or a folder inside it (`/workspace NAME`)."""
         self.box: BottomBox | None = None
         """The input box fixed at the bottom of the terminal (`cli.tui`), when running."""
         self.sessions = SessionStore(sessions_db(default_data_dir(env)), Redactor(env).text)
@@ -117,6 +119,21 @@ class Shell:
                 log_dir=default_data_dir(self.env) / "mcp",
             )
         return self._mcp
+
+    def narrow(self, name: str) -> None:
+        """Let agents use only the folder `name` inside the workspace ("" for all of it).
+        Raises `PathNotAllowedError` for a folder outside it or one that does not exist.
+        Files must be read again before an edit; MCP servers restart in the new folder."""
+        folder = self.top.resolve(name) if name else self.top.root
+        if not folder.is_dir():
+            raise PathNotAllowedError(f"{name} is not a folder in the workspace")
+        if folder == self.workspace.root:
+            return  # same folder: keep what was read and the running servers
+        self.workspace = self.top if folder == self.top.root else Workspace(folder)
+        self.session.seen_files.clear()
+        if self._mcp is not None:
+            self._mcp.close()
+            self._mcp = None
 
     def run(self) -> None:
         """Loop until `/exit` or Ctrl-D, reading lines with `read_line` (tests, no terminal).
@@ -169,8 +186,10 @@ class Shell:
         window = min(wanted, session.conversation.window) if session.history else wanted
         used = session.conversation.build().est_tokens if session.history else 0
         small = " (backend loaded it small: /profile)" if window < wanted else ""
+        inside = self.top.relative(self.workspace.root)
+        folder = f" · in {inside}" if inside != "." else ""
         return (
-            f"{self.ladder_status()} · agent {session.agent.name} · "
+            f"{self.ladder_status()} · agent {session.agent.name}{folder} · "
             f"context {min(100, round(100 * used / window))}% of {window // 1024}K{small} · /help"
         )
 
@@ -288,9 +307,17 @@ class Shell:
         session.model = info.model or session.model
         session.ladder = list(info.ladder)
         if info.workspace != str(self.workspace.root):
-            err_console.print(
-                f"[yellow]That session used another workspace ({escape(info.workspace)}).[/yellow]"
-            )
+            saved = Path(info.workspace)
+            try:
+                self.narrow(self.top.relative(saved) if saved.is_relative_to(self.top.root) else "")
+                err_console.print(f"Folder: {escape(_home(self.workspace.root))}")
+            except PathNotAllowedError:
+                pass
+            if self.workspace.root != saved:
+                err_console.print(
+                    f"[yellow]That session used another folder ({escape(info.workspace)}); "
+                    f"agents now use {escape(_home(self.workspace.root))}.[/yellow]"
+                )
         err_console.print(
             f"Resumed {info.id}: {escape(info.title)} ({info.messages} messages, agent "
             f"{escape(session.agent.name)}, {escape(session.model or 'no model')})."
