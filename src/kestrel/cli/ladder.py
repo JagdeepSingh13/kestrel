@@ -13,6 +13,7 @@ up. A "no" to a cloud step stops the run.
 """
 
 import contextlib
+import json
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Literal
@@ -26,6 +27,7 @@ from kestrel.core.context import NOTE_PREFIX
 from kestrel.core.types import (
     BackendHTTPError,
     JSONObject,
+    JSONValue,
     Message,
     ModelResponse,
     Provider,
@@ -387,14 +389,35 @@ class CloudView:
 
 
 def _plain(exc: BackendHTTPError) -> ProviderError:
-    """Cloud errors in words: rate limits, credits, keys."""
+    """Cloud errors in words, with the service's own reason (a free model is often
+    rate-limited by the company serving it, whatever your own quota)."""
     words = {
-        429: "the cloud model's rate limit was hit (OpenRouter free models: 20 requests a "
-        "minute, 50 a day). Try later, or remove the cloud rung with /ladder.",
+        429: "the cloud model is rate-limited right now. Free models are often limited "
+        "by the company serving them, not by your account (yours: 20 a minute, 50 a "
+        "day). Try another free model, or later.",
         402: "the cloud account has no credits left for this model.",
         401: "the cloud API key was refused; check it.",
     }.get(exc.status)
-    return ProviderError(words) if words else exc
+    if words is None:
+        return exc
+    reason = _service_reason(exc.body)
+    return ProviderError(f"{words} OpenRouter said: {reason}" if reason else words)
+
+
+def _service_reason(body: str) -> str:
+    """The error message inside an OpenRouter error body, if any (cut short)."""
+    try:
+        data: JSONValue = json.loads(body)
+    except ValueError:
+        return body.strip()[:200]
+    error = _obj(_obj(data).get("error"))
+    raw = _obj(error.get("metadata")).get("raw")
+    text = raw if isinstance(raw, str) and raw else error.get("message")
+    return str(text or "")[:200]
+
+
+def _obj(value: JSONValue) -> JSONObject:
+    return value if isinstance(value, dict) else {}
 
 
 def _is_handoff(message: Message) -> bool:

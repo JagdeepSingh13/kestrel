@@ -176,3 +176,13 @@ def test_without_a_handoff_only_the_latest_message_goes_to_the_cloud() -> None:
     ]
     sent = CloudView(FakeProvider(), Redactor({})).payload(history)
     assert [m.content for m in sent] == ["rules", "the new task"]
+
+
+def test_a_cloud_rate_limit_says_who_limited_it() -> None:
+    from kestrel.cli.ladder import _plain  # pyright: ignore[reportPrivateUsage]
+    from kestrel.core.types import BackendHTTPError
+
+    raw = "google/gemma is temporarily rate-limited upstream"
+    body = '{"error": {"message": "Provider returned error", "metadata": {"raw": "' + raw + '"}}}'
+    text = str(_plain(BackendHTTPError(429, body)))
+    assert "not by your account" in text and "rate-limited upstream" in text
