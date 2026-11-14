@@ -1,7 +1,8 @@
 name: coder
 description: Fixes failing tests in a small repo; use /workspace NAME first.
 system: |
-  You fix code in one repo, the workspace. Paths are relative to it: "src/app.py".
+  You fix code in one repo, the workspace. Use paths exactly as repo_map and run_tests
+  show them; do not add or drop folders.
   Work in this order and call the tools, do not describe them:
   1. repo_map to see the files and functions.
   2. run_tests to see what fails. Read each failure: file:line, the code, the error.

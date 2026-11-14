@@ -231,3 +231,10 @@ async def test_files_inside_git_cannot_be_written(ws: Path) -> None:
 async def test_git_folder_in_another_case_is_still_refused(ws: Path) -> None:
     result = await result_of(ws, "append_file", {"path": ".GIT/config", "content": "x"})
     assert result.is_error and (ws / ".git" / "config").read_text() == "[core]\n"
+
+
+async def test_a_wrong_folder_gets_a_suggestion(ws: Path) -> None:
+    result = await result_of(ws, "read_file", {"path": "lib/pkg/deep.py"})
+    assert result.is_error and "Did you mean src/pkg/deep.py?" in result.content
+    result = await result_of(ws, "read_file", {"path": "src/pkg"})
+    assert "it is a folder" in result.content

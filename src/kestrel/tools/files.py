@@ -7,6 +7,7 @@ the changed lines, so the model (and you) can check the result without another c
 """
 
 import itertools
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,7 +52,7 @@ def read_file(
     """Read a text file inside the workspace. Shows numbered lines and the total line count."""
     file = ctx.workspace.resolve(path)
     if not file.is_file():
-        raise ToolError(f"{path} is not a file")
+        raise ToolError(f"{path} is not a file{_did_you_mean(ctx, file)}")
     size = file.stat().st_size
     if size > MAX_READ_BYTES:
         raise ToolError(f"{path} is {size} bytes; files over {MAX_READ_BYTES} bytes are not read")
@@ -105,6 +106,27 @@ def _walk(folder: Path, depth: int, indent: str, out: list[str]) -> None:
                 _walk(entry, depth - 1, indent + "  ", out)
         else:
             out.append(f"{indent}{entry.name}  ({entry.stat().st_size} bytes)")
+
+
+MAX_SUGGESTIONS = 3
+MAX_LOOKED_AT = 5000
+
+
+def _did_you_mean(ctx: ToolContext, missing: Path) -> str:
+    """Files in the workspace with the same name as a path that is not there: small
+    models often add or drop a folder ("src/calc/stats.py" for "calc/stats.py")."""
+    if missing.is_dir():
+        return " (it is a folder: list_dir it)"
+    found: list[str] = []
+    looked = 0
+    for here, dirs, names in os.walk(ctx.workspace.root):
+        dirs[:] = [d for d in dirs if d not in SKIPPED_DIRS and not d.startswith(".")]
+        looked += len(names)
+        if missing.name in names:
+            found.append(ctx.workspace.relative(Path(here) / missing.name))
+        if len(found) >= MAX_SUGGESTIONS or looked > MAX_LOOKED_AT:
+            break
+    return f". Did you mean {' or '.join(found)}?" if found else ""
 
 
 def _writable(ctx: ToolContext, path: str) -> Path:
@@ -232,7 +254,7 @@ def edit_file(
     include enough lines that it appears only once."""
     file = _writable(ctx, path)
     if not file.is_file():
-        raise ToolError(f"{path} is not a file")
+        raise ToolError(f"{path} is not a file{_did_you_mean(ctx, file)}")
     raw = file.read_bytes()
     if len(raw) > MAX_READ_BYTES or b"\x00" in raw[:8192]:
         raise ToolError(f"{path} is not a text file Kestrel can edit")
