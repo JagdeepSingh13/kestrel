@@ -1,6 +1,6 @@
 # Example agent: counts lines of code and writes a report. Try it in the shell:
 #   /agent counter
-#   /run count lines in all .py files and write a summary to report.md
+#   count lines in all .py files and write a summary to report.md
 name: counter
 description: Counts lines in files and writes a short report.
 system: |

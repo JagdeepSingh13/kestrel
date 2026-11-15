@@ -76,12 +76,12 @@ uv run kestrel chat          # interactive session
 ```
 src/kestrel/
   core/        # types, agent loop, event bus, context manager
-  providers/   # openai_compat, ollama, fake, profiles/capability probe
+  providers/   # openai_compat client, wire format, streaming, thinking, profiles/capability probe, discovery, openrouter, fake
   reliability/ # tool-call parsing, json repair, react fallback, loop detection
   tools/       # registry, decorator, built-ins, mcp client
   safety/      # permissions, path jail, redaction
   agents/      # yaml loader, schema, built-in agent configs
-  memory/      # (M6+) session store, vector recall
+  memory/      # session store (SQLite); vector recall in M6+
   cli/         # typer app
 tests/
 docs/SPEC.md

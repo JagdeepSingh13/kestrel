@@ -23,7 +23,7 @@ Done when every option has been tested against every constraint, every outside f
 - **Small models.** It must help a 4B to 8B model that writes broken JSON, guesses tool results, loops and ignores instructions. Say how each option behaves when the model misbehaves.
 - **Small machine.** MacBook Air, 16GB RAM, 8K to 16K context windows. Count the tokens an option adds to every prompt.
 - **Local first.** No hidden network calls, no telemetry, cloud only when the user allows it.
-- **Fixed stack.** Python 3.12, uv, httpx, pydantic v2, typer, rich, prompt_toolkit, pyyaml. A new dependency needs a strong reason and the owner's yes.
+- **Fixed stack.** Python 3.12, uv, httpx, pydantic v2, typer, rich, prompt_toolkit, pyyaml, and the `mcp` SDK (used only in `tools/mcp.py`). A new dependency needs a strong reason and the owner's yes.
 - **Layers.** Providers, tools and the loop meet only through `core/types.py`.
 - **Safety.** Workspace jail, confirm before side effects, untrusted wrapping of outside text.
 - **Everything logged.** The decision fits the event log: what gets recorded, and can a run be replayed and turned into a test.

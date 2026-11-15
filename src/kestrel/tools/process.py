@@ -76,7 +76,8 @@ async def python_exec(
         int, Field(ge=1, le=MAX_SECONDS, description="Time limit; it is stopped after this.")
     ] = DEFAULT_SECONDS,
 ) -> str:
-    """Run Python code in the workspace folder. Returns the exit code and printed output."""
+    """Run Python code in the workspace folder (standard library only: no pandas,
+    numpy or other third-party packages). Returns the exit code and printed output."""
     folder = ctx.workspace.root / TEMP_FOLDER
     folder.mkdir(exist_ok=True)
     script = folder / f"snippet-{uuid.uuid4().hex[:8]}.py"

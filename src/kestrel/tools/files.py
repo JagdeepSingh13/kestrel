@@ -183,7 +183,8 @@ def write_file(
     ] = False,
 ) -> str:
     """Write a text file inside the workspace. Creates folders as needed. Replacing an
-    existing file needs overwrite=true (and the user's approval)."""
+    existing file needs overwrite=true, a read_file of it (or your own write of it)
+    earlier in this conversation with no change since, and the user's approval."""
     file = _writable(ctx, path)
     if file.is_dir():
         raise ToolError(f"{path} is a folder")
@@ -250,8 +251,9 @@ def edit_file(
     old_text: Annotated[str, Field(description="Exact text to replace; must appear once.")],
     new_text: Annotated[str, Field(description="Text to put in its place.")],
 ) -> str:
-    """Replace one exact piece of text in a file. Copy old_text from read_file output;
-    include enough lines that it appears only once."""
+    """Replace one exact piece of text in a file. Read the file with read_file first in
+    this conversation; copy old_text from that output, with enough lines that it
+    appears only once."""
     file = _writable(ctx, path)
     if not file.is_file():
         raise ToolError(f"{path} is not a file{_did_you_mean(ctx, file)}")
